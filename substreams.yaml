@@ -1,0 +1,46 @@
+specVersion: v0.1.0
+package:
+  name: curve_sps
+  version: v0.1.0
+
+imports:
+  graph: https://github.com/streamingfast/substreams-sink-subgraph/releases/download/v0.1.0/substreams-sink-subgraph-protodefs-v0.1.0.spkg
+  entity: https://github.com/streamingfast/substreams-entity-change/releases/download/v1.1.0/substreams-entity-change-v1.1.0.spkg
+
+protobuf:
+  files:
+    - contract.proto
+  importPaths:
+    - ./proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/substreams.wasm
+
+modules:
+  - name: map_events
+    kind: map
+    initialBlock: 11154794
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:contract.v1.Events
+
+  - name: db_out
+    kind: map
+    initialBlock: 11154794
+    inputs:
+      - map: map_events
+    output:
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
+
+  - name: graph_out
+    kind: map
+    initialBlock: 11154794
+    inputs:
+      - map: map_events
+    output:
+      type: proto:sf.substreams.entity.v1.EntityChanges
+
+network: mainnet

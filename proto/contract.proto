@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package contract.v1;
+
+message Events {
+    repeated poolregistry_PoolAdded poolregistry_pool_addeds = 1;
+    repeated poolregistry_PoolRemoved poolregistry_pool_removeds = 2;
+    repeated poolregistry2_PoolAdded poolregistry2_pool_addeds = 3;
+    repeated poolregistry2_PoolRemoved poolregistry2_pool_removeds = 4;
+}
+
+message poolregistry_PoolAdded {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes pool = 5;
+    bytes rate_method_id = 6;
+}
+
+message poolregistry_PoolRemoved {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes pool = 5;
+}
+
+message poolregistry2_PoolAdded {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes pool = 5;
+    bytes rate_method_id = 6;
+}
+
+message poolregistry2_PoolRemoved {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes pool = 5;
+}
