@@ -1,3 +1,2 @@
-
-pub mod poolregistry_contract;
-pub mod poolregistry2_contract;
+pub mod erc20;
+pub mod registry;

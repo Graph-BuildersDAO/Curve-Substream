@@ -5,12 +5,12 @@ use std::fs;
 
 fn main() -> Result<(), anyhow::Error> {
     let file_names = [
-        "abi/poolregistry_contract.abi.json",
-        "abi/poolregistry2_contract.abi.json",
+        "abi/erc20.abi.json",
+        "abi/registry.abi.json",
     ];
     let file_output_names = [
-        "src/abi/poolregistry_contract.rs",
-        "src/abi/poolregistry2_contract.rs",
+        "src/abi/erc20.rs",
+        "src/abi/registry.rs",
     ];
 
     let mut i = 0;

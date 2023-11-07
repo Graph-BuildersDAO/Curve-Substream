@@ -9,7 +9,7 @@ imports:
 
 protobuf:
   files:
-    - contract.proto
+    - curve/v1/curve.proto
   importPaths:
     - ./proto
 
@@ -19,28 +19,12 @@ binaries:
     file: ./target/wasm32-unknown-unknown/release/substreams.wasm
 
 modules:
-  - name: map_events
+  - name: map_pools_created
     kind: map
     initialBlock: 11154794
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:
-      type: proto:contract.v1.Events
-
-  - name: db_out
-    kind: map
-    initialBlock: 11154794
-    inputs:
-      - map: map_events
-    output:
-      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
-
-  - name: graph_out
-    kind: map
-    initialBlock: 11154794
-    inputs:
-      - map: map_events
-    output:
-      type: proto:sf.substreams.entity.v1.EntityChanges
+      type: proto:curve.types.v1.Pools
 
 network: mainnet
