@@ -4,6 +4,18 @@ import "google/protobuf/timestamp.proto";
 
 package curve.types.v1;
 
+message Tokens {
+  repeated Token tokens = 1;
+}
+
+message Token {
+  string address = 1;
+  string name = 2;
+  string symbol = 3;
+  uint64 decimals = 4;
+  string total_supply = 5;
+}
+
 message Pool {
   string address = 1;
   uint64 created_at_timestamp = 2;
@@ -11,6 +23,7 @@ message Pool {
   uint64 log_ordinal = 4;
   string transaction_id = 5;
   string registry_address = 6;
+  Token output_token = 7;
 }
 
 message Pools {
