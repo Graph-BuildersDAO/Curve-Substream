@@ -14,6 +14,7 @@ message Token {
   string symbol = 3;
   uint64 decimals = 4;
   string total_supply = 5;
+  bool is_base_pool_lp_token = 6;
 }
 
 message Pool {

@@ -6,11 +6,17 @@ use substreams_ethereum::Abigen;
 
 fn main() -> Result<(), anyhow::Error> {
     let file_names = [
-        "abi/erc20.abi.json",
-        "abi/pool.abi.json",
-        "abi/registry.abi.json",
+        "abi/AddressProvider.abi.json",
+        "abi/ERC20.abi.json",
+        "abi/Pool.abi.json",
+        "abi/Registry.abi.json",
     ];
-    let file_output_names = ["src/abi/erc20.rs", "src/abi/pool.rs", "src/abi/registry.rs"];
+    let file_output_names = [
+        "src/abi/address_provider.rs",
+        "src/abi/erc20.rs",
+        "src/abi/pool.rs",
+        "src/abi/registry.rs",
+    ];
 
     let mut i = 0;
     for f in file_names {
@@ -30,7 +36,7 @@ fn main() -> Result<(), anyhow::Error> {
     generate_network_config_from_json(
         // TODO: This will eventually need to be dynamic when we support multiple networks.
         "config/curve-finance-ethereum/configuration.json",
-        "./src/config/configuration.rs",
+        "./src/config/config.rs",
     )
     .expect("Should have been able to generate the network configuration file");
 
@@ -107,6 +113,7 @@ fn generate_network_config_from_json(path: &str, output_path: &str) -> Result<()
     if let Some(missing_old_pools) = json["missingOldPools"].as_array() {
         output.push_str("\npub static MISSING_OLD_POOLS_DATA: &[(&str, PoolConfig)] = &[\n");
         for pool in missing_old_pools {
+            let key = pool["address"].as_str().unwrap_or_default();
             let name = pool["name"].as_str().unwrap_or_default();
             let address = pool["address"]
                 .as_str()
@@ -117,17 +124,26 @@ fn generate_network_config_from_json(path: &str, output_path: &str) -> Result<()
                 .unwrap_or_default()
                 .trim_start_matches("0x");
             let start_block = pool["startBlock"].as_str().unwrap_or_default();
-            output.push_str(&format!("(\"{}\", PoolConfig {{ name: \"{}\", address: hex!(\"{}\"), lp_token: hex!(\"{}\"), start_block: {} }}),\n", address, name, address, lp_token, start_block));
+            output.push_str(&format!("(\"{}\", PoolConfig {{ name: \"{}\", address: hex!(\"{}\"), lp_token: hex!(\"{}\"), start_block: {} }}),\n", key, name, address, lp_token, start_block));
         }
         output.push_str("];\n");
     }
 
     // Generating an array for basePoolsLpToken
     if let Some(base_pools_lp_token) = json["basePoolsLpToken"].as_array() {
-        output.push_str(format!("\npub static BASE_POOLS_LP_TOKEN: [[u8; 20]; {}] = [\n", base_pools_lp_token.len()).as_str());
+        output.push_str(
+            format!(
+                "\npub static BASE_POOLS_LP_TOKEN: [[u8; 20]; {}] = [\n",
+                base_pools_lp_token.len()
+            )
+            .as_str(),
+        );
         for pool in base_pools_lp_token {
             let name = pool["name"].as_str().unwrap_or_default();
-            let address = pool["address"].as_str().unwrap_or_default().trim_start_matches("0x");
+            let address = pool["address"]
+                .as_str()
+                .unwrap_or_default()
+                .trim_start_matches("0x");
             output.push_str(&format!("hex!(\"{}\"), // {}\n", address, name));
         }
         output.push_str("];\n");

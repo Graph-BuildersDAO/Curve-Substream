@@ -18,6 +18,8 @@ pub struct Token {
     pub decimals: u64,
     #[prost(string, tag="5")]
     pub total_supply: ::prost::alloc::string::String,
+    #[prost(bool, tag="6")]
+    pub is_base_pool_lp_token: bool,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

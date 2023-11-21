@@ -2,18 +2,23 @@ use substreams::{log, scalar::BigInt, Hex};
 use substreams_ethereum::rpc::RpcBatch;
 
 use crate::{
-    abi::erc20::functions, constants, pb::curve::types::v1::Token,
-    rpc::common::decode_rpc_response,
+    abi::erc20::functions,
+    constants,
+    pb::curve::types::v1::Token,
+    rpc::{common::decode_rpc_response, registry::is_main_registry_pool},
+    utils::is_base_pool_lp_token,
 };
 
-pub fn create_token(token_address: Vec<u8>) -> Option<Token> {
-    if token_address == constants::ETH_ADDRESS {
+// TODO check of should change to borrowed vals?
+pub fn create_token(token_address: &Vec<u8>, pool_address: &Vec<u8>) -> Option<Token> {
+    if token_address.to_owned() == constants::ETH_ADDRESS {
         return Some(Token {
             address: Hex::encode(&token_address),
             name: String::from("ETH"),
             symbol: String::from("ETH"),
             decimals: constants::default_decimals().to_u64(),
             total_supply: get_token_supply(token_address).unwrap().to_string(),
+            is_base_pool_lp_token: false,
         });
     }
 
@@ -27,19 +32,14 @@ pub fn create_token(token_address: Vec<u8>) -> Option<Token> {
         .unwrap()
         .responses;
 
-    let decimals = match decode_rpc_response::<_, functions::Decimals>(
+    let decimals = decode_rpc_response::<_, functions::Decimals>(
         &responses[0],
-        "{} is not a an ERC20 token contract decimal `eth_call` failed",
-    ) {
-        Some(decoded_decimals) => decoded_decimals.to_u64(),
-        None => {
-            log::debug!(
-                "Failed to decode decimals for token {}",
-                Hex::encode(&token_address)
-            );
-            return None;
-        }
-    };
+        &format!(
+            "{} is not an ERC20 token contract decimal `eth_call` failed",
+            Hex::encode(&token_address)
+        ),
+    )
+    .unwrap_or_else(|| constants::default_decimals());
     log::debug!("decoded_decimals ok");
 
     let name = decode_rpc_response::<_, functions::Name>(
@@ -76,14 +76,16 @@ pub fn create_token(token_address: Vec<u8>) -> Option<Token> {
         address: Hex::encode(token_address),
         name,
         symbol,
-        decimals,
+        decimals: decimals.to_u64(),
         total_supply: total_supply.to_string(),
+        is_base_pool_lp_token: is_base_pool_lp_token(&token_address)
+            || is_main_registry_pool(&pool_address),
     });
 }
 
-fn get_token_supply(token_address: Vec<u8>) -> Option<BigInt> {
+fn get_token_supply(token_address: &Vec<u8>) -> Option<BigInt> {
     let supply = functions::TotalSupply {}
-        .call(token_address)
+        .call(token_address.to_owned())
         .unwrap_or(BigInt::from(0));
     log::debug!("token supply: {}", supply);
     Some(supply)
