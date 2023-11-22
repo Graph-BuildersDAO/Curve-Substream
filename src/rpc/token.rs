@@ -1,4 +1,5 @@
-use substreams::{log, scalar::BigInt, Hex};
+use anyhow::anyhow;
+use substreams::{scalar::BigInt, Hex, errors::Error};
 use substreams_ethereum::rpc::RpcBatch;
 
 use crate::{
@@ -40,7 +41,6 @@ pub fn create_token(token_address: &Vec<u8>, pool_address: &Vec<u8>) -> Option<T
         ),
     )
     .unwrap_or_else(|| constants::default_decimals());
-    log::debug!("decoded_decimals ok");
 
     let name = decode_rpc_response::<_, functions::Name>(
         &responses[1],
@@ -50,7 +50,6 @@ pub fn create_token(token_address: &Vec<u8>, pool_address: &Vec<u8>) -> Option<T
         ),
     )
     .unwrap_or_else(|| read_string_from_bytes(responses[1].raw.as_ref()));
-    log::debug!("decoded name ok");
 
     let symbol = decode_rpc_response::<_, functions::Symbol>(
         &responses[2],
@@ -60,7 +59,6 @@ pub fn create_token(token_address: &Vec<u8>, pool_address: &Vec<u8>) -> Option<T
         ),
     )
     .unwrap_or_else(|| read_string_from_bytes(responses[2].raw.as_ref()));
-    log::debug!("decoded symbol ok");
 
     let total_supply = decode_rpc_response::<_, functions::TotalSupply>(
         &responses[3],
@@ -70,7 +68,6 @@ pub fn create_token(token_address: &Vec<u8>, pool_address: &Vec<u8>) -> Option<T
         ),
     )
     .unwrap_or_else(|| BigInt::from(0));
-    log::debug!("decoded supply ok");
 
     return Some(Token {
         address: Hex::encode(token_address),
@@ -83,11 +80,24 @@ pub fn create_token(token_address: &Vec<u8>, pool_address: &Vec<u8>) -> Option<T
     });
 }
 
+// TODO Check what style is better, this function or below res/opt, and refactor accordingly.
+pub fn get_token_minter(token_address: &Vec<u8>) -> Result<Vec<u8>, Error> {
+    let minter_option = functions::Minter {}
+        .call(token_address.to_owned());
+
+    let minter = minter_option.ok_or_else(|| {
+        anyhow!(
+            "Unable to get minter for token {:?}",
+            Hex::encode(&token_address)
+        )
+    })?;
+    Ok(minter)
+}
+
 fn get_token_supply(token_address: &Vec<u8>) -> Option<BigInt> {
     let supply = functions::TotalSupply {}
         .call(token_address.to_owned())
         .unwrap_or(BigInt::from(0));
-    log::debug!("token supply: {}", supply);
     Some(supply)
 }
 

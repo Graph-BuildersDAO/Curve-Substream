@@ -113,20 +113,33 @@ fn map_base_pool_added_events(blk: &eth::Block, pools: &mut Pools, address: [u8;
     );
 }
 
-// TODO: Need to update the pool address based on Phoenix's recommendations.
 fn map_crypto_pool_deployed_events(blk: &eth::Block, pools: &mut Pools, address: [u8; 20]) {
     pools.pools.append(
         &mut blk
             .events::<CryptoPoolDeployed>(&[&address])
-            .map(|(event, log)| Pool {
-                address: Hex::encode(event.token),
-                created_at_timestamp: blk.timestamp_seconds(),
-                created_at_block_number: blk.number,
-                log_ordinal: log.ordinal(),
-                transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                registry_address: Hex::encode(address),
-                // TODO: Output token needs adding to the pool following changes from Phoenix's recommendations.
-                ..Default::default()
+            .filter_map(|(event, log)| {
+                match token::get_token_minter(&event.token) {
+                    Ok(minter) => Some(Pool {
+                        address: Hex::encode(&minter),
+                        created_at_timestamp: blk.timestamp_seconds(),
+                        created_at_block_number: blk.number,
+                        log_ordinal: log.ordinal(),
+                        transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
+                        registry_address: Hex::encode(address),
+                        output_token: Some(match token::create_token(&event.token, &minter) {
+                            Some(lp_token) => lp_token,
+                            // If we cannot create an output token do not create a pool
+                            None => return None,
+                        }),
+                    }),
+                    Err(e) => {
+                        substreams::log::debug!(
+                            "Error in `map_crypto_pool_deployed_events`: {:?}",
+                            e
+                        );
+                        None
+                    }
+                }
             })
             .collect(),
     );
