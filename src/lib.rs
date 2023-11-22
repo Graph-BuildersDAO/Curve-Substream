@@ -1,16 +1,16 @@
-use config::config::CONTRACTS;
+use network_config::CONTRACTS;
 use rpc::{pool, registry, token};
 use substreams::errors::Error;
 use substreams::Hex;
 use substreams_ethereum::pb::eth::v2::{self as eth};
 
 mod abi;
-mod config;
+
+mod constants;
+mod network_config;
 mod pb;
 mod rpc;
 mod utils;
-
-mod constants;
 
 use abi::registry::events::{
     BasePoolAdded, CryptoPoolDeployed, MetaPoolDeployed, PlainPoolDeployed,
@@ -26,21 +26,23 @@ fn map_pool_registry_events(blk: &eth::Block, pools: &mut Pools, address: [u8; 2
             .events::<RegistryPoolAdded>(&[&address])
             .filter_map(|(event, log)| {
                 match registry::get_lp_token_address_from_registry(&event.pool, &address.to_vec()) {
-                    Ok(lp_token_address) => Some(Pool {
-                        address: Hex::encode(&event.pool),
-                        created_at_timestamp: blk.timestamp_seconds(),
-                        created_at_block_number: blk.number,
-                        log_ordinal: log.ordinal(),
-                        transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                        registry_address: Hex::encode(address),
-                        output_token: Some(
-                            match token::create_token(&lp_token_address, &event.pool) {
-                                Some(lp_token) => lp_token,
-                                // If we cannot create an output token do not create a pool
-                                None => return None,
-                            },
-                        ),
-                    }),
+                    Ok(lp_token_address) => {
+                        if let Ok(lp_token) = token::create_token(&lp_token_address, &event.pool) {
+                            return Some(Pool {
+                                address: Hex::encode(&event.pool),
+                                name: lp_token.name.clone(),
+                                symbol: lp_token.symbol.clone(),
+                                created_at_timestamp: blk.timestamp_seconds(),
+                                created_at_block_number: blk.number,
+                                log_ordinal: log.ordinal(),
+                                transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
+                                registry_address: Hex::encode(address),
+                                output_token: Some(lp_token),
+                            });
+                        } else {
+                            None
+                        }
+                    }
                     Err(e) => {
                         substreams::log::debug!("Error in `map_pool_registry_events`: {:?}", e);
                         None
@@ -57,21 +59,23 @@ fn map_cryptoswap_registry_events(blk: &eth::Block, pools: &mut Pools, address: 
             .events::<CryptoSwapPoolAdded>(&[&address])
             .filter_map(|(event, log)| {
                 match registry::get_lp_token_address_from_registry(&event.pool, &address.to_vec()) {
-                    Ok(lp_token_address) => Some(Pool {
-                        address: Hex::encode(&event.pool),
-                        created_at_timestamp: blk.timestamp_seconds(),
-                        created_at_block_number: blk.number,
-                        log_ordinal: log.ordinal(),
-                        transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                        registry_address: Hex::encode(address),
-                        output_token: Some(
-                            match token::create_token(&lp_token_address, &event.pool) {
-                                Some(lp_token) => lp_token,
-                                // If we cannot create an output token do not create a pool
-                                None => return None,
-                            },
-                        ),
-                    }),
+                    Ok(lp_token_address) => {
+                        if let Ok(lp_token) = token::create_token(&lp_token_address, &event.pool) {
+                            return Some(Pool {
+                                address: Hex::encode(&event.pool),
+                                name: lp_token.name.clone(),
+                                symbol: lp_token.symbol.clone(),
+                                created_at_timestamp: blk.timestamp_seconds(),
+                                created_at_block_number: blk.number,
+                                log_ordinal: log.ordinal(),
+                                transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
+                                registry_address: Hex::encode(address),
+                                output_token: Some(lp_token),
+                            });
+                        } else {
+                            None
+                        }
+                    }
                     Err(e) => {
                         substreams::log::debug!("Error in `map_pool_registry_events`: {:?}", e);
                         None
@@ -87,22 +91,26 @@ fn map_base_pool_added_events(blk: &eth::Block, pools: &mut Pools, address: [u8;
         &mut blk
             .events::<BasePoolAdded>(&[&address])
             .filter_map(|(event, log)| {
-                match pool::get_lp_token_address_from_pool(event.base_pool.clone()) {
-                    Ok(lp_token_address) => Some(Pool {
-                        address: Hex::encode(&event.base_pool),
-                        created_at_timestamp: blk.timestamp_seconds(),
-                        created_at_block_number: blk.number,
-                        log_ordinal: log.ordinal(),
-                        transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                        registry_address: Hex::encode(address),
-                        output_token: Some(
-                            match token::create_token(&lp_token_address, &event.base_pool) {
-                                Some(lp_token) => lp_token,
-                                // If we cannot create an output token do not create a pool
-                                None => return None,
-                            },
-                        ),
-                    }),
+                match pool::get_lp_token_address_from_pool(&event.base_pool) {
+                    Ok(lp_token_address) => {
+                        if let Ok(lp_token) =
+                            token::create_token(&lp_token_address, &event.base_pool)
+                        {
+                            return Some(Pool {
+                                address: Hex::encode(&event.base_pool),
+                                name: lp_token.name.clone(),
+                                symbol: lp_token.symbol.clone(),
+                                created_at_timestamp: blk.timestamp_seconds(),
+                                created_at_block_number: blk.number,
+                                log_ordinal: log.ordinal(),
+                                transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
+                                registry_address: Hex::encode(address),
+                                output_token: Some(lp_token),
+                            });
+                        } else {
+                            None
+                        }
+                    }
                     Err(e) => {
                         substreams::log::debug!("Error in `map_pool_registry_events`: {:?}", e);
                         None
@@ -117,28 +125,27 @@ fn map_crypto_pool_deployed_events(blk: &eth::Block, pools: &mut Pools, address:
     pools.pools.append(
         &mut blk
             .events::<CryptoPoolDeployed>(&[&address])
-            .filter_map(|(event, log)| {
-                match token::get_token_minter(&event.token) {
-                    Ok(minter) => Some(Pool {
-                        address: Hex::encode(&minter),
-                        created_at_timestamp: blk.timestamp_seconds(),
-                        created_at_block_number: blk.number,
-                        log_ordinal: log.ordinal(),
-                        transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                        registry_address: Hex::encode(address),
-                        output_token: Some(match token::create_token(&event.token, &minter) {
-                            Some(lp_token) => lp_token,
-                            // If we cannot create an output token do not create a pool
-                            None => return None,
-                        }),
-                    }),
-                    Err(e) => {
-                        substreams::log::debug!(
-                            "Error in `map_crypto_pool_deployed_events`: {:?}",
-                            e
-                        );
+            .filter_map(|(event, log)| match token::get_token_minter(&event.token) {
+                Ok(minter) => {
+                    if let Ok(lp_token) = token::create_token(&event.token, &minter) {
+                        Some(Pool {
+                            address: Hex::encode(&minter),
+                            name: lp_token.name.clone(),
+                            symbol: lp_token.symbol.clone(),
+                            created_at_timestamp: blk.timestamp_seconds(),
+                            created_at_block_number: blk.number,
+                            log_ordinal: log.ordinal(),
+                            transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
+                            registry_address: Hex::encode(address),
+                            output_token: Some(lp_token),
+                        })
+                    } else {
                         None
                     }
+                }
+                Err(e) => {
+                    substreams::log::debug!("Error in `map_crypto_pool_deployed_events`: {:?}", e);
+                    None
                 }
             })
             .collect(),
@@ -160,24 +167,21 @@ fn map_plain_pool_deployed_events(blk: &eth::Block, pools: &mut Pools, address: 
 
                 if let Some(transfer_log) = transfer {
                     if let Ok(transfer_event) = abi::erc20::events::Transfer::decode(transfer_log) {
-                        return Some(Pool {
-                            address: Hex::encode(&transfer_event.receiver),
-                            created_at_timestamp: blk.timestamp_seconds(),
-                            created_at_block_number: blk.number,
-                            log_ordinal: log.ordinal(),
-                            transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                            registry_address: Hex::encode(address),
-                            output_token: Some(
-                                match token::create_token(
-                                    &transfer_event.receiver,
-                                    &transfer_event.receiver,
-                                ) {
-                                    Some(lp_token) => lp_token,
-                                    // If we cannot create an output token do not create a pool
-                                    None => return None,
-                                },
-                            ),
-                        });
+                        if let Ok(lp_token) =
+                            token::create_token(&transfer_event.receiver, &transfer_event.receiver)
+                        {
+                            return Some(Pool {
+                                address: Hex::encode(&transfer_event.receiver),
+                                name: lp_token.name.clone(),
+                                symbol: lp_token.symbol.clone(),
+                                created_at_timestamp: blk.timestamp_seconds(),
+                                created_at_block_number: blk.number,
+                                log_ordinal: log.ordinal(),
+                                transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
+                                registry_address: Hex::encode(address),
+                                output_token: Some(lp_token),
+                            });
+                        }
                     }
                 }
                 None
@@ -201,24 +205,21 @@ fn map_meta_pool_deployed_events(blk: &eth::Block, pools: &mut Pools, address: [
 
                 if let Some(transfer_log) = transfer {
                     if let Ok(transfer_event) = abi::erc20::events::Transfer::decode(transfer_log) {
-                        return Some(Pool {
-                            address: Hex::encode(&transfer_event.receiver),
-                            created_at_timestamp: blk.timestamp_seconds(),
-                            created_at_block_number: blk.number,
-                            log_ordinal: log.ordinal(),
-                            transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                            registry_address: Hex::encode(address),
-                            output_token: Some(
-                                match token::create_token(
-                                    &transfer_event.receiver,
-                                    &transfer_event.receiver,
-                                ) {
-                                    Some(lp_token) => lp_token,
-                                    // If we cannot create an output token do not create a pool
-                                    None => return None,
-                                },
-                            ),
-                        });
+                        if let Ok(lp_token) =
+                            token::create_token(&transfer_event.receiver, &transfer_event.receiver)
+                        {
+                            return Some(Pool {
+                                address: Hex::encode(&transfer_event.receiver),
+                                name: lp_token.name.clone(),
+                                symbol: lp_token.symbol.clone(),
+                                created_at_timestamp: blk.timestamp_seconds(),
+                                created_at_block_number: blk.number,
+                                log_ordinal: log.ordinal(),
+                                transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
+                                registry_address: Hex::encode(address),
+                                output_token: Some(lp_token),
+                            });
+                        }
                     }
                 }
                 None
@@ -242,3 +243,22 @@ fn map_pools_created(blk: eth::Block) -> Result<Pools, Error> {
 
     Ok(pools)
 }
+
+// TODO: There is a lot of code duplication here. This will be refactored in the future.
+//       We can extract the common logic into a separate function called process_pool_event,
+//       which could look something like this:
+//
+// fn process_event<F>(event_data: &[u8], address: [u8; 20], blk: &eth::Block, process_logic: F) -> Option<Pool>
+// where
+//     F: Fn(&[u8], [u8; 20], &eth::Block) -> Result<Pool, Error>,
+// {
+//     match process_logic(event_data, address, blk) {
+//         Ok(pool) => Some(pool),
+//         Err(e) => {
+//             substreams::log::debug!("Error processing event: {:?}", e);
+//             None
+//         }
+//     }
+// }
+//
+//       Specific event handling logic can then be passed in as a closure.

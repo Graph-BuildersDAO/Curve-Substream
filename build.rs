@@ -36,7 +36,7 @@ fn main() -> Result<(), anyhow::Error> {
     generate_network_config_from_json(
         // TODO: This will eventually need to be dynamic when we support multiple networks.
         "config/curve-finance-ethereum/configuration.json",
-        "./src/config/config.rs",
+        "./src/network_config.rs",
     )
     .expect("Should have been able to generate the network configuration file");
 
@@ -108,10 +108,10 @@ fn generate_network_config_from_json(path: &str, output_path: &str) -> Result<()
     }
 
     // Generating structs for missingOldPools
-    output.push_str("\n#[derive(Debug, Clone)]\npub struct PoolConfig {\n    pub name: &'static str,\n    pub address: [u8; 20],\n    pub lp_token: [u8; 20],\n    pub start_block: u64,\n}\n");
+    output.push_str("\n#[derive(Debug, Clone)]\npub struct PoolDetails {\n    pub name: &'static str,\n    pub address: [u8; 20],\n    pub lp_token: [u8; 20],\n    pub start_block: u64,\n}\n");
 
     if let Some(missing_old_pools) = json["missingOldPools"].as_array() {
-        output.push_str("\npub static MISSING_OLD_POOLS_DATA: &[(&str, PoolConfig)] = &[\n");
+        output.push_str("\npub static MISSING_OLD_POOLS_DATA: &[(&str, PoolDetails)] = &[\n");
         for pool in missing_old_pools {
             let key = pool["address"].as_str().unwrap_or_default();
             let name = pool["name"].as_str().unwrap_or_default();
@@ -124,7 +124,7 @@ fn generate_network_config_from_json(path: &str, output_path: &str) -> Result<()
                 .unwrap_or_default()
                 .trim_start_matches("0x");
             let start_block = pool["startBlock"].as_str().unwrap_or_default();
-            output.push_str(&format!("(\"{}\", PoolConfig {{ name: \"{}\", address: hex!(\"{}\"), lp_token: hex!(\"{}\"), start_block: {} }}),\n", key, name, address, lp_token, start_block));
+            output.push_str(&format!("(\"{}\", PoolDetails {{ name: \"{}\", address: hex!(\"{}\"), lp_token: hex!(\"{}\"), start_block: {} }}),\n", key, name, address, lp_token, start_block));
         }
         output.push_str("];\n");
     }

@@ -18,13 +18,15 @@ message Token {
 }
 
 message Pool {
-  string address = 1;
-  uint64 created_at_timestamp = 2;
-  uint64 created_at_block_number = 3;
-  uint64 log_ordinal = 4;
-  string transaction_id = 5;
-  string registry_address = 6;
-  Token output_token = 7;
+  string name = 1;
+  string symbol = 2;
+  string address = 3;
+  uint64 created_at_timestamp = 4;
+  uint64 created_at_block_number = 5;
+  uint64 log_ordinal = 6;
+  string transaction_id = 7;
+  string registry_address = 8;
+  Token output_token = 9;
 }
 
 message Pools {

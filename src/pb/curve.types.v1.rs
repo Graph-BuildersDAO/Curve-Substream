@@ -25,18 +25,22 @@ pub struct Token {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Pool {
     #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub symbol: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
     pub address: ::prost::alloc::string::String,
-    #[prost(uint64, tag="2")]
-    pub created_at_timestamp: u64,
-    #[prost(uint64, tag="3")]
-    pub created_at_block_number: u64,
     #[prost(uint64, tag="4")]
+    pub created_at_timestamp: u64,
+    #[prost(uint64, tag="5")]
+    pub created_at_block_number: u64,
+    #[prost(uint64, tag="6")]
     pub log_ordinal: u64,
-    #[prost(string, tag="5")]
+    #[prost(string, tag="7")]
     pub transaction_id: ::prost::alloc::string::String,
-    #[prost(string, tag="6")]
+    #[prost(string, tag="8")]
     pub registry_address: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="7")]
+    #[prost(message, optional, tag="9")]
     pub output_token: ::core::option::Option<Token>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]

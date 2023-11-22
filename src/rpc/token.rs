@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use substreams::{scalar::BigInt, Hex, errors::Error};
+use substreams::{errors::Error, log, scalar::BigInt, Hex};
 use substreams_ethereum::rpc::RpcBatch;
 
 use crate::{
@@ -10,15 +10,21 @@ use crate::{
     utils::is_base_pool_lp_token,
 };
 
-// TODO check of should change to borrowed vals?
-pub fn create_token(token_address: &Vec<u8>, pool_address: &Vec<u8>) -> Option<Token> {
-    if token_address.to_owned() == constants::ETH_ADDRESS {
-        return Some(Token {
+pub fn create_token(token_address: &Vec<u8>, pool_address: &Vec<u8>) -> Result<Token, Error> {
+    if token_address == constants::ETH_ADDRESS.as_ref() {
+        let total_supply = match get_token_supply(&token_address) {
+            Ok(total_supply) => total_supply,
+            Err(e) => {
+                log::debug!("Error in `create_token`: {:?}", e);
+                BigInt::from(0)
+            }
+        };
+        return Ok(Token {
             address: Hex::encode(&token_address),
             name: String::from("ETH"),
             symbol: String::from("ETH"),
             decimals: constants::default_decimals().to_u64(),
-            total_supply: get_token_supply(token_address).unwrap().to_string(),
+            total_supply: total_supply.to_string(),
             is_base_pool_lp_token: false,
         });
     }
@@ -69,7 +75,7 @@ pub fn create_token(token_address: &Vec<u8>, pool_address: &Vec<u8>) -> Option<T
     )
     .unwrap_or_else(|| BigInt::from(0));
 
-    return Some(Token {
+    return Ok(Token {
         address: Hex::encode(token_address),
         name,
         symbol,
@@ -80,10 +86,8 @@ pub fn create_token(token_address: &Vec<u8>, pool_address: &Vec<u8>) -> Option<T
     });
 }
 
-// TODO Check what style is better, this function or below res/opt, and refactor accordingly.
 pub fn get_token_minter(token_address: &Vec<u8>) -> Result<Vec<u8>, Error> {
-    let minter_option = functions::Minter {}
-        .call(token_address.to_owned());
+    let minter_option = functions::Minter {}.call(token_address.clone());
 
     let minter = minter_option.ok_or_else(|| {
         anyhow!(
@@ -94,11 +98,15 @@ pub fn get_token_minter(token_address: &Vec<u8>) -> Result<Vec<u8>, Error> {
     Ok(minter)
 }
 
-fn get_token_supply(token_address: &Vec<u8>) -> Option<BigInt> {
-    let supply = functions::TotalSupply {}
+fn get_token_supply(token_address: &Vec<u8>) -> Result<BigInt, Error> {
+    functions::TotalSupply {}
         .call(token_address.to_owned())
-        .unwrap_or(BigInt::from(0));
-    Some(supply)
+        .ok_or_else(|| {
+            anyhow!(
+                "Unable to get total supply for token {:?}",
+                Hex::encode(&token_address)
+            )
+        })
 }
 
 fn read_string_from_bytes(input: &[u8]) -> String {
