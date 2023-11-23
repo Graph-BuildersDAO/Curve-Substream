@@ -149,6 +149,28 @@ fn generate_network_config_from_json(path: &str, output_path: &str) -> Result<()
         output.push_str("];\n");
     }
 
+    // Generating an array for hardcodedMetapools
+    if let Some(hardcoded_metapools) = json["hardcodedMetaPools"].as_array() {
+        output.push_str(
+            format!(
+                "\npub static HARDCODED_METAPOOLS: [[u8; 20]; {}] = [\n",
+                hardcoded_metapools.len()
+            )
+            .as_str(),
+        );
+        for pool in hardcoded_metapools {
+            let name = pool["name"].as_str().unwrap_or_default();
+            let address = pool["address"]
+                .as_str()
+                .unwrap_or_default()
+                .trim_start_matches("0x");
+            output.push_str(&format!("hex!(\"{}\"), // {}\n", address, name));
+        }
+        output.push_str("];\n");
+    } else {
+        output.push_str("\npub static HARDCODED_METAPOOLS: [[u8; 20]; 0] = [];\n");
+    }
+
     fs::write(output_path, output)?;
 
     Ok(())

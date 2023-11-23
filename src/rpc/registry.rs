@@ -11,9 +11,9 @@ use crate::{
 // Is not the main registry pool if we cannot get the registry,
 // or get the lp token address from the registry.
 pub fn is_main_registry_pool(pool_address: &Vec<u8>) -> bool {
-    let address_provider = constants::CURVE_ADDRESS_PROVIDER;
-
-    match (address_provider_abi::functions::GetRegistry {}.call(address_provider.to_vec())) {
+    match (address_provider_abi::functions::GetRegistry {}
+        .call(constants::CURVE_ADDRESS_PROVIDER.to_vec()))
+    {
         Some(registry_address) => {
             match get_lp_token_address_from_registry(pool_address, &registry_address) {
                 Ok(_lp_token_address) => true,

@@ -42,6 +42,14 @@ pub struct Pool {
     pub registry_address: ::prost::alloc::string::String,
     #[prost(message, optional, tag="9")]
     pub output_token: ::core::option::Option<Token>,
+    #[prost(string, repeated, tag="10")]
+    pub input_tokens_ordered: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="11")]
+    pub input_tokens: ::prost::alloc::vec::Vec<Token>,
+    #[prost(bool, tag="12")]
+    pub is_single_sided: bool,
+    #[prost(bool, tag="13")]
+    pub is_metapool: bool,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

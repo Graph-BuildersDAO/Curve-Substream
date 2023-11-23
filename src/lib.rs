@@ -20,7 +20,7 @@ use pb::curve::types::v1::{Pool, Pools};
 
 substreams_ethereum::init!();
 
-fn map_pool_registry_events(blk: &eth::Block, pools: &mut Pools, address: [u8; 20]) {
+fn map_pool_added_1_events(blk: &eth::Block, pools: &mut Pools, address: [u8; 20]) {
     pools.pools.append(
         &mut blk
             .events::<RegistryPoolAdded>(&[&address])
@@ -28,17 +28,35 @@ fn map_pool_registry_events(blk: &eth::Block, pools: &mut Pools, address: [u8; 2
                 match registry::get_lp_token_address_from_registry(&event.pool, &address.to_vec()) {
                     Ok(lp_token_address) => {
                         if let Ok(lp_token) = token::create_token(&lp_token_address, &event.pool) {
-                            return Some(Pool {
-                                address: Hex::encode(&event.pool),
-                                name: lp_token.name.clone(),
-                                symbol: lp_token.symbol.clone(),
-                                created_at_timestamp: blk.timestamp_seconds(),
-                                created_at_block_number: blk.number,
-                                log_ordinal: log.ordinal(),
-                                transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                                registry_address: Hex::encode(address),
-                                output_token: Some(lp_token),
-                            });
+                            if let Ok(input_tokens) = pool::get_pool_coins(&event.pool) {
+                                let mut sorted_input_tokens = input_tokens.clone();
+                                sorted_input_tokens.sort_by(|a, b| a.address.cmp(&b.address));
+                                return Some(Pool {
+                                    address: Hex::encode(&event.pool),
+                                    name: lp_token.name.clone(),
+                                    symbol: lp_token.symbol.clone(),
+                                    created_at_timestamp: blk.timestamp_seconds(),
+                                    created_at_block_number: blk.number,
+                                    log_ordinal: log.ordinal(),
+                                    transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
+                                    registry_address: Hex::encode(address),
+                                    output_token: Some(lp_token),
+                                    input_tokens_ordered: input_tokens
+                                        .clone()
+                                        .into_iter()
+                                        .map(|token| token.address)
+                                        .collect(),
+                                    input_tokens: sorted_input_tokens,
+                                    // TODO: We may be able to remove this if it is also false.
+                                    //       This can just be set when creating the relevant subgraph entity.
+                                    //       Will keep here for now as a reminder.
+                                    is_single_sided: false,
+                                    //       Could also extract this into `graph-out` module eventually.
+                                    is_metapool: utils::is_metapool(&event.pool),
+                                });
+                            } else {
+                                None
+                            }
                         } else {
                             None
                         }
@@ -53,7 +71,7 @@ fn map_pool_registry_events(blk: &eth::Block, pools: &mut Pools, address: [u8; 2
     );
 }
 
-fn map_cryptoswap_registry_events(blk: &eth::Block, pools: &mut Pools, address: [u8; 20]) {
+fn map_pool_added_2_events(blk: &eth::Block, pools: &mut Pools, address: [u8; 20]) {
     pools.pools.append(
         &mut blk
             .events::<CryptoSwapPoolAdded>(&[&address])
@@ -61,17 +79,31 @@ fn map_cryptoswap_registry_events(blk: &eth::Block, pools: &mut Pools, address: 
                 match registry::get_lp_token_address_from_registry(&event.pool, &address.to_vec()) {
                     Ok(lp_token_address) => {
                         if let Ok(lp_token) = token::create_token(&lp_token_address, &event.pool) {
-                            return Some(Pool {
-                                address: Hex::encode(&event.pool),
-                                name: lp_token.name.clone(),
-                                symbol: lp_token.symbol.clone(),
-                                created_at_timestamp: blk.timestamp_seconds(),
-                                created_at_block_number: blk.number,
-                                log_ordinal: log.ordinal(),
-                                transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                                registry_address: Hex::encode(address),
-                                output_token: Some(lp_token),
-                            });
+                            if let Ok(input_tokens) = pool::get_pool_coins(&event.pool) {
+                                let mut sorted_input_tokens = input_tokens.clone();
+                                sorted_input_tokens.sort_by(|a, b| a.address.cmp(&b.address));
+                                return Some(Pool {
+                                    address: Hex::encode(&event.pool),
+                                    name: lp_token.name.clone(),
+                                    symbol: lp_token.symbol.clone(),
+                                    created_at_timestamp: blk.timestamp_seconds(),
+                                    created_at_block_number: blk.number,
+                                    log_ordinal: log.ordinal(),
+                                    transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
+                                    registry_address: Hex::encode(address),
+                                    output_token: Some(lp_token),
+                                    input_tokens_ordered: input_tokens
+                                        .clone()
+                                        .into_iter()
+                                        .map(|token| token.address)
+                                        .collect(),
+                                    input_tokens: sorted_input_tokens,
+                                    is_single_sided: false,
+                                    is_metapool: utils::is_metapool(&event.pool),
+                                });
+                            } else {
+                                None
+                            }
                         } else {
                             None
                         }
@@ -96,17 +128,31 @@ fn map_base_pool_added_events(blk: &eth::Block, pools: &mut Pools, address: [u8;
                         if let Ok(lp_token) =
                             token::create_token(&lp_token_address, &event.base_pool)
                         {
-                            return Some(Pool {
-                                address: Hex::encode(&event.base_pool),
-                                name: lp_token.name.clone(),
-                                symbol: lp_token.symbol.clone(),
-                                created_at_timestamp: blk.timestamp_seconds(),
-                                created_at_block_number: blk.number,
-                                log_ordinal: log.ordinal(),
-                                transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                                registry_address: Hex::encode(address),
-                                output_token: Some(lp_token),
-                            });
+                            if let Ok(input_tokens) = pool::get_pool_coins(&event.base_pool) {
+                                let mut sorted_input_tokens = input_tokens.clone();
+                                sorted_input_tokens.sort_by(|a, b| a.address.cmp(&b.address));
+                                return Some(Pool {
+                                    address: Hex::encode(&event.base_pool),
+                                    name: lp_token.name.clone(),
+                                    symbol: lp_token.symbol.clone(),
+                                    created_at_timestamp: blk.timestamp_seconds(),
+                                    created_at_block_number: blk.number,
+                                    log_ordinal: log.ordinal(),
+                                    transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
+                                    registry_address: Hex::encode(address),
+                                    output_token: Some(lp_token),
+                                    input_tokens_ordered: input_tokens
+                                        .clone()
+                                        .into_iter()
+                                        .map(|token| token.address)
+                                        .collect(),
+                                    input_tokens: sorted_input_tokens,
+                                    is_single_sided: false,
+                                    is_metapool: utils::is_metapool(&event.base_pool),
+                                });
+                            } else {
+                                None
+                            }
                         } else {
                             None
                         }
@@ -128,17 +174,31 @@ fn map_crypto_pool_deployed_events(blk: &eth::Block, pools: &mut Pools, address:
             .filter_map(|(event, log)| match token::get_token_minter(&event.token) {
                 Ok(minter) => {
                     if let Ok(lp_token) = token::create_token(&event.token, &minter) {
-                        Some(Pool {
-                            address: Hex::encode(&minter),
-                            name: lp_token.name.clone(),
-                            symbol: lp_token.symbol.clone(),
-                            created_at_timestamp: blk.timestamp_seconds(),
-                            created_at_block_number: blk.number,
-                            log_ordinal: log.ordinal(),
-                            transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                            registry_address: Hex::encode(address),
-                            output_token: Some(lp_token),
-                        })
+                        if let Ok(input_tokens) = pool::get_pool_coins(&minter) {
+                            let mut sorted_input_tokens = input_tokens.clone();
+                            sorted_input_tokens.sort_by(|a, b| a.address.cmp(&b.address));
+                            Some(Pool {
+                                address: Hex::encode(&minter),
+                                name: lp_token.name.clone(),
+                                symbol: lp_token.symbol.clone(),
+                                created_at_timestamp: blk.timestamp_seconds(),
+                                created_at_block_number: blk.number,
+                                log_ordinal: log.ordinal(),
+                                transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
+                                registry_address: Hex::encode(address),
+                                output_token: Some(lp_token),
+                                input_tokens_ordered: input_tokens
+                                    .clone()
+                                    .into_iter()
+                                    .map(|token| token.address)
+                                    .collect(),
+                                input_tokens: sorted_input_tokens,
+                                is_single_sided: false,
+                                is_metapool: utils::is_metapool(&minter),
+                            })
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }
@@ -170,17 +230,31 @@ fn map_plain_pool_deployed_events(blk: &eth::Block, pools: &mut Pools, address: 
                         if let Ok(lp_token) =
                             token::create_token(&transfer_event.receiver, &transfer_event.receiver)
                         {
-                            return Some(Pool {
-                                address: Hex::encode(&transfer_event.receiver),
-                                name: lp_token.name.clone(),
-                                symbol: lp_token.symbol.clone(),
-                                created_at_timestamp: blk.timestamp_seconds(),
-                                created_at_block_number: blk.number,
-                                log_ordinal: log.ordinal(),
-                                transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                                registry_address: Hex::encode(address),
-                                output_token: Some(lp_token),
-                            });
+                            if let Ok(input_tokens) = pool::get_pool_coins(&transfer_event.receiver)
+                            {
+                                let mut sorted_input_tokens = input_tokens.clone();
+                                sorted_input_tokens.sort_by(|a, b| a.address.cmp(&b.address));
+
+                                return Some(Pool {
+                                    address: Hex::encode(&transfer_event.receiver),
+                                    name: lp_token.name.clone(),
+                                    symbol: lp_token.symbol.clone(),
+                                    created_at_timestamp: blk.timestamp_seconds(),
+                                    created_at_block_number: blk.number,
+                                    log_ordinal: log.ordinal(),
+                                    transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
+                                    registry_address: Hex::encode(address),
+                                    output_token: Some(lp_token),
+                                    input_tokens_ordered: input_tokens
+                                        .clone()
+                                        .into_iter()
+                                        .map(|token| token.address)
+                                        .collect(),
+                                    input_tokens: sorted_input_tokens,
+                                    is_single_sided: false,
+                                    is_metapool: utils::is_metapool(&transfer_event.receiver),
+                                });
+                            }
                         }
                     }
                 }
@@ -208,17 +282,31 @@ fn map_meta_pool_deployed_events(blk: &eth::Block, pools: &mut Pools, address: [
                         if let Ok(lp_token) =
                             token::create_token(&transfer_event.receiver, &transfer_event.receiver)
                         {
-                            return Some(Pool {
-                                address: Hex::encode(&transfer_event.receiver),
-                                name: lp_token.name.clone(),
-                                symbol: lp_token.symbol.clone(),
-                                created_at_timestamp: blk.timestamp_seconds(),
-                                created_at_block_number: blk.number,
-                                log_ordinal: log.ordinal(),
-                                transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                                registry_address: Hex::encode(address),
-                                output_token: Some(lp_token),
-                            });
+                            if let Ok(input_tokens) = pool::get_pool_coins(&transfer_event.receiver)
+                            {
+                                let mut sorted_input_tokens = input_tokens.clone();
+                                sorted_input_tokens.sort_by(|a, b| a.address.cmp(&b.address));
+
+                                return Some(Pool {
+                                    address: Hex::encode(&transfer_event.receiver),
+                                    name: lp_token.name.clone(),
+                                    symbol: lp_token.symbol.clone(),
+                                    created_at_timestamp: blk.timestamp_seconds(),
+                                    created_at_block_number: blk.number,
+                                    log_ordinal: log.ordinal(),
+                                    transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
+                                    registry_address: Hex::encode(address),
+                                    output_token: Some(lp_token),
+                                    input_tokens_ordered: input_tokens
+                                        .clone()
+                                        .into_iter()
+                                        .map(|token| token.address)
+                                        .collect(),
+                                    input_tokens: sorted_input_tokens,
+                                    is_single_sided: false,
+                                    is_metapool: utils::is_metapool(&transfer_event.receiver),
+                                });
+                            }
                         }
                     }
                 }
@@ -233,8 +321,8 @@ fn map_pools_created(blk: eth::Block) -> Result<Pools, Error> {
     let mut pools = Pools::default();
 
     for contract in CONTRACTS {
-        map_pool_registry_events(&blk, &mut pools, contract);
-        map_cryptoswap_registry_events(&blk, &mut pools, contract);
+        map_pool_added_1_events(&blk, &mut pools, contract);
+        map_pool_added_2_events(&blk, &mut pools, contract);
         map_base_pool_added_events(&blk, &mut pools, contract);
         map_crypto_pool_deployed_events(&blk, &mut pools, contract);
         map_plain_pool_deployed_events(&blk, &mut pools, contract);

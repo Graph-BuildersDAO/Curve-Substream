@@ -27,6 +27,10 @@ message Pool {
   string transaction_id = 7;
   string registry_address = 8;
   Token output_token = 9;
+  repeated string input_tokens_ordered = 10;
+  repeated Token input_tokens = 11;
+  bool is_single_sided = 12;
+  bool is_metapool = 13;
 }
 
 message Pools {
