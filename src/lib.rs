@@ -1,6 +1,10 @@
 use network_config::CONTRACTS;
 use rpc::{pool, registry, token};
-use substreams::{errors::Error, Hex};
+use substreams::{
+    errors::Error,
+    store::{StoreAdd, StoreAddInt64, StoreNew, StoreSet, StoreSetProto},
+    Hex,
+};
 use substreams_ethereum::pb::eth::v2::{self as eth};
 
 mod abi;
@@ -13,7 +17,7 @@ mod utils;
 use abi::registry::events::{
     BasePoolAdded, CryptoPoolDeployed, MetaPoolDeployed, PlainPoolDeployed, PoolAdded1, PoolAdded2,
 };
-use pb::curve::types::v1::Pools;
+use pb::curve::types::v1::{Pool, Pools};
 use utils::{create_pool, extract_transfer_event, get_and_sort_input_tokens};
 
 substreams_ethereum::init!();
@@ -365,6 +369,46 @@ fn map_pools_created(blk: eth::Block) -> Result<Pools, Vec<Error>> {
         return Ok(pools);
     }
     Err(errors)
+}
+
+#[substreams::handlers::store]
+fn store_pools_created(pools: Pools, store: StoreSetProto<Pool>) {
+    for pool in pools.pools {
+        let address = pool.address.clone();
+        store.set(pool.log_ordinal, format!("pool:{}", address), &pool)
+    }
+}
+
+#[substreams::handlers::store]
+pub fn store_pool_count(pools: Pools, store: StoreAddInt64) {
+    for pool in pools.pools {
+        store.add(pool.log_ordinal, format!("protocol:poolCount"), 1)
+    }
+}
+
+// This will be used in the `graph_out` map to update Token entities.
+#[substreams::handlers::store]
+pub fn store_tokens(pools: Pools, store: StoreAddInt64) {
+    for pool in pools.pools {
+        let addr_output_token = pool.output_token.unwrap().address;
+        let addr_input_tokens: Vec<String> = pool
+            .input_tokens
+            .iter()
+            .map(|t| t.address.clone())
+            .collect();
+
+        let mut keys: Vec<String> = Vec::new();
+        keys.push(format!("token:{addr_output_token}"));
+        for addr in addr_input_tokens {
+            keys.push(format!("token:{addr}"));
+        }
+
+        store.add_many(
+            pool.log_ordinal,
+            &keys,
+            1,
+        );
+    }
 }
 
 // TODO: There is a lot of code duplication here. This will be refactored in the future.

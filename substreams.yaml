@@ -27,4 +27,25 @@ modules:
     output:
       type: proto:curve.types.v1.Pools
 
+  - name: store_pools_created
+    kind: store
+    updatePolicy: set
+    valueType: proto:curve.types.v1.Pools
+    inputs:
+      - map: map_pools_created
+
+  - name: store_pool_count
+    kind: store
+    updatePolicy: add
+    valueType: int64
+    inputs:
+      - map: map_pools_created
+
+  - name: store_tokens
+    kind: store
+    updatePolicy: add
+    valueType: int64
+    inputs:
+      - map: map_pools_created
+
 network: mainnet
