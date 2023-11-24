@@ -340,20 +340,31 @@ fn map_meta_pool_deployed_events(
 }
 
 #[substreams::handlers::map]
-fn map_pools_created(blk: eth::Block) -> Result<Pools, Error> {
+fn map_pools_created(blk: eth::Block) -> Result<Pools, Vec<Error>> {
     let mut pools = Pools::default();
 
-    // TODO - Review: Should we use the `?` operator. This will stop the entire function call and return an error.
-    for contract in CONTRACTS {
-        map_pool_added_1_events(&blk, &mut pools, contract)?;
-        map_pool_added_2_events(&blk, &mut pools, contract)?;
-        map_base_pool_added_events(&blk, &mut pools, contract)?;
-        map_crypto_pool_deployed_events(&blk, &mut pools, contract)?;
-        map_plain_pool_deployed_events(&blk, &mut pools, contract)?;
-        map_meta_pool_deployed_events(&blk, &mut pools, contract)?;
-    }
+    // This calls each event mapping func for each contract address.
+    // As we nothing is returned with the `Ok` variant, we can just ignore it,
+    // and use the `Err` variant to collect any errors that occur.
+    let errors: Vec<Error> = CONTRACTS
+        .iter()
+        .flat_map(|&contract| {
+            [
+                map_pool_added_1_events(&blk, &mut pools, contract),
+                map_pool_added_2_events(&blk, &mut pools, contract),
+                map_base_pool_added_events(&blk, &mut pools, contract),
+                map_crypto_pool_deployed_events(&blk, &mut pools, contract),
+                map_plain_pool_deployed_events(&blk, &mut pools, contract),
+                map_meta_pool_deployed_events(&blk, &mut pools, contract),
+            ]
+        })
+        .filter_map(Result::err)
+        .collect();
 
-    Ok(pools)
+    if errors.is_empty() {
+        return Ok(pools);
+    }
+    Err(errors)
 }
 
 // TODO: There is a lot of code duplication here. This will be refactored in the future.
