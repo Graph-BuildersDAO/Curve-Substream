@@ -4,13 +4,33 @@ import "google/protobuf/timestamp.proto";
 
 package curve.types.v1;
 
-message Pool {
+message Tokens {
+  repeated Token tokens = 1;
+}
+
+message Token {
   string address = 1;
-  uint64 created_at_timestamp = 2;
-  uint64 created_at_block_number = 3;
-  uint64 log_ordinal = 4;
-  string transaction_id = 5;
-  string registry_address = 6;
+  string name = 2;
+  string symbol = 3;
+  uint64 decimals = 4;
+  string total_supply = 5;
+  bool is_base_pool_lp_token = 6;
+}
+
+message Pool {
+  string name = 1;
+  string symbol = 2;
+  string address = 3;
+  uint64 created_at_timestamp = 4;
+  uint64 created_at_block_number = 5;
+  uint64 log_ordinal = 6;
+  string transaction_id = 7;
+  string registry_address = 8;
+  Token output_token = 9;
+  repeated string input_tokens_ordered = 10;
+  repeated Token input_tokens = 11;
+  bool is_single_sided = 12;
+  bool is_metapool = 13;
 }
 
 message Pools {

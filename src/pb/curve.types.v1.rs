@@ -1,19 +1,55 @@
 // @generated
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Pool {
+pub struct Tokens {
+    #[prost(message, repeated, tag="1")]
+    pub tokens: ::prost::alloc::vec::Vec<Token>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Token {
     #[prost(string, tag="1")]
     pub address: ::prost::alloc::string::String,
-    #[prost(uint64, tag="2")]
-    pub created_at_timestamp: u64,
-    #[prost(uint64, tag="3")]
-    pub created_at_block_number: u64,
+    #[prost(string, tag="2")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub symbol: ::prost::alloc::string::String,
     #[prost(uint64, tag="4")]
-    pub log_ordinal: u64,
+    pub decimals: u64,
     #[prost(string, tag="5")]
+    pub total_supply: ::prost::alloc::string::String,
+    #[prost(bool, tag="6")]
+    pub is_base_pool_lp_token: bool,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Pool {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub symbol: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub address: ::prost::alloc::string::String,
+    #[prost(uint64, tag="4")]
+    pub created_at_timestamp: u64,
+    #[prost(uint64, tag="5")]
+    pub created_at_block_number: u64,
+    #[prost(uint64, tag="6")]
+    pub log_ordinal: u64,
+    #[prost(string, tag="7")]
     pub transaction_id: ::prost::alloc::string::String,
-    #[prost(string, tag="6")]
+    #[prost(string, tag="8")]
     pub registry_address: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="9")]
+    pub output_token: ::core::option::Option<Token>,
+    #[prost(string, repeated, tag="10")]
+    pub input_tokens_ordered: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="11")]
+    pub input_tokens: ::prost::alloc::vec::Vec<Token>,
+    #[prost(bool, tag="12")]
+    pub is_single_sided: bool,
+    #[prost(bool, tag="13")]
+    pub is_metapool: bool,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

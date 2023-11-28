@@ -1275,6 +1275,19 @@
         "gas": 2801
     },
     {
+        "stateMutability": "view",
+        "type": "function",
+        "name": "minter",
+        "inputs": [],
+        "outputs": [
+            {
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "gas": 3000
+    },
+    {
         "name": "token",
         "outputs": [
             {

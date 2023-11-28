@@ -1,172 +1,431 @@
-use hex_literal::hex;
-use substreams::errors::Error;
-use substreams::Hex;
+use network_config::CONTRACTS;
+use rpc::{pool, registry, token};
+use substreams::{
+    errors::Error,
+    store::{StoreAdd, StoreAddInt64, StoreNew, StoreSet, StoreSetProto},
+    Hex,
+};
 use substreams_ethereum::pb::eth::v2::{self as eth};
 
 mod abi;
+mod constants;
+mod network_config;
 mod pb;
+mod rpc;
+mod utils;
 
 use abi::registry::events::{
-    BasePoolAdded, CryptoPoolDeployed, MetaPoolDeployed, PlainPoolDeployed,
-    PoolAdded1 as RegistryPoolAdded, PoolAdded2 as CryptoSwapPoolAdded,
+    BasePoolAdded, CryptoPoolDeployed, MetaPoolDeployed, PlainPoolDeployed, PoolAdded1, PoolAdded2,
 };
 use pb::curve::types::v1::{Pool, Pools};
+use utils::{create_pool, extract_transfer_event, get_and_sort_input_tokens};
 
 substreams_ethereum::init!();
 
-const POOLREGISTRY_CONTRACT: [u8; 20] = hex!("90e00ace148ca3b23ac1bc8c240c2a7dd9c2d7f5");
-const POOLREGISTRY_V2_CONTRACT: [u8; 20] = hex!("7d86446ddb609ed0f5f8684acf30380a356b2b4c");
-const CRYPTOSWAP_REGISTRY_CONTRACT: [u8; 20] = hex!("8F942C20D02bEfc377D41445793068908E2250D0");
-const METAPOOL_FACTORY_CONTRACT: [u8; 20] = hex!("B9fC157394Af804a3578134A6585C0dc9cc990d4");
-const CRYPTOPOOL_FACTORY: [u8; 20] = hex!("F18056Bbd320E96A48e3Fbf8bC061322531aac99");
-
-// Registry and Factory contracts
-const CONTRACTS: [[u8; 20]; 5] = [
-    POOLREGISTRY_CONTRACT,
-    POOLREGISTRY_V2_CONTRACT,
-    CRYPTOSWAP_REGISTRY_CONTRACT,
-    METAPOOL_FACTORY_CONTRACT,
-    CRYPTOPOOL_FACTORY,
-];
-
-fn map_pool_registry_events(blk: &eth::Block, pools: &mut Pools, address: [u8; 20]) {
+fn map_pool_added_1_events(
+    blk: &eth::Block,
+    pools: &mut Pools,
+    address: [u8; 20],
+) -> Result<(), Error> {
     pools.pools.append(
         &mut blk
-            .events::<RegistryPoolAdded>(&[&address])
-            .map(|(event, log)| Pool {
-                address: Hex::encode(event.pool),
-                created_at_timestamp: blk.timestamp_seconds(),
-                created_at_block_number: blk.number,
-                log_ordinal: log.ordinal(),
-                transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                registry_address: Hex::encode(address),
+            .events::<PoolAdded1>(&[&address])
+            .filter_map(|(event, log)| {
+                let lp_token_address = match registry::get_lp_token_address_from_registry(
+                    &event.pool,
+                    &address.to_vec(),
+                ) {
+                    Ok(addr) => addr,
+                    Err(e) => {
+                        substreams::log::debug!("Error in `map_pool_added_1_events`: {:?}", e);
+                        return None;
+                    }
+                };
+                let lp_token = match token::create_token(&lp_token_address, &event.pool) {
+                    Ok(token) => token,
+                    Err(e) => {
+                        substreams::log::debug!("Error in `map_pool_added_1_events`: {:?}", e);
+                        return None;
+                    }
+                };
+                let (input_tokens, input_tokens_ordered) =
+                    match get_and_sort_input_tokens(&event.pool) {
+                        Ok(result) => result,
+                        Err(e) => {
+                            substreams::log::debug!("Error in `map_pool_added_1_events`: {:?}", e);
+                            return None;
+                        }
+                    };
+                Some(create_pool(
+                    Hex::encode(&event.pool),
+                    Hex::encode(address),
+                    lp_token,
+                    input_tokens_ordered,
+                    input_tokens,
+                    utils::is_metapool(&event.pool),
+                    &log,
+                    blk,
+                ))
             })
             .collect(),
     );
+    Ok(())
 }
 
-fn map_cryptoswap_registry_events(blk: &eth::Block, pools: &mut Pools, address: [u8; 20]) {
+fn map_pool_added_2_events(
+    blk: &eth::Block,
+    pools: &mut Pools,
+    address: [u8; 20],
+) -> Result<(), Error> {
     pools.pools.append(
         &mut blk
-            .events::<CryptoSwapPoolAdded>(&[&address])
-            .map(|(event, log)| Pool {
-                address: Hex::encode(event.pool),
-                created_at_timestamp: blk.timestamp_seconds(),
-                created_at_block_number: blk.number,
-                log_ordinal: log.ordinal(),
-                transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                registry_address: Hex::encode(address),
+            .events::<PoolAdded2>(&[&address])
+            .filter_map(|(event, log)| {
+                let lp_token_address = match registry::get_lp_token_address_from_registry(
+                    &event.pool,
+                    &address.to_vec(),
+                ) {
+                    Ok(addr) => addr,
+                    Err(e) => {
+                        substreams::log::debug!("Error in `map_pool_added_2_events`: {:?}", e);
+                        return None;
+                    }
+                };
+                let lp_token = match token::create_token(&lp_token_address, &event.pool) {
+                    Ok(token) => token,
+                    Err(e) => {
+                        substreams::log::debug!("Error in `map_pool_added_2_events`: {:?}", e);
+                        return None;
+                    }
+                };
+                let (input_tokens, input_tokens_ordered) =
+                    match get_and_sort_input_tokens(&event.pool) {
+                        Ok(result) => result,
+                        Err(e) => {
+                            substreams::log::debug!("Error in `map_pool_added_2_events`: {:?}", e);
+                            return None;
+                        }
+                    };
+
+                Some(create_pool(
+                    Hex::encode(&event.pool),
+                    Hex::encode(address),
+                    lp_token,
+                    input_tokens_ordered,
+                    input_tokens,
+                    utils::is_metapool(&event.pool),
+                    &log,
+                    blk,
+                ))
             })
             .collect(),
     );
+    Ok(())
 }
 
-fn map_base_pool_added_events(blk: &eth::Block, pools: &mut Pools, address: [u8; 20]) {
+fn map_base_pool_added_events(
+    blk: &eth::Block,
+    pools: &mut Pools,
+    address: [u8; 20],
+) -> Result<(), Error> {
     pools.pools.append(
         &mut blk
             .events::<BasePoolAdded>(&[&address])
-            .map(|(event, log)| Pool {
-                address: Hex::encode(event.base_pool),
-                created_at_timestamp: blk.timestamp_seconds(),
-                created_at_block_number: blk.number,
-                log_ordinal: log.ordinal(),
-                transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                registry_address: Hex::encode(address),
+            .filter_map(|(event, log)| {
+                let lp_token_address = match pool::get_lp_token_address_from_pool(&event.base_pool)
+                {
+                    Ok(addr) => addr,
+                    Err(e) => {
+                        substreams::log::debug!("Error in `map_base_pool_added_events`: {:?}", e);
+                        return None;
+                    }
+                };
+                let lp_token = match token::create_token(&lp_token_address, &event.base_pool) {
+                    Ok(token) => token,
+                    Err(e) => {
+                        substreams::log::debug!("Error in `map_base_pool_added_events`: {:?}", e);
+                        return None;
+                    }
+                };
+                let (input_tokens, input_tokens_ordered) =
+                    match get_and_sort_input_tokens(&event.base_pool) {
+                        Ok(result) => result,
+                        Err(e) => {
+                            substreams::log::debug!(
+                                "Error in `map_base_pool_added_events`: {:?}",
+                                e
+                            );
+                            return None;
+                        }
+                    };
+                Some(create_pool(
+                    Hex::encode(&event.base_pool),
+                    Hex::encode(address),
+                    lp_token,
+                    input_tokens_ordered,
+                    input_tokens,
+                    utils::is_metapool(&event.base_pool),
+                    &log,
+                    blk,
+                ))
             })
             .collect(),
     );
+    Ok(())
 }
 
-fn map_crypto_pool_deployed_events(blk: &eth::Block, pools: &mut Pools, address: [u8; 20]) {
+fn map_crypto_pool_deployed_events(
+    blk: &eth::Block,
+    pools: &mut Pools,
+    address: [u8; 20],
+) -> Result<(), Error> {
     pools.pools.append(
         &mut blk
             .events::<CryptoPoolDeployed>(&[&address])
-            .map(|(event, log)| Pool {
-                address: Hex::encode(event.token),
-                created_at_timestamp: blk.timestamp_seconds(),
-                created_at_block_number: blk.number,
-                log_ordinal: log.ordinal(),
-                transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                registry_address: Hex::encode(address),
+            .filter_map(|(event, log)| {
+                // The minter of the LP token is the liquidity pool contract.
+                let pool_address = match token::get_token_minter(&event.token) {
+                    Ok(minter) => minter,
+                    Err(e) => {
+                        substreams::log::debug!(
+                            "Error in `map_crypto_pool_deployed_events`: {:?}",
+                            e
+                        );
+                        return None;
+                    }
+                };
+                let lp_token = match token::create_token(&event.token, &pool_address) {
+                    Ok(token) => token,
+                    Err(e) => {
+                        substreams::log::debug!(
+                            "Error in `map_crypto_pool_deployed_events`: {:?}",
+                            e
+                        );
+                        return None;
+                    }
+                };
+                let (input_tokens, input_tokens_ordered) =
+                    match get_and_sort_input_tokens(&pool_address) {
+                        Ok(result) => result,
+                        Err(e) => {
+                            substreams::log::debug!(
+                                "Error in `map_crypto_pool_deployed_events`: {:?}",
+                                e
+                            );
+                            return None;
+                        }
+                    };
+                Some(create_pool(
+                    Hex::encode(&pool_address),
+                    Hex::encode(address),
+                    lp_token,
+                    input_tokens_ordered,
+                    input_tokens,
+                    utils::is_metapool(&pool_address),
+                    &log,
+                    blk,
+                ))
             })
             .collect(),
     );
+    Ok(())
 }
 
-fn map_plain_pool_deployed_events(blk: &eth::Block, pools: &mut Pools, address: [u8; 20]) {
+fn map_plain_pool_deployed_events(
+    blk: &eth::Block,
+    pools: &mut Pools,
+    address: [u8; 20],
+) -> Result<(), Error> {
     pools.pools.append(
         &mut blk
             .events::<PlainPoolDeployed>(&[&address])
             .filter_map(|(_event, log)| {
-                let trx = log.receipt.transaction;
-                let transfer = trx
-                    .calls
-                    .iter()
-                    .filter(|call| !call.state_reverted)
-                    .flat_map(|call| call.logs.iter())
-                    .find(|log| abi::erc20::events::Transfer::match_log(log));
-
-                if let Some(transfer_log) = transfer {
-                    if let Ok(transfer_event) = abi::erc20::events::Transfer::decode(transfer_log) {
-                        return Some(Pool {
-                            address: Hex::encode(transfer_event.receiver),
-                            created_at_timestamp: blk.timestamp_seconds(),
-                            created_at_block_number: blk.number,
-                            log_ordinal: log.ordinal(),
-                            transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                            registry_address: Hex::encode(address),
-                        });
+                let transfer = match extract_transfer_event(&log) {
+                    Ok(event) => event,
+                    Err(e) => {
+                        substreams::log::debug!(
+                            "Error in `map_plain_pool_deployed_events`: {:?}",
+                            e
+                        );
+                        return None;
                     }
-                }
-                None
+                };
+                let lp_token = match token::create_token(&transfer.receiver, &transfer.receiver) {
+                    Ok(token) => token,
+                    Err(e) => {
+                        substreams::log::debug!(
+                            "Error in `map_plain_pool_deployed_events`: {:?}",
+                            e
+                        );
+                        return None;
+                    }
+                };
+                let (input_tokens, input_tokens_ordered) =
+                    match get_and_sort_input_tokens(&transfer.receiver) {
+                        Ok(result) => result,
+                        Err(e) => {
+                            substreams::log::debug!(
+                                "Error in `map_crypto_pool_deployed_events`: {:?}",
+                                e
+                            );
+                            return None;
+                        }
+                    };
+                Some(create_pool(
+                    Hex::encode(&transfer.receiver),
+                    Hex::encode(address),
+                    lp_token,
+                    input_tokens_ordered,
+                    input_tokens,
+                    utils::is_metapool(&transfer.receiver),
+                    &log,
+                    blk,
+                ))
             })
             .collect(),
     );
+    Ok(())
 }
 
-fn map_meta_pool_deployed_events(blk: &eth::Block, pools: &mut Pools, address: [u8; 20]) {
+fn map_meta_pool_deployed_events(
+    blk: &eth::Block,
+    pools: &mut Pools,
+    address: [u8; 20],
+) -> Result<(), Error> {
     pools.pools.append(
         &mut blk
             .events::<MetaPoolDeployed>(&[&address])
             .filter_map(|(_event, log)| {
-                let trx = log.receipt.transaction;
-                let transfer = trx
-                    .calls
-                    .iter()
-                    .filter(|call| !call.state_reverted)
-                    .flat_map(|call| call.logs.iter())
-                    .find(|log| abi::erc20::events::Transfer::match_log(log));
-
-                if let Some(transfer_log) = transfer {
-                    if let Ok(transfer_event) = abi::erc20::events::Transfer::decode(transfer_log) {
-                        return Some(Pool {
-                            address: Hex::encode(transfer_event.receiver),
-                            created_at_timestamp: blk.timestamp_seconds(),
-                            created_at_block_number: blk.number,
-                            log_ordinal: log.ordinal(),
-                            transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                            registry_address: Hex::encode(address),
-                        });
+                let transfer = match extract_transfer_event(&log) {
+                    Ok(event) => event,
+                    Err(e) => {
+                        substreams::log::debug!(
+                            "Error in `map_plain_pool_deployed_events`: {:?}",
+                            e
+                        );
+                        return None;
                     }
-                }
-                None
+                };
+                let lp_token = match token::create_token(&transfer.receiver, &transfer.receiver) {
+                    Ok(token) => token,
+                    Err(e) => {
+                        substreams::log::debug!(
+                            "Error in `map_plain_pool_deployed_events`: {:?}",
+                            e
+                        );
+                        return None;
+                    }
+                };
+                let (input_tokens, input_tokens_ordered) =
+                    match get_and_sort_input_tokens(&transfer.receiver) {
+                        Ok(result) => result,
+                        Err(e) => {
+                            substreams::log::debug!(
+                                "Error in `map_crypto_pool_deployed_events`: {:?}",
+                                e
+                            );
+                            return None;
+                        }
+                    };
+                Some(create_pool(
+                    Hex::encode(&transfer.receiver),
+                    Hex::encode(address),
+                    lp_token,
+                    input_tokens_ordered,
+                    input_tokens,
+                    utils::is_metapool(&transfer.receiver),
+                    &log,
+                    blk,
+                ))
             })
             .collect(),
     );
+    Ok(())
 }
 
 #[substreams::handlers::map]
-fn map_pools_created(blk: eth::Block) -> Result<Pools, Error> {
+fn map_pools_created(blk: eth::Block) -> Result<Pools, Vec<Error>> {
     let mut pools = Pools::default();
 
-    for contract in CONTRACTS {
-        map_pool_registry_events(&blk, &mut pools, contract);
-        map_cryptoswap_registry_events(&blk, &mut pools, contract);
-        map_base_pool_added_events(&blk, &mut pools, contract);
-        map_crypto_pool_deployed_events(&blk, &mut pools, contract);
-        map_plain_pool_deployed_events(&blk, &mut pools, contract);
-        map_meta_pool_deployed_events(&blk, &mut pools, contract);
-    }
+    // This calls each event mapping func for each contract address.
+    // As we nothing is returned with the `Ok` variant, we can just ignore it,
+    // and use the `Err` variant to collect any errors that occur.
+    let errors: Vec<Error> = CONTRACTS
+        .iter()
+        .flat_map(|&contract| {
+            [
+                map_pool_added_1_events(&blk, &mut pools, contract),
+                map_pool_added_2_events(&blk, &mut pools, contract),
+                map_base_pool_added_events(&blk, &mut pools, contract),
+                map_crypto_pool_deployed_events(&blk, &mut pools, contract),
+                map_plain_pool_deployed_events(&blk, &mut pools, contract),
+                map_meta_pool_deployed_events(&blk, &mut pools, contract),
+            ]
+        })
+        .filter_map(Result::err)
+        .collect();
 
-    Ok(pools)
+    if errors.is_empty() {
+        return Ok(pools);
+    }
+    Err(errors)
 }
+
+#[substreams::handlers::store]
+fn store_pools_created(pools: Pools, store: StoreSetProto<Pool>) {
+    for pool in pools.pools {
+        let address = pool.address.clone();
+        store.set(pool.log_ordinal, format!("pool:{}", address), &pool)
+    }
+}
+
+#[substreams::handlers::store]
+pub fn store_pool_count(pools: Pools, store: StoreAddInt64) {
+    for pool in pools.pools {
+        store.add(pool.log_ordinal, format!("protocol:poolCount"), 1)
+    }
+}
+
+// This will be used in the `graph_out` map to update Token entities.
+#[substreams::handlers::store]
+pub fn store_tokens(pools: Pools, store: StoreAddInt64) {
+    for pool in pools.pools {
+        let addr_output_token = pool.output_token.unwrap().address;
+        let addr_input_tokens: Vec<String> = pool
+            .input_tokens
+            .iter()
+            .map(|t| t.address.clone())
+            .collect();
+
+        let mut keys: Vec<String> = Vec::new();
+        keys.push(format!("token:{addr_output_token}"));
+        for addr in addr_input_tokens {
+            keys.push(format!("token:{addr}"));
+        }
+
+        store.add_many(
+            pool.log_ordinal,
+            &keys,
+            1,
+        );
+    }
+}
+
+// TODO: There is a lot of code duplication here. This will be refactored in the future.
+//       We can extract the common logic into a separate function called process_pool_event,
+//       which could look something like this:
+//
+// fn process_event<F>(event_data: &[u8], address: [u8; 20], blk: &eth::Block, process_logic: F) -> Option<Pool>
+// where
+//     F: Fn(&[u8], [u8; 20], &eth::Block) -> Result<Pool, Error>,
+// {
+//     match process_logic(event_data, address, blk) {
+//         Ok(pool) => Some(pool),
+//         Err(e) => {
+//             substreams::log::debug!("Error processing event: {:?}", e);
+//             None
+//         }
+//     }
+// }
+//
+//       Specific event handling logic can then be passed in as a closure.
