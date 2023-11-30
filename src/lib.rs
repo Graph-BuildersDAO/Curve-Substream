@@ -1,11 +1,27 @@
-use network_config::CONTRACTS;
-use rpc::{pool, registry, token};
+use anyhow::anyhow;
 use substreams::{
     errors::Error,
-    store::{StoreAdd, StoreAddInt64, StoreNew, StoreSet, StoreSetProto},
+    store::{StoreAdd, StoreAddInt64, StoreGet, StoreGetProto, StoreNew, StoreSet, StoreSetProto},
     Hex,
 };
-use substreams_ethereum::pb::eth::v2::{self as eth};
+use substreams_ethereum::{
+    pb::eth::v2::{self as eth},
+    Event, NULL_ADDRESS,
+};
+
+use crate::{
+    abi::registry::events::{
+        BasePoolAdded, CryptoPoolDeployed, MetaPoolDeployed, PlainPoolDeployed, PoolAdded1,
+        PoolAdded2,
+    },
+    network_config::{PoolDetails, MISSING_OLD_POOLS_DATA, POOL_REGISTRIES},
+    pb::curve::types::v1::{events::PoolEvent, Events, Pool, Pools},
+    rpc::{pool, registry, token},
+    utils::{
+        create_missing_pool, create_pool, extract_swap_event, extract_transfer_event,
+        get_and_sort_input_tokens,
+    },
+};
 
 mod abi;
 mod constants;
@@ -13,12 +29,6 @@ mod network_config;
 mod pb;
 mod rpc;
 mod utils;
-
-use abi::registry::events::{
-    BasePoolAdded, CryptoPoolDeployed, MetaPoolDeployed, PlainPoolDeployed, PoolAdded1, PoolAdded2,
-};
-use pb::curve::types::v1::{Pool, Pools};
-use utils::{create_pool, extract_transfer_event, get_and_sort_input_tokens};
 
 substreams_ethereum::init!();
 
@@ -343,14 +353,63 @@ fn map_meta_pool_deployed_events(
     Ok(())
 }
 
+fn add_missing_pool(blk: &eth::Block, pools: &mut Pools, pool: &PoolDetails) -> Result<(), Error> {
+    let pool_address = pool.address.to_vec();
+    let lp_token = match token::create_token(&pool.lp_token.to_vec(), &pool_address) {
+        Ok(token) => token,
+        Err(e) => {
+            return Err(anyhow!("Error in `add_missing_pools`: {:?}", e));
+        }
+    };
+    let (input_tokens, input_tokens_ordered) = match get_and_sort_input_tokens(&pool_address) {
+        Ok(result) => result,
+        Err(e) => {
+            return Err(anyhow!("Error in `add_missing_pools`: {:?}", e));
+        }
+    };
+    let hash = blk
+        .transactions()
+        .find(|trx| trx.to == pool_address)
+        .map(|tx| tx.hash.clone())
+        .unwrap_or_else(|| NULL_ADDRESS.to_vec());
+
+    pools.pools.push(create_missing_pool(
+        Hex::encode(pool_address),
+        Hex::encode(NULL_ADDRESS.to_vec()),
+        lp_token,
+        input_tokens_ordered,
+        input_tokens,
+        false,
+        blk,
+        hash,
+    ));
+
+    substreams::log::info!("Added missing pool: {:?}", pool);
+    Ok(())
+}
+
 #[substreams::handlers::map]
 fn map_pools_created(blk: eth::Block) -> Result<Pools, Vec<Error>> {
     let mut pools = Pools::default();
 
+    // Need to add pools that were deployed before any registry/factory contracts handled pool deployment
+    for &(_pool_address, ref pool_details) in MISSING_OLD_POOLS_DATA.iter() {
+        if pool_details.start_block == blk.number {
+            match add_missing_pool(&blk, &mut pools, pool_details) {
+                Ok(_) => {}
+                Err(e) => {
+                    return Err(vec![e]);
+                }
+            }
+            // No old pools were deployed on the same block, so we can skip the rest of the loop
+            break;
+        }
+    }
+
     // This calls each event mapping func for each contract address.
     // As we nothing is returned with the `Ok` variant, we can just ignore it,
     // and use the `Err` variant to collect any errors that occur.
-    let errors: Vec<Error> = CONTRACTS
+    let errors: Vec<Error> = POOL_REGISTRIES
         .iter()
         .flat_map(|&contract| {
             [
@@ -403,12 +462,93 @@ pub fn store_tokens(pools: Pools, store: StoreAddInt64) {
             keys.push(format!("token:{addr}"));
         }
 
-        store.add_many(
-            pool.log_ordinal,
-            &keys,
-            1,
-        );
+        store.add_many(pool.log_ordinal, &keys, 1);
     }
+}
+
+#[substreams::handlers::map]
+pub fn map_extract_pool_events(
+    blk: eth::Block,
+    pools: StoreGetProto<Pool>,
+) -> Result<Events, Error> {
+    // Initialise events
+    let mut events = Events::default();
+
+    // Init the events fields
+    let mut pool_events: Vec<PoolEvent> = Vec::new();
+
+    // Check if event is coming from the pool contract
+    for trx in blk.transactions() {
+        for (log, _call) in trx.logs_with_calls() {
+            let pool_address = Hex::encode(&log.address);
+            let pool_opt = pools.get_last(format!("pool:{}", pool_address));
+
+            if let Some(pool) = pool_opt {
+                // TODO: Test and resolve both TokenExchanges
+                //       The only differene between TE1/2 is the type of uint in the actual ABI.
+                //       We will need to check if they decode for the same events and handle accordingly.
+                //       If they do, we may be able to remove the check for both events.
+                //
+                //       TokenExchange1
+
+                // TODO: Consider using a match expression similar to the message enum match here:
+                //       (https://web.mit.edu/rust-lang_v1.25/arch/amd64_ubuntu1404/share/doc/rust/html/reference/expressions/match-expr.html)
+                if let Some(swap) = abi::pool::events::TokenExchange1::match_and_decode(&log) {
+                    extract_swap_event(
+                        &mut pool_events,
+                        &blk,
+                        trx,
+                        log,
+                        &pool,
+                        &pool_address,
+                        &swap.sold_id,
+                        &swap.bought_id,
+                        &swap.tokens_sold,
+                        &swap.tokens_bought,
+                        &swap.buyer,
+                        false,
+                    );
+                }
+                // TokenExchange2
+                else if let Some(swap) = abi::pool::events::TokenExchange2::match_and_decode(&log)
+                {
+                    extract_swap_event(
+                        &mut pool_events,
+                        &blk,
+                        trx,
+                        log,
+                        &pool,
+                        &pool_address,
+                        &swap.sold_id,
+                        &swap.bought_id,
+                        &swap.tokens_sold,
+                        &swap.tokens_bought,
+                        &swap.buyer,
+                        false,
+                    );
+                } else if let Some(swap) =
+                    abi::pool::events::TokenExchangeUnderlying::match_and_decode(&log)
+                {
+                    extract_swap_event(
+                        &mut pool_events,
+                        &blk,
+                        trx,
+                        log,
+                        &pool,
+                        &pool_address,
+                        &swap.sold_id,
+                        &swap.bought_id,
+                        &swap.tokens_sold,
+                        &swap.tokens_bought,
+                        &swap.buyer,
+                        true,
+                    );
+                }
+            }
+        }
+    }
+    events.pool_events = pool_events;
+    Ok(events)
 }
 
 // TODO: There is a lot of code duplication here. This will be refactored in the future.

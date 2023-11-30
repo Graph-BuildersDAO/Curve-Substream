@@ -36,3 +36,49 @@ message Pool {
 message Pools {
   repeated Pool pools = 1;
 }
+
+message Events {
+  repeated PoolEvent pool_events = 1;
+
+  // TODO: Consider adding an ID to each type of PoolEvent.
+  //       For example, swaps have an ID of `swap-{hash.toHex}-{logIndex}`
+  //       See `createSwapTransaction` in `Swap.ts` for more details.
+  //       This could be a calculated field.         
+  message PoolEvent {
+    oneof type {
+      SwapEvent swap_event = 1;
+      DepositEvent deposit_event = 2;
+      WithdrawEvent withdraw_event = 3;
+    }
+    // Common fields
+    string transaction_hash = 4;
+    uint64 log_index = 5;
+    uint64 log_ordinal = 6;
+    string to_address = 7;
+    string from_address = 8;
+    uint64 timestamp = 9;
+    uint64 block_number = 10;
+    string pool_address = 11;
+
+    message SwapEvent {
+      TokenAmount token_in = 1;
+      TokenAmount token_out = 2;
+    }
+
+    message DepositEvent {
+        repeated TokenAmount input_tokens = 1;
+        TokenAmount output_token = 2;
+    }
+
+    message WithdrawEvent {
+        repeated TokenAmount input_tokens = 1;
+        TokenAmount output_token = 2; // Optional
+    }
+
+    message TokenAmount {
+        string token_address = 1;
+        string amount = 2;
+        // string amount_usd = 3;
+    }
+  }
+}

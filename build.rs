@@ -96,7 +96,8 @@ fn generate_network_config_from_json(path: &str, output_path: &str) -> Result<()
 
     // Generating constants for poolRegistry
     if let Some(pool_registry) = json["poolRegistry"].as_array() {
-        output.push_str("pub const CONTRACTS: [[u8; 20]; 5] = [");
+
+        output.push_str(format!("pub const POOL_REGISTRIES: [[u8; 20]; {}] = [", pool_registry.len()).as_str());
         for pool in pool_registry {
             let address = pool["address"]
                 .as_str()
