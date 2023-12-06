@@ -23,8 +23,12 @@ use crate::{
     },
 };
 
-pub fn format_address(address: &Vec<u8>) -> String {
+pub fn format_address_vec(address: &Vec<u8>) -> String {
     format!("0x{}", Hex::encode(address))
+}
+
+pub fn format_address_string(address: &String) -> String {
+    format!("0x{}", address)
 }
 
 pub fn is_base_pool_lp_token(lp_token_address: &Vec<u8>) -> bool {

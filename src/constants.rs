@@ -45,6 +45,22 @@ pub mod network {
     pub const XDAI: &'static str = "XDAI"; // aka Gnosis Chain
 }
 
+pub mod protocol_type {
+    pub const EXCHANGE: &'static str = "EXCHANGE";
+    pub const LENDING: &'static str = "LENDING";
+    pub const YIELD: &'static str = "YIELD";
+    pub const BRIDGE: &'static str = "BRIDGE";
+    pub const GENERIC: &'static str = "GENERIC";
+}
+
+pub mod protocol {
+    pub const NAME: &'static str = "Curve Finance";
+    pub const SLUG: &'static str = "curve-finance";
+    pub const SCHEMA_VERSION: &'static str = "1.3.0";
+    pub const SUBGRAPH_VERSION: &'static str = "1.0.0";
+    pub const METHODOLOGY_VERSION: &'static str = "1.0.0";
+}
+
 pub const CURVE_ADDRESS_PROVIDER: [u8; 20] = hex!("0000000022d53366457f9d5e68ec105046fc4383");
 pub const ETH_ADDRESS: [u8; 20] = hex!("EeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE");
 

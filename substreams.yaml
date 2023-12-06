@@ -57,4 +57,13 @@ modules:
     output:
       type: proto:curve.types.v1.Events
 
+  - name: graph_out
+    kind: map
+    inputs:
+      - source: sf.substreams.v1.Clock
+      - map: map_pools_created
+      - store: store_tokens
+    output:
+      type: proto:sf.substreams.sink.entity.v1.EntityChanges
+
 network: mainnet

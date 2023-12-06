@@ -4,14 +4,14 @@ use substreams_ethereum::NULL_ADDRESS;
 
 use crate::{
     abi::pool::functions, constants::MISSING_OLD_POOLS, network_config::POOL_REGISTRIES,
-    pb::curve::types::v1::Token, utils::format_address,
+    pb::curve::types::v1::Token, utils::format_address_vec,
 };
 
 use super::{registry::get_pool_underlying_coins_from_registry, token::create_token};
 
 pub fn get_lp_token_address_from_pool(pool_address: &Vec<u8>) -> Result<Vec<u8>, Error> {
     // If the pool is in the missing old pools list, return the lp token address from there.
-    if let Some(pool_config) = MISSING_OLD_POOLS.get(format_address(&pool_address).as_str()) {
+    if let Some(pool_config) = MISSING_OLD_POOLS.get(format_address_vec(&pool_address).as_str()) {
         return Ok(pool_config.lp_token.to_vec());
     }
 

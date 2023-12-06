@@ -65,6 +65,10 @@ pub struct Events {
 }
 /// Nested message and enum types in `Events`.
 pub mod events {
+    /// TODO: Consider adding an ID to each type of PoolEvent.
+    ///        For example, swaps have an ID of `swap-{hash.toHex}-{logIndex}`
+    ///        See `createSwapTransaction` in `Swap.ts` for more details.
+    ///        This could be a calculated field.         
     #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct PoolEvent {

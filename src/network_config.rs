@@ -1,7 +1,7 @@
 use hex_literal::hex;
 
 pub const NETWORK: &str = "mainnet";
-pub const DEFAULT_NETWORK: &str = "Network.MAINNET";
+pub const DEFAULT_NETWORK: &str = "MAINNET";
 pub const PRICE_CACHING: u64 = 6000;
 pub const POOL_INFO_CONTRACT: [u8; 20] = hex!("e64608E223433E8a03a1DaaeFD8Cb638C14B552C");
 pub const PROTOCOL_ADDRESS: [u8; 20] = hex!("0000000022D53366457F9d5E68Ec105046FC4383");

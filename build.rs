@@ -58,9 +58,13 @@ fn generate_network_config_from_json(path: &str, output_path: &str) -> Result<()
         output.push_str(&format!("pub const NETWORK: &str = \"{}\";\n", network));
     }
     if let Some(default_network) = json["defaultNetwork"].as_str() {
+        let network_substring = default_network
+            .find(".")
+            .map(|index| &default_network[index + 1..])
+            .unwrap();
         output.push_str(&format!(
             "pub const DEFAULT_NETWORK: &str = \"{}\";\n",
-            default_network
+            network_substring
         ));
     }
     if let Some(price_caching) = json["priceCaching"].as_u64() {
@@ -96,8 +100,13 @@ fn generate_network_config_from_json(path: &str, output_path: &str) -> Result<()
 
     // Generating constants for poolRegistry
     if let Some(pool_registry) = json["poolRegistry"].as_array() {
-
-        output.push_str(format!("pub const POOL_REGISTRIES: [[u8; 20]; {}] = [", pool_registry.len()).as_str());
+        output.push_str(
+            format!(
+                "pub const POOL_REGISTRIES: [[u8; 20]; {}] = [",
+                pool_registry.len()
+            )
+            .as_str(),
+        );
         for pool in pool_registry {
             let address = pool["address"]
                 .as_str()
