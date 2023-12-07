@@ -4,7 +4,9 @@ mod modules;
 mod network_config;
 mod pb;
 mod rpc;
+mod types;
 mod utils;
 
-substreams_ethereum::init!();
+pub use modules::*;
 
+substreams_ethereum::init!();

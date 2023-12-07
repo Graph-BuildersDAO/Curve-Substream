@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use num_traits::ToPrimitive;
-use substreams::{errors::Error, scalar::BigInt, Hex};
+use substreams::{errors::Error, scalar::{BigInt, BigDecimal}, Hex};
 use substreams_ethereum::{
     block_view,
     pb::eth::v2::{self as eth, Log, TransactionTrace},
@@ -29,6 +29,19 @@ pub fn format_address_vec(address: &Vec<u8>) -> String {
 
 pub fn format_address_string(address: &String) -> String {
     format!("0x{}", address)
+}
+
+// TODO: Sift through rest of codebase and replace &String's with &str as it is more idomatic.
+pub fn convert_enum_to_snake_case_prefix(snake_me: &str) -> String {
+    snake_me.to_lowercase().replace("_", "-") + "-"
+}
+
+pub fn convert_bigint_to_decimal(value: &BigInt, denominator: u64) -> Result<BigDecimal, Error> {
+    if *value == BigInt::from(0) {
+        Ok(BigDecimal::from(0))
+    } else {
+        Ok(BigDecimal::from(value.clone()) / BigDecimal::from(denominator))
+    }
 }
 
 pub fn is_base_pool_lp_token(lp_token_address: &Vec<u8>) -> bool {

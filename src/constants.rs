@@ -1,7 +1,7 @@
 use hex_literal::hex;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use substreams::scalar::BigInt;
+use substreams::scalar::{BigDecimal, BigInt};
 
 use crate::network_config::{PoolDetails, MISSING_OLD_POOLS_DATA};
 
@@ -53,6 +53,30 @@ pub mod protocol_type {
     pub const GENERIC: &'static str = "GENERIC";
 }
 
+pub enum LiquidityPoolFeeType {
+    FixedTradingFee,
+    TieredTradingFee,
+    DynamicTradingFee,
+    FixedLpFee,
+    DynamicLpFee,
+    FixedProtocolFee,
+    DynamicProtocolFee,
+}
+
+impl LiquidityPoolFeeType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            LiquidityPoolFeeType::FixedTradingFee => "FIXED_TRADING_FEE",
+            LiquidityPoolFeeType::TieredTradingFee => "TIERED_TRADING_FEE",
+            LiquidityPoolFeeType::DynamicTradingFee => "DYNAMIC_TRADING_FEE",
+            LiquidityPoolFeeType::FixedLpFee => "FIXED_LP_FEE",
+            LiquidityPoolFeeType::DynamicLpFee => "DYNAMIC_LP_FEE",
+            LiquidityPoolFeeType::FixedProtocolFee => "FIXED_PROTOCOL_FEE",
+            LiquidityPoolFeeType::DynamicProtocolFee => "DYNAMIC_PROTOCOL_FEE",
+        }
+    }
+}
+
 pub mod protocol {
     pub const NAME: &'static str = "Curve Finance";
     pub const SLUG: &'static str = "curve-finance";
@@ -66,4 +90,14 @@ pub const ETH_ADDRESS: [u8; 20] = hex!("EeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
 
 pub fn default_decimals() -> BigInt {
     BigInt::from(18)
+}
+
+pub const FEE_DENOMINATOR: u64 = 10000000000;
+
+pub fn default_pool_fee() -> BigInt {
+    BigInt::from(4000000)
+}
+
+pub fn default_admin_fee() -> BigInt {
+    BigInt::from(5000000000 as i64)
 }
