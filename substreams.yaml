@@ -21,7 +21,7 @@ binaries:
 modules:
   - name: map_pools_created
     kind: map
-    initialBlock: 11154794
+    initialBlock: 9456293
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:
@@ -47,5 +47,23 @@ modules:
     valueType: int64
     inputs:
       - map: map_pools_created
+
+  - name: map_extract_pool_events
+    kind: map
+    initialBlock: 9456293
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - store: store_pools_created
+    output:
+      type: proto:curve.types.v1.Events
+
+  - name: graph_out
+    kind: map
+    inputs:
+      - source: sf.substreams.v1.Clock
+      - map: map_pools_created
+      - store: store_tokens
+    output:
+      type: proto:sf.substreams.sink.entity.v1.EntityChanges
 
 network: mainnet
