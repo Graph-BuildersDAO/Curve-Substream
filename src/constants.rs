@@ -1,7 +1,7 @@
 use hex_literal::hex;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use substreams::scalar::{BigDecimal, BigInt};
+use substreams::scalar::BigInt;
 
 use crate::network_config::{PoolDetails, MISSING_OLD_POOLS_DATA};
 

@@ -414,24 +414,3 @@ fn add_missing_pool(blk: &eth::Block, pools: &mut Pools, pool: &PoolDetails) -> 
     substreams::log::info!("Added missing pool: {:?}", pool);
     Ok(())
 }
-
-
-// TODO: There is a lot of code duplication here. This will be refactored in the future.
-//       We can extract the common logic into a separate function called process_pool_event,
-//       which could look something like this:
-//
-// fn process_event<F>(event_data: &[u8], address: [u8; 20], blk: &eth::Block, process_logic: F) -> Option<Pool>
-// where
-//     F: Fn(&[u8], [u8; 20], &eth::Block) -> Result<Pool, Error>,
-// {
-//     match process_logic(event_data, address, blk) {
-//         Ok(pool) => Some(pool),
-//         Err(e) => {
-//             substreams::log::debug!("Error processing event: {:?}", e);
-//             None
-//         }
-//     }
-// }
-//
-//       Specific event handling logic can then be passed in as a closure.
-//       This may not be necessary, but it is something to consider.

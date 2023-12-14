@@ -98,7 +98,7 @@ pub fn get_token_minter(token_address: &Vec<u8>) -> Result<Vec<u8>, Error> {
     Ok(minter)
 }
 
-fn get_token_supply(token_address: &Vec<u8>) -> Result<BigInt, Error> {
+pub fn get_token_supply(token_address: &Vec<u8>) -> Result<BigInt, Error> {
     functions::TotalSupply {}
         .call(token_address.to_owned())
         .ok_or_else(|| {

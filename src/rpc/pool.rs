@@ -50,8 +50,6 @@ pub fn get_pool_coins(pool_address: &Vec<u8>) -> Result<Vec<Token>, Error> {
     let mut tokens: Vec<Token> = Vec::new();
     let mut idx = 0;
 
-    substreams::log::debug!(format!("pool is {:?}", Hex::encode(pool_address)));
-
     while idx >= 0 {
         let input_token_option = functions::Coins1 {
             i: BigInt::from(idx),
@@ -59,18 +57,12 @@ pub fn get_pool_coins(pool_address: &Vec<u8>) -> Result<Vec<Token>, Error> {
         .call(pool_address.clone());
 
         let input_token = match input_token_option {
-            Some(token) => {
-                substreams::log::debug!(format!("Token from Coins1 is {:?}", token));
-                token
-            }
+            Some(token) => token,
             None => functions::Coins2 {
                 arg0: BigInt::from(idx),
             }
             .call(pool_address.clone())
-            .unwrap_or_else(|| {
-                substreams::log::debug!(format!("Setting to NULL_ADDRESS"));
-                NULL_ADDRESS.to_vec()
-            }),
+            .unwrap_or_else(|| NULL_ADDRESS.to_vec()),
         };
 
         if input_token == NULL_ADDRESS.to_vec() {
