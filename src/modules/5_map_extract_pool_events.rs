@@ -17,6 +17,7 @@ use crate::{
         TokenExchangeUnderlying,
     },
     pb::curve::types::v1::{events::PoolEvent, Events, Pool},
+    store_key_manager::StoreKey,
     utils::{
         extract_deposit_event, extract_swap_event, extract_withdraw_event,
         extract_withdraw_one_event,
@@ -26,7 +27,7 @@ use crate::{
 #[substreams::handlers::map]
 pub fn map_extract_pool_events(
     blk: eth::Block,
-    pools: StoreGetProto<Pool>,
+    pools_store: StoreGetProto<Pool>,
 ) -> Result<Events, Error> {
     // Initialise events and its fields
     let mut events = Events::default();
@@ -35,7 +36,8 @@ pub fn map_extract_pool_events(
     // Check if event is coming from the pool contract
     for trx in blk.transactions() {
         for (log, _call) in trx.logs_with_calls() {
-            let pool_opt = pools.get_last(format!("pool:{}", Hex::encode(&log.address)));
+            let pool_address = Hex::encode(&log.address);
+            let pool_opt = pools_store.get_last(StoreKey::pool_key(&pool_address));
 
             if let Some(pool) = pool_opt {
                 if let Some(swap) = TokenExchange1::match_and_decode(&log) {

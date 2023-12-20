@@ -1,6 +1,6 @@
 use substreams::store::{StoreAdd, StoreAddInt64, StoreNew};
 
-use crate::pb::curve::types::v1::Pools;
+use crate::{pb::curve::types::v1::Pools, store_key_manager::StoreKey};
 
 #[substreams::handlers::store]
 pub fn store_tokens(pools: Pools, store: StoreAddInt64) {
@@ -15,7 +15,7 @@ pub fn store_tokens(pools: Pools, store: StoreAddInt64) {
         let mut keys: Vec<String> = Vec::new();
         keys.push(format!("token:{addr_output_token}"));
         for addr in addr_input_tokens {
-            keys.push(format!("token:{addr}"));
+            keys.push(StoreKey::token_key(&addr));
         }
 
         store.add_many(pool.log_ordinal, &keys, 1);

@@ -19,6 +19,7 @@ use crate::{
         Events, Pool, Pools, Token,
     },
     rpc::pool::get_pool_fees,
+    store_key_manager::StoreKey,
     types::{PoolFee, PoolFees},
     utils::{format_address_string, get_protocol_id},
 };
@@ -148,9 +149,7 @@ fn create_pool_token_entities(
     for token in pool_tokens {
         let token_address = token.address;
 
-        // TODO: We will be using store keys a lot. Could we make a module which handles everything related to the keys?
-        //       https://github.com/messari/substreams/blob/master/uniswap-v2/src/store_key.rs
-        match tokens_store.get_at(pool.log_ordinal, format!("token:{}", token_address)) {
+        match tokens_store.get_at(pool.log_ordinal, StoreKey::token_key(&token_address)) {
             Some(count) => {
                 // If count is one, this is the first time we have seen this token,
                 // and we only need to create a token entity once.
@@ -188,13 +187,15 @@ fn create_pool_events_entities(
         if let Some(event_type) = &event.r#type {
             match event_type {
                 Type::DepositEvent(deposit) => {
-                    if let Some(pool) = pools_store.get_last(format!("pool:{}", event.pool_address))
+                    if let Some(pool) =
+                        pools_store.get_last(StoreKey::pool_key(&event.pool_address))
                     {
                         create_deposit_entity(tables, &pool, &event, &deposit);
                     }
                 }
                 Type::WithdrawEvent(withdraw) => {
-                    if let Some(pool) = pools_store.get_last(format!("pool:{}", event.pool_address))
+                    if let Some(pool) =
+                        pools_store.get_last(StoreKey::pool_key(&event.pool_address))
                     {
                         create_withdraw_entity(tables, &pool, &event, &withdraw);
                     }
