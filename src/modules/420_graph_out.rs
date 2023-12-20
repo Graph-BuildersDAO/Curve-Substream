@@ -9,6 +9,7 @@ use substreams::{
 use substreams_entity_change::{pb::entity::EntityChanges, tables::Tables};
 
 use crate::{
+    common::{format, utils},
     constants,
     network_config::DEFAULT_NETWORK,
     pb::curve::types::v1::{
@@ -21,7 +22,6 @@ use crate::{
     rpc::pool::get_pool_fees,
     store_key_manager::StoreKey,
     types::{PoolFee, PoolFees},
-    utils::{format_address_string, get_protocol_id},
 };
 
 // TODO: If this module gets too bulky, consider following an approach similar to Uniswap V2 SPS:
@@ -57,7 +57,7 @@ fn create_protocol_entity(tables: &mut Tables, clock: &Clock) {
     // TODO: We should pass in the start block once we provide multi-network support.
     if clock.number.eq(&9456293) {
         tables
-            .create_row("DexAmmProtocol", get_protocol_id())
+            .create_row("DexAmmProtocol", utils::get_protocol_id())
             .set("name", constants::protocol::NAME)
             .set("slug", constants::protocol::SLUG)
             .set("schemaVersion", constants::protocol::SCHEMA_VERSION)
@@ -84,7 +84,7 @@ fn create_pool_entity(tables: &mut Tables, pool: &Pool, pool_fees: &PoolFees) {
     let input_token_addresses: Vec<String> = pool
         .input_tokens
         .iter()
-        .map(|t| format_address_string(&t.address))
+        .map(|t| format::format_address_string(&t.address))
         .collect();
 
     // There is no liquidity when a Pool is first deployed, so we set the balances and weights to zero.
@@ -92,15 +92,18 @@ fn create_pool_entity(tables: &mut Tables, pool: &Pool, pool_fees: &PoolFees) {
     let input_token_weights = vec![BigDecimal::zero(); input_token_addresses.len()];
 
     tables
-        .create_row("LiquidityPool", format_address_string(&pool.address))
-        .set("protocol", get_protocol_id())
+        .create_row(
+            "LiquidityPool",
+            format::format_address_string(&pool.address),
+        )
+        .set("protocol", utils::get_protocol_id())
         .set("name", &pool.name)
         .set("symbol", &pool.symbol)
         .set("inputTokens", input_token_addresses)
         .set("_inputTokensOrdered", &pool.input_tokens_ordered)
         .set(
             "outputToken",
-            format_address_string(&pool.output_token_ref().address),
+            format::format_address_string(&pool.output_token_ref().address),
         )
         .set("fees", pool_fees.string_ids())
         .set("isSingleSided", false)
@@ -121,7 +124,7 @@ fn create_pool_entity(tables: &mut Tables, pool: &Pool, pool_fees: &PoolFees) {
         .set("stakedOutputTokenAmount", BigInt::zero())
         .set(
             "_registryAddress",
-            format_address_string(&pool.registry_address),
+            format::format_address_string(&pool.registry_address),
         )
         .set("_isMetapool", &pool.is_metapool);
 }
@@ -155,7 +158,7 @@ fn create_pool_token_entities(
                 // and we only need to create a token entity once.
                 if count.eq(&1) {
                     tables
-                        .create_row("Token", format_address_string(&token_address))
+                        .create_row("Token", format::format_address_string(&token_address))
                         .set("name", token.name)
                         .set("symbol", token.symbol)
                         .set("decimals", token.decimals as i32)
@@ -220,7 +223,7 @@ fn create_deposit_entity(
         .iter()
         .map(|t| {
             (
-                format_address_string(&t.token_address),
+                format::format_address_string(&t.token_address),
                 BigInt::from(t.amount.parse::<u64>().unwrap_or_default()),
             )
         })
@@ -229,22 +232,25 @@ fn create_deposit_entity(
         BigInt::try_from(deposit.output_token.as_ref().unwrap().clone().amount).unwrap();
     tables
         .create_row("Deposit", key)
-        .set("hash", format_address_string(&event.transaction_hash))
+        .set(
+            "hash",
+            format::format_address_string(&event.transaction_hash),
+        )
         .set("logIndex", event.log_index as i32)
-        .set("protocol", get_protocol_id())
-        .set("to", format_address_string(&event.to_address))
-        .set("from", format_address_string(&event.from_address))
+        .set("protocol", utils::get_protocol_id())
+        .set("to", format::format_address_string(&event.to_address))
+        .set("from", format::format_address_string(&event.from_address))
         .set("blockNumber", BigInt::from(event.block_number))
         .set("timestamp", BigInt::from(event.timestamp))
         .set("inputTokens", input_tokens)
         .set(
             "outputToken",
-            format_address_string(&pool.output_token_ref().address),
+            format::format_address_string(&pool.output_token_ref().address),
         )
         .set("inputTokenAmounts", input_token_amounts)
         .set("outputTokenAmount", BigInt::from(output_token_amount))
         .set("amountUSD", BigDecimal::zero())
-        .set("pool", format_address_string(&event.pool_address));
+        .set("pool", format::format_address_string(&event.pool_address));
 }
 
 fn create_withdraw_entity(
@@ -259,7 +265,7 @@ fn create_withdraw_entity(
         .iter()
         .map(|t| {
             (
-                format_address_string(&t.token_address),
+                format::format_address_string(&t.token_address),
                 BigInt::from(t.amount.parse::<u64>().unwrap_or_default()),
             )
         })
@@ -268,38 +274,44 @@ fn create_withdraw_entity(
         BigInt::try_from(withdraw.output_token.as_ref().unwrap().amount.clone()).unwrap();
     tables
         .create_row("Withdraw", key)
-        .set("hash", format_address_string(&event.transaction_hash))
+        .set(
+            "hash",
+            format::format_address_string(&event.transaction_hash),
+        )
         .set("logIndex", event.log_index as i32)
-        .set("protocol", get_protocol_id())
-        .set("to", format_address_string(&event.to_address))
-        .set("from", format_address_string(&event.from_address))
+        .set("protocol", utils::get_protocol_id())
+        .set("to", format::format_address_string(&event.to_address))
+        .set("from", format::format_address_string(&event.from_address))
         .set("blockNumber", BigInt::from(event.block_number))
         .set("timestamp", BigInt::from(event.timestamp))
         .set("inputTokens", input_tokens)
         .set(
             "outputToken",
-            format_address_string(&pool.output_token_ref().address),
+            format::format_address_string(&pool.output_token_ref().address),
         )
         .set("inputTokenAmounts", input_token_amounts)
         .set("outputTokenAmount", BigInt::from(output_token_amount))
         .set("amountUSD", BigDecimal::zero())
-        .set("pool", format_address_string(&event.pool_address));
+        .set("pool", format::format_address_string(&event.pool_address));
 }
 
 fn create_swap_entity(tables: &mut Tables, event: &PoolEvent, swap: &SwapEvent) {
     let key = format!("swap-0x{}-{}", event.transaction_hash, event.log_index);
     tables
         .create_row("Swap", key)
-        .set("hash", format_address_string(&event.transaction_hash))
+        .set(
+            "hash",
+            format::format_address_string(&event.transaction_hash),
+        )
         .set("logIndex", event.log_index as i32)
-        .set("protocol", get_protocol_id())
-        .set("to", format_address_string(&event.to_address))
-        .set("from", format_address_string(&event.from_address))
+        .set("protocol", utils::get_protocol_id())
+        .set("to", format::format_address_string(&event.to_address))
+        .set("from", format::format_address_string(&event.from_address))
         .set("blockNumber", BigInt::from(event.block_number))
         .set("timestamp", BigInt::from(event.timestamp))
         .set(
             "tokenIn",
-            format_address_string(&swap.token_in.as_ref().unwrap().token_address),
+            format::format_address_string(&swap.token_in.as_ref().unwrap().token_address),
         )
         .set(
             "amountIn",
@@ -315,7 +327,7 @@ fn create_swap_entity(tables: &mut Tables, event: &PoolEvent, swap: &SwapEvent) 
         .set("amountInUSD", BigDecimal::zero())
         .set(
             "tokenOut",
-            format_address_string(&swap.token_out.as_ref().unwrap().token_address),
+            format::format_address_string(&swap.token_out.as_ref().unwrap().token_address),
         )
         .set(
             "amountOut",
@@ -329,5 +341,5 @@ fn create_swap_entity(tables: &mut Tables, event: &PoolEvent, swap: &SwapEvent) 
             ),
         )
         .set("amountOutUSD", BigDecimal::zero())
-        .set("pool", format_address_string(&event.pool_address));
+        .set("pool", format::format_address_string(&event.pool_address));
 }

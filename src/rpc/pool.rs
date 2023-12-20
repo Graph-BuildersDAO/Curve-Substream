@@ -8,11 +8,14 @@ use substreams_ethereum::{rpc::RpcBatch, NULL_ADDRESS};
 
 use crate::{
     abi::pool::functions,
+    common::{
+        conversion::{convert_bigint_to_decimal, convert_enum_to_snake_case_prefix},
+        format::format_address_vec,
+    },
     constants::{self, LiquidityPoolFeeType, FEE_DENOMINATOR, MISSING_OLD_POOLS},
     network_config::POOL_REGISTRIES,
     pb::curve::types::v1::Token,
     types::{PoolFee, PoolFees},
-    utils::{convert_bigint_to_decimal, convert_enum_to_snake_case_prefix, format_address_vec},
 };
 
 use super::{
