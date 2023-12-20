@@ -62,6 +62,8 @@ modules:
     inputs:
       - source: sf.substreams.v1.Clock
       - map: map_pools_created
+      - map: map_extract_pool_events
+      - store: store_pools_created
       - store: store_tokens
     output:
       type: proto:sf.substreams.sink.entity.v1.EntityChanges

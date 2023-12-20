@@ -50,12 +50,15 @@ pub fn get_lp_token_address_from_registry(
     Ok(address)
 }
 
+// TODO: Figure out whether we should use Vec<u8> or &[u8] repo wide.
 pub fn get_pool_underlying_coins_from_registry(
     pool_address: &Vec<u8>,
     registry_address: &Vec<u8>,
 ) -> Result<[Vec<u8>; 8], Error> {
-    let coins_option = registry::functions::GetUnderlyingCoins{u_pool: pool_address.clone()}
-        .call(registry_address.clone());
+    let coins_option = registry::functions::GetUnderlyingCoins {
+        u_pool: pool_address.clone(),
+    }
+    .call(registry_address.clone());
 
     let coins = coins_option.ok_or_else(|| {
         anyhow!(

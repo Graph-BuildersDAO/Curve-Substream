@@ -4,8 +4,9 @@ mod modules;
 mod network_config;
 mod pb;
 mod rpc;
+mod store_key_manager;
 mod types;
-mod utils;
+mod common;
 
 pub use modules::*;
 

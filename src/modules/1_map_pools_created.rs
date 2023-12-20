@@ -1,6 +1,7 @@
 use anyhow::anyhow;
 use substreams::{errors::Error, Hex};
 use substreams_ethereum::{
+    block_view,
     pb::eth::v2::{self as eth},
     NULL_ADDRESS,
 };
@@ -10,10 +11,10 @@ use crate::{
         BasePoolAdded, CryptoPoolDeployed, MetaPoolDeployed, PlainPoolDeployed, PoolAdded1,
         PoolAdded2,
     },
+    common::{event_extraction, utils},
     network_config::{PoolDetails, MISSING_OLD_POOLS_DATA, POOL_REGISTRIES},
-    pb::curve::types::v1::Pools,
+    pb::curve::types::v1::{Pool, Pools, Token},
     rpc::{pool, registry, token},
-    utils,
 };
 
 #[substreams::handlers::map]
@@ -85,14 +86,14 @@ fn map_pool_added_1_events(
                     }
                 };
                 let (input_tokens, input_tokens_ordered) =
-                    match utils::get_and_sort_input_tokens(&event.pool) {
+                    match get_and_sort_input_tokens(&event.pool) {
                         Ok(result) => result,
                         Err(e) => {
                             substreams::log::debug!("Error in `map_pool_added_1_events`: {:?}", e);
                             return None;
                         }
                     };
-                Some(utils::create_pool(
+                Some(create_pool(
                     Hex::encode(&event.pool),
                     Hex::encode(address),
                     lp_token,
@@ -135,7 +136,7 @@ fn map_pool_added_2_events(
                     }
                 };
                 let (input_tokens, input_tokens_ordered) =
-                    match utils::get_and_sort_input_tokens(&event.pool) {
+                    match get_and_sort_input_tokens(&event.pool) {
                         Ok(result) => result,
                         Err(e) => {
                             substreams::log::debug!("Error in `map_pool_added_2_events`: {:?}", e);
@@ -143,7 +144,7 @@ fn map_pool_added_2_events(
                         }
                     };
 
-                Some(utils::create_pool(
+                Some(create_pool(
                     Hex::encode(&event.pool),
                     Hex::encode(address),
                     lp_token,
@@ -184,7 +185,7 @@ fn map_base_pool_added_events(
                     }
                 };
                 let (input_tokens, input_tokens_ordered) =
-                    match utils::get_and_sort_input_tokens(&event.base_pool) {
+                    match get_and_sort_input_tokens(&event.base_pool) {
                         Ok(result) => result,
                         Err(e) => {
                             substreams::log::debug!(
@@ -194,7 +195,7 @@ fn map_base_pool_added_events(
                             return None;
                         }
                     };
-                Some(utils::create_pool(
+                Some(create_pool(
                     Hex::encode(&event.base_pool),
                     Hex::encode(address),
                     lp_token,
@@ -241,7 +242,7 @@ fn map_crypto_pool_deployed_events(
                     }
                 };
                 let (input_tokens, input_tokens_ordered) =
-                    match utils::get_and_sort_input_tokens(&pool_address) {
+                    match get_and_sort_input_tokens(&pool_address) {
                         Ok(result) => result,
                         Err(e) => {
                             substreams::log::debug!(
@@ -251,7 +252,7 @@ fn map_crypto_pool_deployed_events(
                             return None;
                         }
                     };
-                Some(utils::create_pool(
+                Some(create_pool(
                     Hex::encode(&pool_address),
                     Hex::encode(address),
                     lp_token,
@@ -276,7 +277,7 @@ fn map_plain_pool_deployed_events(
         &mut blk
             .events::<PlainPoolDeployed>(&[&address])
             .filter_map(|(_event, log)| {
-                let transfer = match utils::extract_transfer_event(&log) {
+                let transfer = match event_extraction::extract_transfer_event(&log) {
                     Ok(event) => event,
                     Err(e) => {
                         substreams::log::debug!(
@@ -297,7 +298,7 @@ fn map_plain_pool_deployed_events(
                     }
                 };
                 let (input_tokens, input_tokens_ordered) =
-                    match utils::get_and_sort_input_tokens(&transfer.receiver) {
+                    match get_and_sort_input_tokens(&transfer.receiver) {
                         Ok(result) => result,
                         Err(e) => {
                             substreams::log::debug!(
@@ -307,7 +308,7 @@ fn map_plain_pool_deployed_events(
                             return None;
                         }
                     };
-                Some(utils::create_pool(
+                Some(create_pool(
                     Hex::encode(&transfer.receiver),
                     Hex::encode(address),
                     lp_token,
@@ -332,7 +333,7 @@ fn map_meta_pool_deployed_events(
         &mut blk
             .events::<MetaPoolDeployed>(&[&address])
             .filter_map(|(_event, log)| {
-                let transfer = match utils::extract_transfer_event(&log) {
+                let transfer = match event_extraction::extract_transfer_event(&log) {
                     Ok(event) => event,
                     Err(e) => {
                         substreams::log::debug!(
@@ -353,7 +354,7 @@ fn map_meta_pool_deployed_events(
                     }
                 };
                 let (input_tokens, input_tokens_ordered) =
-                    match utils::get_and_sort_input_tokens(&transfer.receiver) {
+                    match get_and_sort_input_tokens(&transfer.receiver) {
                         Ok(result) => result,
                         Err(e) => {
                             substreams::log::debug!(
@@ -363,7 +364,7 @@ fn map_meta_pool_deployed_events(
                             return None;
                         }
                     };
-                Some(utils::create_pool(
+                Some(create_pool(
                     Hex::encode(&transfer.receiver),
                     Hex::encode(address),
                     lp_token,
@@ -387,8 +388,7 @@ fn add_missing_pool(blk: &eth::Block, pools: &mut Pools, pool: &PoolDetails) -> 
             return Err(anyhow!("Error in `add_missing_pools`: {:?}", e));
         }
     };
-    let (input_tokens, input_tokens_ordered) = match utils::get_and_sort_input_tokens(&pool_address)
-    {
+    let (input_tokens, input_tokens_ordered) = match get_and_sort_input_tokens(&pool_address) {
         Ok(result) => result,
         Err(e) => {
             return Err(anyhow!("Error in `add_missing_pools`: {:?}", e));
@@ -400,7 +400,7 @@ fn add_missing_pool(blk: &eth::Block, pools: &mut Pools, pool: &PoolDetails) -> 
         .map(|tx| tx.hash.clone())
         .unwrap_or_else(|| NULL_ADDRESS.to_vec());
 
-    pools.pools.push(utils::create_missing_pool(
+    pools.pools.push(create_missing_pool(
         Hex::encode(pool_address),
         Hex::encode(NULL_ADDRESS.to_vec()),
         lp_token,
@@ -415,23 +415,68 @@ fn add_missing_pool(blk: &eth::Block, pools: &mut Pools, pool: &PoolDetails) -> 
     Ok(())
 }
 
+fn create_pool(
+    address: String,
+    registry_address: String,
+    lp_token: Token,
+    input_tokens_ordered: Vec<String>,
+    input_tokens: Vec<Token>,
+    is_metapool: bool,
+    log: &block_view::LogView,
+    blk: &eth::Block,
+) -> Pool {
+    Pool {
+        address,
+        name: lp_token.name.clone(),
+        symbol: lp_token.symbol.clone(),
+        created_at_timestamp: blk.timestamp_seconds(),
+        created_at_block_number: blk.number,
+        log_ordinal: log.ordinal(),
+        transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
+        registry_address,
+        output_token: Some(lp_token),
+        input_tokens_ordered,
+        input_tokens,
+        is_metapool,
+    }
+}
 
-// TODO: There is a lot of code duplication here. This will be refactored in the future.
-//       We can extract the common logic into a separate function called process_pool_event,
-//       which could look something like this:
-//
-// fn process_event<F>(event_data: &[u8], address: [u8; 20], blk: &eth::Block, process_logic: F) -> Option<Pool>
-// where
-//     F: Fn(&[u8], [u8; 20], &eth::Block) -> Result<Pool, Error>,
-// {
-//     match process_logic(event_data, address, blk) {
-//         Ok(pool) => Some(pool),
-//         Err(e) => {
-//             substreams::log::debug!("Error processing event: {:?}", e);
-//             None
-//         }
-//     }
-// }
-//
-//       Specific event handling logic can then be passed in as a closure.
-//       This may not be necessary, but it is something to consider.
+fn create_missing_pool(
+    address: String,
+    registry_address: String,
+    lp_token: Token,
+    input_tokens_ordered: Vec<String>,
+    input_tokens: Vec<Token>,
+    is_metapool: bool,
+    blk: &eth::Block,
+    hash: Vec<u8>,
+) -> Pool {
+    Pool {
+        address,
+        name: lp_token.name.clone(),
+        symbol: lp_token.symbol.clone(),
+        created_at_timestamp: blk.timestamp_seconds(),
+        created_at_block_number: blk.number,
+        log_ordinal: 0,
+        transaction_id: Hex::encode(hash),
+        registry_address,
+        output_token: Some(lp_token),
+        input_tokens_ordered,
+        input_tokens,
+        is_metapool,
+    }
+}
+
+// This follows the logic from the original subgraph.
+// An array of token addresses, and a sorted array of token structs is required.
+fn get_and_sort_input_tokens(pool_address: &Vec<u8>) -> Result<(Vec<Token>, Vec<String>), Error> {
+    let mut input_tokens = pool::get_pool_coins(&pool_address)?;
+    let input_tokens_ordered = input_tokens
+        .clone()
+        .into_iter()
+        .map(|token| token.address)
+        .collect();
+    input_tokens.sort_by(|a, b| a.address.cmp(&b.address));
+
+    Ok((input_tokens, input_tokens_ordered))
+}

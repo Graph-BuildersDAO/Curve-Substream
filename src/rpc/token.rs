@@ -4,10 +4,10 @@ use substreams_ethereum::rpc::RpcBatch;
 
 use crate::{
     abi::erc20::functions,
+    common::utils,
     constants,
     pb::curve::types::v1::Token,
     rpc::{common::decode_rpc_response, registry::is_main_registry_pool},
-    utils::is_base_pool_lp_token,
 };
 
 pub fn create_token(token_address: &Vec<u8>, pool_address: &Vec<u8>) -> Result<Token, Error> {
@@ -81,7 +81,7 @@ pub fn create_token(token_address: &Vec<u8>, pool_address: &Vec<u8>) -> Result<T
         symbol,
         decimals: decimals.to_u64(),
         total_supply: total_supply.to_string(),
-        is_base_pool_lp_token: is_base_pool_lp_token(&token_address)
+        is_base_pool_lp_token: utils::is_base_pool_lp_token(&token_address)
             || is_main_registry_pool(&pool_address),
     });
 }
@@ -98,7 +98,7 @@ pub fn get_token_minter(token_address: &Vec<u8>) -> Result<Vec<u8>, Error> {
     Ok(minter)
 }
 
-fn get_token_supply(token_address: &Vec<u8>) -> Result<BigInt, Error> {
+pub fn get_token_supply(token_address: &Vec<u8>) -> Result<BigInt, Error> {
     functions::TotalSupply {}
         .call(token_address.to_owned())
         .ok_or_else(|| {

@@ -47,8 +47,6 @@ pub struct Pool {
     #[prost(message, repeated, tag="11")]
     pub input_tokens: ::prost::alloc::vec::Vec<Token>,
     #[prost(bool, tag="12")]
-    pub is_single_sided: bool,
-    #[prost(bool, tag="13")]
     pub is_metapool: bool,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -65,29 +63,27 @@ pub struct Events {
 }
 /// Nested message and enum types in `Events`.
 pub mod events {
-    /// TODO: Consider adding an ID to each type of PoolEvent.
-    ///        For example, swaps have an ID of `swap-{hash.toHex}-{logIndex}`
-    ///        See `createSwapTransaction` in `Swap.ts` for more details.
-    ///        This could be a calculated field.         
     #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct PoolEvent {
         /// Common fields
         #[prost(string, tag="4")]
         pub transaction_hash: ::prost::alloc::string::String,
-        #[prost(uint64, tag="5")]
-        pub log_index: u64,
-        #[prost(uint64, tag="6")]
+        #[prost(uint32, tag="5")]
+        pub tx_index: u32,
+        #[prost(uint32, tag="6")]
+        pub log_index: u32,
+        #[prost(uint64, tag="7")]
         pub log_ordinal: u64,
-        #[prost(string, tag="7")]
-        pub to_address: ::prost::alloc::string::String,
         #[prost(string, tag="8")]
+        pub to_address: ::prost::alloc::string::String,
+        #[prost(string, tag="9")]
         pub from_address: ::prost::alloc::string::String,
-        #[prost(uint64, tag="9")]
-        pub timestamp: u64,
         #[prost(uint64, tag="10")]
+        pub timestamp: u64,
+        #[prost(uint64, tag="11")]
         pub block_number: u64,
-        #[prost(string, tag="11")]
+        #[prost(string, tag="12")]
         pub pool_address: ::prost::alloc::string::String,
         #[prost(oneof="pool_event::Type", tags="1, 2, 3")]
         pub r#type: ::core::option::Option<pool_event::Type>,
@@ -109,22 +105,25 @@ pub mod events {
             pub input_tokens: ::prost::alloc::vec::Vec<TokenAmount>,
             #[prost(message, optional, tag="2")]
             pub output_token: ::core::option::Option<TokenAmount>,
+            #[prost(string, repeated, tag="3")]
+            pub fees: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
         }
         #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
         pub struct WithdrawEvent {
             #[prost(message, repeated, tag="1")]
             pub input_tokens: ::prost::alloc::vec::Vec<TokenAmount>,
-            /// Optional
             #[prost(message, optional, tag="2")]
             pub output_token: ::core::option::Option<TokenAmount>,
+            #[prost(string, repeated, tag="3")]
+            pub fees: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
         }
         #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
         pub struct TokenAmount {
             #[prost(string, tag="1")]
             pub token_address: ::prost::alloc::string::String,
-            /// string amount_usd = 3;
+            /// BigInt in token's native amount
             #[prost(string, tag="2")]
             pub amount: ::prost::alloc::string::String,
         }

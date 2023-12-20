@@ -370,3 +370,177 @@ type DexAmmProtocol implements Protocol @entity @regularPolling {
 
   _poolIds: [String!]!
 }
+
+
+##################################
+##### Transaction-Level Data #####
+##################################
+
+"""
+An event is any user action that occurs in a protocol. Generally, they are Ethereum events
+emitted by a function in the smart contracts, stored in transaction receipts as event logs.
+However, some user actions of interest are function calls that don't emit events. For example,
+the deposit and withdraw functions in Yearn do not emit any events. In our subgraphs, we still
+store them as events, although they are not technically Ethereum events emitted by smart
+contracts.
+"""
+interface Event {
+  " { Event type }-{ Transaction hash }-{ Log index } "
+  id: ID!
+
+  " Transaction hash of the transaction that emitted this event "
+  hash: String!
+
+  " Event log index. For transactions that don't emit event, create arbitrary index starting from 0 "
+  logIndex: Int!
+
+  " The protocol this transaction belongs to "
+  protocol: DexAmmProtocol!
+
+  " Address that received the tokens "
+  to: String!
+
+  " Address that sent the tokens "
+  from: String!
+
+  " Block number of this event "
+  blockNumber: BigInt!
+
+  " Timestamp of this event "
+  timestamp: BigInt!
+}
+
+type Deposit implements Event @entity @transaction {
+  " deposit-{ Transaction hash }-{ Log index } "
+  id: ID!
+
+  " Transaction hash of the transaction that emitted this event "
+  hash: String!
+
+  " Event log index. For transactions that don't emit event, create arbitrary index starting from 0 "
+  logIndex: Int!
+
+  " The protocol this transaction belongs to "
+  protocol: DexAmmProtocol!
+
+  " Address that received the tokens "
+  to: String!
+
+  " Address that sent the tokens "
+  from: String!
+
+  " Block number of this event "
+  blockNumber: BigInt!
+
+  " Timestamp of this event "
+  timestamp: BigInt!
+
+  " Input tokens of the pool. E.g. WETH and USDC to a WETH-USDC pool "
+  inputTokens: [Token!]!
+
+  " Output token of the pool. E.g. the UNI-LP token "
+  outputToken: Token
+
+  " Amount of input tokens in the token's native unit "
+  inputTokenAmounts: [BigInt!]!
+
+  " Amount of output tokens in the token's native unit "
+  outputTokenAmount: BigInt
+
+  " USD-normalized value of the transaction of the underlying (e.g. sum of tokens deposited into a pool) "
+  amountUSD: BigDecimal!
+
+  " The pool involving this transaction "
+  pool: LiquidityPool!
+}
+
+type Withdraw implements Event @entity @transaction {
+  " withdraw-{ Transaction hash }-{ Log index }"
+  id: ID!
+
+  " Transaction hash of the transaction that emitted this event "
+  hash: String!
+
+  " Event log index. For transactions that don't emit event, create arbitrary index starting from 0 "
+  logIndex: Int!
+
+  " The protocol this transaction belongs to "
+  protocol: DexAmmProtocol!
+
+  " Address that received the tokens "
+  to: String!
+
+  " Address that sent the tokens "
+  from: String!
+
+  " Block number of this event "
+  blockNumber: BigInt!
+
+  " Timestamp of this event "
+  timestamp: BigInt!
+
+  " Input tokens of the pool (not input tokens of the event/transaction). E.g. WETH and USDC from a WETH-USDC pool "
+  inputTokens: [Token!]!
+
+  " Output token of the pool (not output token of the event/transaction). E.g. the UNI-LP token "
+  outputToken: Token
+
+  " Amount of input tokens in the token's native unit "
+  inputTokenAmounts: [BigInt!]!
+
+  " Amount of output tokens in the token's native unit "
+  outputTokenAmount: BigInt
+
+  " USD-normalized value of the transaction of the underlying (e.g. sum of tokens withdrawn from a pool) "
+  amountUSD: BigDecimal!
+
+  " The pool involving this transaction "
+  pool: LiquidityPool!
+}
+
+type Swap implements Event @entity @transaction {
+  " swap-{ Transaction hash }-{ Log index } "
+  id: ID!
+
+  " Transaction hash of the transaction that emitted this event "
+  hash: String!
+
+  " Event log index. For transactions that don't emit event, create arbitrary index starting from 0 "
+  logIndex: Int!
+
+  " The protocol this transaction belongs to "
+  protocol: DexAmmProtocol!
+
+  " Address that received the tokens "
+  to: String!
+
+  " Address that sent the tokens "
+  from: String!
+
+  " Block number of this event "
+  blockNumber: BigInt!
+
+  " Timestamp of this event "
+  timestamp: BigInt!
+
+  " Token deposited into pool "
+  tokenIn: Token!
+
+  " Amount of token deposited into pool in native units "
+  amountIn: BigInt!
+
+  " Amount of token deposited into pool in USD "
+  amountInUSD: BigDecimal!
+
+  " Token withdrawn from pool "
+  tokenOut: Token!
+
+  " Amount of token withdrawn from pool in native units "
+  amountOut: BigInt!
+
+  " Amount of token withdrawn from pool in USD "
+  amountOutUSD: BigDecimal!
+
+  " The pool involving this transaction "
+  pool: LiquidityPool!
+}
