@@ -22,7 +22,7 @@ use crate::{
             TokenExchange2, TokenExchangeUnderlying,
         },
     },
-    common::event_extraction,
+    common::{event_extraction, format::format_address_vec},
     constants::network,
     network_config,
     pb::curve::types::v1::{
@@ -378,7 +378,7 @@ fn extract_deposit_event(
     let output_token_transfer =
         event_extraction::extract_specific_transfer_event(&trx, &NULL_ADDRESS.to_vec(), &provider);
 
-    // This is the amount of output token (LP token) transferred to the liqudiity provider
+    // This is the amount of output token (LP token) transferred to the liquidity provider
     let output_token_amount = match output_token_transfer {
         Ok(transfer) => transfer.value,
         Err(e) => {
@@ -565,7 +565,6 @@ fn get_underlying_coin_addresses(
             if !coins.is_empty() {
                 // Shadowing as we need to mutate the value if it meets below conditions
                 let mut in_index = in_index;
-
                 // Same logic as the original subgraph
                 if pool.is_metapool
                     && bought_id.clone() == BigInt::zero()
@@ -578,8 +577,8 @@ fn get_underlying_coin_addresses(
                     in_index = coins.len() - 1;
                 }
                 Ok((
-                    String::from_utf8(coins[in_index].clone()).unwrap(),
-                    String::from_utf8(coins[out_index].clone()).unwrap(),
+                    format_address_vec(&coins[in_index]),
+                    format_address_vec(&coins[out_index]),
                 ))
             } else {
                 Err(anyhow!("Error in `get_underlying_coin_addresses`: No underlying coins found for pool {}.", Hex::encode(&pool_address)))

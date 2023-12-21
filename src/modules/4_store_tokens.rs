@@ -13,7 +13,7 @@ pub fn store_tokens(pools: Pools, store: StoreAddInt64) {
             .collect();
 
         let mut keys: Vec<String> = Vec::new();
-        keys.push(format!("token:{addr_output_token}"));
+        keys.push(StoreKey::token_key(&addr_output_token));
         for addr in addr_input_tokens {
             keys.push(StoreKey::token_key(&addr));
         }
