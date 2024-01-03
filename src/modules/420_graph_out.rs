@@ -3,13 +3,16 @@ use substreams::{
     errors::Error,
     pb::substreams::Clock,
     scalar::{BigDecimal, BigInt},
-    store::{StoreGet, StoreGetInt64, StoreGetProto},
+    store::{StoreGet, StoreGetBigInt, StoreGetInt64, StoreGetProto},
     Hex,
 };
 use substreams_entity_change::{pb::entity::EntityChanges, tables::Tables};
 
 use crate::{
-    common::{format, utils},
+    common::{
+        format::{self, format_address_string},
+        utils,
+    },
     constants,
     network_config::DEFAULT_NETWORK,
     pb::curve::types::v1::{
@@ -33,6 +36,8 @@ pub fn graph_out(
     events: Events,
     pools_store: StoreGetProto<Pool>,
     tokens_store: StoreGetInt64,
+    output_token_supply_store: StoreGetBigInt,
+    input_token_balances_store: StoreGetBigInt,
 ) -> Result<EntityChanges, Error> {
     let mut tables = Tables::new();
     create_protocol_entity(&mut tables, &clock);
@@ -48,7 +53,13 @@ pub fn graph_out(
     }
 
     // Create entities related to Pool events
-    create_pool_events_entities(&mut tables, events.pool_events, &pools_store);
+    create_pool_events_entities(
+        &mut tables,
+        events.pool_events,
+        &pools_store,
+        &output_token_supply_store,
+        &input_token_balances_store,
+    );
 
     Ok(tables.to_entity_changes())
 }
@@ -86,6 +97,11 @@ fn create_pool_entity(tables: &mut Tables, pool: &Pool, pool_fees: &PoolFees) {
         .iter()
         .map(|t| format::format_address_string(&t.address))
         .collect();
+    let input_tokens_ordered: Vec<String> = pool
+        .input_tokens_ordered
+        .iter()
+        .map(|t| format_address_string(&t))
+        .collect();
 
     // There is no liquidity when a Pool is first deployed, so we set the balances and weights to zero.
     let input_token_balances = vec![BigInt::zero(); input_token_addresses.len()];
@@ -100,7 +116,7 @@ fn create_pool_entity(tables: &mut Tables, pool: &Pool, pool_fees: &PoolFees) {
         .set("name", &pool.name)
         .set("symbol", &pool.symbol)
         .set("inputTokens", input_token_addresses)
-        .set("_inputTokensOrdered", &pool.input_tokens_ordered)
+        .set("_inputTokensOrdered", input_tokens_ordered)
         .set(
             "outputToken",
             format::format_address_string(&pool.output_token_ref().address),
@@ -185,6 +201,8 @@ fn create_pool_events_entities(
     tables: &mut Tables,
     pool_events: Vec<PoolEvent>,
     pools_store: &StoreGetProto<Pool>,
+    output_token_supply_store: &StoreGetBigInt,
+    input_token_balances_store: &StoreGetBigInt,
 ) {
     for event in pool_events {
         if let Some(event_type) = &event.r#type {
@@ -194,6 +212,13 @@ fn create_pool_events_entities(
                         pools_store.get_last(StoreKey::pool_key(&event.pool_address))
                     {
                         create_deposit_entity(tables, &pool, &event, &deposit);
+                        update_pool_output_token_supply(tables, &event, output_token_supply_store);
+                        update_input_token_balances(
+                            tables,
+                            &event,
+                            &pool.input_tokens_ordered,
+                            input_token_balances_store,
+                        );
                     }
                 }
                 Type::WithdrawEvent(withdraw) => {
@@ -201,14 +226,87 @@ fn create_pool_events_entities(
                         pools_store.get_last(StoreKey::pool_key(&event.pool_address))
                     {
                         create_withdraw_entity(tables, &pool, &event, &withdraw);
+                        update_pool_output_token_supply(tables, &event, output_token_supply_store);
+                        update_input_token_balances(
+                            tables,
+                            &event,
+                            &pool.input_tokens_ordered,
+                            input_token_balances_store,
+                        );
                     }
                 }
                 Type::SwapEvent(swap) => {
-                    create_swap_entity(tables, &event, &swap);
+                    if let Some(pool) =
+                        pools_store.get_last(StoreKey::pool_key(&event.pool_address))
+                    {
+                        create_swap_entity(tables, &event, &swap);
+                        update_input_token_balances(
+                            tables,
+                            &event,
+                            &pool.input_tokens_ordered,
+                            input_token_balances_store,
+                        )
+                    }
                 }
             }
         }
     }
+}
+
+fn update_pool_output_token_supply(
+    tables: &mut Tables,
+    event: &PoolEvent,
+    output_token_supply_store: &StoreGetBigInt,
+) {
+    let output_token_supply = output_token_supply_store
+        .get_at(
+            event.log_ordinal,
+            StoreKey::output_token_supply_key(&event.pool_address),
+        )
+        .unwrap_or(BigInt::zero());
+    tables
+        .update_row(
+            "LiquidityPool",
+            format::format_address_string(&event.pool_address),
+        )
+        .set("outputTokenSupply", output_token_supply);
+}
+
+fn update_input_token_balances(
+    tables: &mut Tables,
+    event: &PoolEvent,
+    input_tokens: &Vec<String>,
+    input_token_balances_store: &StoreGetBigInt,
+) {
+    let input_token_balances: Vec<BigInt> = input_tokens
+        .iter()
+        .map(|input_token| {
+            let input_token_balance_key =
+                StoreKey::input_token_balance_key(&event.pool_address, &input_token);
+            let input_token_balance = match input_token_balances_store
+                .get_at(event.log_ordinal, &input_token_balance_key)
+            {
+                Some(balance) => balance,
+                None => input_token_balances_store
+                    .get_first(&input_token_balance_key)
+                    .unwrap_or_else(|| {
+                        substreams::log::debug!(
+                            "No input token balance found for pool {} and token {}",
+                            &event.pool_address,
+                            &input_token
+                        );
+                        BigInt::zero()
+                    }),
+            };
+            input_token_balance
+        })
+        .collect();
+    tables
+        .update_row(
+            "LiquidityPool",
+            format::format_address_string(&event.pool_address),
+        )
+        .set("inputTokenBalances", input_token_balances);
 }
 
 fn create_deposit_entity(

@@ -8,6 +8,7 @@ use crate::abi::erc20::events::Transfer;
 
 pub fn extract_specific_transfer_event(
     trx: &TransactionTrace,
+    log_address: &Vec<u8>,
     from: &Vec<u8>,
     to: &Vec<u8>,
 ) -> Result<Transfer, Error> {
@@ -18,7 +19,10 @@ pub fn extract_specific_transfer_event(
         .find_map(|log| {
             // Directly return the result of the match_and_decode if the conditions are met
             Transfer::match_and_decode(log).and_then(|transfer| {
-                if transfer.sender == *from && transfer.receiver == *to {
+                if log.address == *log_address
+                    && transfer.sender == *from
+                    && transfer.receiver == *to
+                {
                     Some(transfer)
                 } else {
                     None

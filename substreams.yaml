@@ -5,7 +5,8 @@ package:
 
 imports:
   graph: https://github.com/streamingfast/substreams-sink-subgraph/releases/download/v0.1.0/substreams-sink-subgraph-protodefs-v0.1.0.spkg
-  entity: https://github.com/streamingfast/substreams-entity-change/releases/download/v1.1.0/substreams-entity-change-v1.1.0.spkg
+  entities: https://github.com/streamingfast/substreams-sink-entity-changes/releases/download/v1.3.0/substreams-sink-entity-changes-v1.3.0.spkg
+
 
 protobuf:
   files:
@@ -21,7 +22,8 @@ binaries:
 modules:
   - name: map_pools_created
     kind: map
-    initialBlock: 9456293
+    # initialBlock: 9456293
+    initialBlock: 18838383
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:
@@ -50,12 +52,27 @@ modules:
 
   - name: map_extract_pool_events
     kind: map
-    initialBlock: 9456293
+    # initialBlock: 9456293
+    initialBlock: 18838383
     inputs:
       - source: sf.ethereum.type.v2.Block
       - store: store_pools_created
     output:
       type: proto:curve.types.v1.Events
+
+  - name: store_output_token_supply
+    kind: store
+    updatePolicy: add
+    valueType: bigint
+    inputs:
+      - map: map_extract_pool_events
+
+  - name: store_input_token_balances
+    kind: store
+    updatePolicy: add
+    valueType: bigint
+    inputs:
+      - map: map_extract_pool_events
 
   - name: graph_out
     kind: map
@@ -65,6 +82,8 @@ modules:
       - map: map_extract_pool_events
       - store: store_pools_created
       - store: store_tokens
+      - store: store_output_token_supply
+      - store: store_input_token_balances
     output:
       type: proto:sf.substreams.sink.entity.v1.EntityChanges
 

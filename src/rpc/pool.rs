@@ -99,6 +99,26 @@ pub fn get_pool_underlying_coins(pool_address: &Vec<u8>) -> Result<[Vec<u8>; 8],
             }
         }
     }
+    // If we cannot get the coins from the registry, attempt to get them from the actual pool contract.
+    let mut coins_array: [Vec<u8>; 8] = Default::default(); // Initialize with default values
+    let mut index = 0;
+    loop {
+        let index_big_int = BigInt::from(index);
+        let coins_option = functions::UnderlyingCoins {
+            arg0: index_big_int,
+        }
+        .call(pool_address.clone());
+
+        match coins_option {
+            Some(coin) => coins_array[index] = coin.clone(),
+            None => break,
+        }
+        index += 1;
+    }
+    if coins_array.iter().any(|coin| !coin.is_empty()) {
+        return Ok(coins_array);
+    }
+
     if errors.is_empty() {
         Err(anyhow!(
             "Unable to get underlying coins for pool {:?} from registry contracts",
@@ -114,7 +134,7 @@ pub fn get_pool_underlying_coins(pool_address: &Vec<u8>) -> Result<[Vec<u8>; 8],
 }
 
 pub fn get_pool_fees(pool_address: &Vec<u8>) -> Result<PoolFees, Error> {
-    let batch = RpcBatch::new();
+    let batch: RpcBatch = RpcBatch::new();
     let responses = batch
         .add(functions::Fee {}, pool_address.clone())
         .add(functions::AdminFee {}, pool_address.clone())
@@ -140,6 +160,7 @@ pub fn get_pool_fees(pool_address: &Vec<u8>) -> Result<PoolFees, Error> {
         ),
     )
     .unwrap_or_else(|| constants::default_admin_fee());
+
     let admin_fee = convert_bigint_to_decimal(&admin_fee, FEE_DENOMINATOR)?;
 
     let trading_fee_id =
