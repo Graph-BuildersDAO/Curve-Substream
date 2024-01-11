@@ -22,7 +22,7 @@ use crate::{
             TokenExchange2, TokenExchangeUnderlying,
         },
     },
-    common::{event_extraction, format::format_address_vec},
+    common::event_extraction,
     constants::network,
     network_config,
     pb::curve::types::v1::{
@@ -310,7 +310,7 @@ fn extract_swap_event(
         ) {
             Ok((in_addr, out_addr)) => (in_addr, out_addr),
             Err(e) => {
-                substreams::log::debug!(format!("Error in `extract_swap_event`: {:?}", e));
+                substreams::log::debug!("Error in `extract_swap_event`: {:?}", e);
                 return;
             }
         }
@@ -359,13 +359,18 @@ fn extract_deposit_event(
     fees: Vec<String>,
     provider: Vec<u8>,
 ) {
-    let pool_address = &pool.address;
     substreams::log::info!(format!(
         "Extracting Deposit from transaction {} and pool {}",
         Hex::encode(&trx.hash),
-        pool_address
+        &pool.address
     ));
-
+    let pool_address = match Hex::decode(&pool.output_token_ref().address.clone()) {
+        Ok(address) => address,
+        Err(e) => {
+            substreams::log::debug!("Error in `extract_deposit_event`: {:?}", e);
+            return;
+        }
+    };
     let input_tokens = token_amounts
         .iter()
         .enumerate()
@@ -374,10 +379,12 @@ fn extract_deposit_event(
             amount: amount.into(),
         })
         .collect();
-
-    let output_token_transfer =
-        event_extraction::extract_specific_transfer_event(&trx, &NULL_ADDRESS.to_vec(), &provider);
-
+    let output_token_transfer = event_extraction::extract_specific_transfer_event(
+        &trx,
+        &pool_address,
+        &NULL_ADDRESS.to_vec(),
+        &provider,
+    );
     // This is the amount of output token (LP token) transferred to the liquidity provider
     let output_token_amount = match output_token_transfer {
         Ok(transfer) => transfer.value,
@@ -386,7 +393,6 @@ fn extract_deposit_event(
             BigInt::zero()
         }
     };
-
     let deposit_event = DepositEvent {
         input_tokens,
         output_token: Some(TokenAmount {
@@ -395,17 +401,16 @@ fn extract_deposit_event(
         }),
         fees,
     };
-
     pool_events.push(PoolEvent {
         transaction_hash: Hex::encode(&trx.hash),
         tx_index: trx.index,
         log_index: log.index,
         log_ordinal: log.ordinal,
-        to_address: pool_address.to_string(),
+        to_address: pool.address.clone(),
         from_address: Hex::encode(provider),
         timestamp: blk.timestamp_seconds(),
         block_number: blk.number,
-        pool_address: pool_address.to_string(),
+        pool_address: pool.address.clone(),
         r#type: Some(Type::DepositEvent(deposit_event)),
     })
 }
@@ -421,13 +426,18 @@ fn extract_withdraw_event(
     token_amounts: Vec<BigInt>,
     fees: Vec<String>,
 ) {
-    let pool_address = &pool.address;
     substreams::log::info!(format!(
         "Extracting Withdrawal from transaction {} and pool {}",
         Hex::encode(&trx.hash),
-        pool_address
+        &pool.address
     ));
-
+    let pool_address = match Hex::decode(&pool.output_token_ref().address.clone()) {
+        Ok(address) => address,
+        Err(e) => {
+            substreams::log::debug!("Error in `extract_withdraw_event`: {:?}", e);
+            return;
+        }
+    };
     let input_tokens: Vec<TokenAmount> = token_amounts
         .iter()
         .enumerate()
@@ -438,6 +448,7 @@ fn extract_withdraw_event(
         .collect();
     let output_token_amount = match event_extraction::extract_specific_transfer_event(
         &trx,
+        &pool_address,
         &provider,
         &NULL_ADDRESS.to_vec(),
     ) {
@@ -460,11 +471,11 @@ fn extract_withdraw_event(
         tx_index: trx.index,
         log_index: log.index,
         log_ordinal: log.ordinal,
-        to_address: pool_address.to_string(),
+        to_address: pool.address.clone(),
         from_address: Hex::encode(provider),
         timestamp: blk.timestamp_seconds(),
         block_number: blk.number,
-        pool_address: pool_address.to_string(),
+        pool_address: pool.address.clone(),
         r#type: Some(Type::WithdrawEvent(withdraw_event)),
     })
 }
@@ -554,9 +565,8 @@ fn get_underlying_coin_addresses(
 ) -> Result<(String, String), Error> {
     let registry_address = Hex::decode(&pool.registry_address).unwrap();
     let pool_address = Hex::decode(pool_address).unwrap();
-
     let underlying_coins = if registry_address == NULL_ADDRESS.to_vec() {
-        get_pool_underlying_coins(&registry_address)
+        get_pool_underlying_coins(&pool_address)
     } else {
         get_pool_underlying_coins_from_registry(&pool_address, &registry_address)
     };
@@ -577,8 +587,8 @@ fn get_underlying_coin_addresses(
                     in_index = coins.len() - 1;
                 }
                 Ok((
-                    format_address_vec(&coins[in_index]),
-                    format_address_vec(&coins[out_index]),
+                    Hex::encode(&coins[in_index]),
+                    Hex::encode(&coins[out_index]),
                 ))
             } else {
                 Err(anyhow!("Error in `get_underlying_coin_addresses`: No underlying coins found for pool {}.", Hex::encode(&pool_address)))
