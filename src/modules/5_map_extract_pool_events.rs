@@ -16,10 +16,10 @@ use crate::{
         erc20::events::Transfer,
         pool::events::{
             AddLiquidity1, AddLiquidity2, AddLiquidity3, AddLiquidity4, AddLiquidity5,
-            RemoveLiquidity1, RemoveLiquidity2, RemoveLiquidity3, RemoveLiquidity4,
-            RemoveLiquidity5, RemoveLiquidityImbalance1, RemoveLiquidityImbalance2,
-            RemoveLiquidityImbalance3, RemoveLiquidityOne1, RemoveLiquidityOne2, TokenExchange1,
-            TokenExchange2, TokenExchangeUnderlying,
+            NewParameters1, NewParameters2, RemoveLiquidity1, RemoveLiquidity2, RemoveLiquidity3,
+            RemoveLiquidity4, RemoveLiquidity5, RemoveLiquidityImbalance1,
+            RemoveLiquidityImbalance2, RemoveLiquidityImbalance3, RemoveLiquidityOne1,
+            RemoveLiquidityOne2, TokenExchange1, TokenExchange2, TokenExchangeUnderlying,
         },
     },
     common::event_extraction,
@@ -28,7 +28,7 @@ use crate::{
     pb::curve::types::v1::{
         events::{
             pool_event::{DepositEvent, SwapEvent, TokenAmount, Type, WithdrawEvent},
-            PoolEvent,
+            NewParamsEvent, PoolEvent,
         },
         Events, Pool,
     },
@@ -43,7 +43,9 @@ pub fn map_extract_pool_events(
 ) -> Result<Events, Error> {
     // Initialise events and its fields
     let mut events = Events::default();
+
     let mut pool_events: Vec<PoolEvent> = Vec::new();
+    let mut new_param_events: Vec<NewParamsEvent> = Vec::new();
 
     // Check if event is coming from the pool contract
     for trx in blk.transactions() {
@@ -270,6 +272,18 @@ pub fn map_extract_pool_events(
                         withdraw.token_amount,
                         withdraw.coin_amount,
                     );
+                } else if let Some(new_parameters) = NewParameters2::match_and_decode(&log) {
+                    new_param_events.push(NewParamsEvent {
+                        transaction_hash: Hex::encode(&trx.hash),
+                        tx_index: trx.index,
+                        log_index: log.index,
+                        log_ordinal: log.ordinal,
+                        timestamp: blk.timestamp_seconds(),
+                        block_number: blk.number,
+                        fee: new_parameters.fee.to_string(),
+                        admin_fee: new_parameters.admin_fee.to_string(),
+                        pool_address: pool.address.clone(),
+                    });
                 }
             }
         }

@@ -1,5 +1,6 @@
 pub enum StoreKey {
     Pool(String),
+    PoolFees(String),
     Token(String),
     OutputTokenSupply(String),
     InputTokenBalance(String, String),
@@ -9,6 +10,10 @@ pub enum StoreKey {
 impl StoreKey {
     pub fn pool_key(pool_address: &str) -> String {
         StoreKey::Pool(pool_address.to_string()).to_key_string()
+    }
+    
+    pub fn pool_fees_key(pool_address: &str) -> String {
+        StoreKey::PoolFees(pool_address.to_string()).to_key_string()
     }
 
     pub fn token_key(token_address: &str) -> String {
@@ -31,6 +36,7 @@ impl StoreKey {
     fn to_key_string(&self) -> String {
         match self {
             StoreKey::Pool(addr) => format!("Pool:{}", addr),
+            StoreKey::PoolFees(addr) => format!("PoolFees:{}", addr),
             StoreKey::Token(addr) => format!("Token:{}", addr),
             StoreKey::OutputTokenSupply(addr) => format!("OutputTokenSupply:{}", addr),
             StoreKey::InputTokenBalance(pool_addr, token_addr) => {

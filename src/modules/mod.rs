@@ -13,6 +13,9 @@ mod store_tokens;
 #[path = "5_map_extract_pool_events.rs"]
 mod map_extract_pool_events;
 
+#[path = "6_store_pool_fees.rs"]
+mod store_pool_fees;
+
 #[path = "6_store_output_token_supply.rs"]
 mod store_output_token_supply;
 
@@ -26,8 +29,9 @@ mod graph_out;
 pub use graph_out::graph_out;
 pub use map_extract_pool_events::map_extract_pool_events;
 pub use map_pools_created::map_pools_created;
+pub use store_input_token_balances::store_input_token_balances;
+pub use store_pool_fees::store_pool_fees;
+pub use store_output_token_supply::store_output_token_supply;
 pub use store_pool_count::store_pool_count;
 pub use store_pools_created::store_pools_created;
-pub use store_output_token_supply::store_output_token_supply;
 pub use store_tokens::store_tokens;
-pub use store_input_token_balances::store_input_token_balances;

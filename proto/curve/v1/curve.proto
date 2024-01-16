@@ -36,8 +36,28 @@ message Pools {
   repeated Pool pools = 1;
 }
 
+enum LiquidityPoolFeeType {
+    UNKNOWN = 0;
+    FIXED_TRADING_FEE = 1;
+    FIXED_PROTOCOL_FEE = 2;
+    FIXED_LP_FEE = 3;
+}
+
+message PoolFee {
+    string id = 1;
+    LiquidityPoolFeeType fee_type = 2;
+    string fee_percentage = 3; // BigDecimal string representation
+}
+
+message PoolFees {
+    PoolFee trading_fee = 1;
+    PoolFee protocol_fee = 2;
+    PoolFee lp_fee = 3;
+}
+
 message Events {
   repeated PoolEvent pool_events = 1;
+  repeated NewParamsEvent new_params_events = 2;
 
   message PoolEvent {
     oneof type {
@@ -79,5 +99,17 @@ message Events {
         string amount = 2; // BigInt in token's native amount
         // string amount_usd = 3;
     }
+  }
+
+  message NewParamsEvent {
+    string transaction_hash = 1;
+    uint32 tx_index = 2;
+    uint32 log_index = 3;
+    uint64 log_ordinal = 4;
+    uint64 timestamp = 5;
+    uint64 block_number = 6;
+    string fee = 7;
+    string admin_fee = 8;
+    string pool_address = 9;
   }
 }

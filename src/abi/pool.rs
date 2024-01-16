@@ -8582,7 +8582,7 @@
             }
         }
         #[derive(Debug, Clone, PartialEq)]
-        pub struct NewParameters {
+        pub struct NewParameters1 {
             pub admin_fee: substreams::scalar::BigInt,
             pub mid_fee: substreams::scalar::BigInt,
             pub out_fee: substreams::scalar::BigInt,
@@ -8591,7 +8591,7 @@
             pub adjustment_step: substreams::scalar::BigInt,
             pub ma_half_time: substreams::scalar::BigInt,
         }
-        impl NewParameters {
+        impl NewParameters1 {
             const TOPIC_ID: [u8; 32] = [
                 28u8,
                 101u8,
@@ -8727,8 +8727,117 @@
                 })
             }
         }
-        impl substreams_ethereum::Event for NewParameters {
-            const NAME: &'static str = "NewParameters";
+        impl substreams_ethereum::Event for NewParameters1 {
+            const NAME: &'static str = "NewParameters1";
+            fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
+                Self::match_log(log)
+            }
+            fn decode(
+                log: &substreams_ethereum::pb::eth::v2::Log,
+            ) -> Result<Self, String> {
+                Self::decode(log)
+            }
+        }
+        #[derive(Debug, Clone, PartialEq)]
+        pub struct NewParameters2 {
+            pub a: substreams::scalar::BigInt,
+            pub fee: substreams::scalar::BigInt,
+            pub admin_fee: substreams::scalar::BigInt,
+        }
+        impl NewParameters2 {
+            const TOPIC_ID: [u8; 32] = [
+                117u8,
+                42u8,
+                39u8,
+                209u8,
+                133u8,
+                62u8,
+                183u8,
+                175u8,
+                62u8,
+                228u8,
+                255u8,
+                118u8,
+                79u8,
+                44u8,
+                74u8,
+                81u8,
+                97u8,
+                147u8,
+                134u8,
+                175u8,
+                114u8,
+                21u8,
+                115u8,
+                221u8,
+                56u8,
+                9u8,
+                233u8,
+                41u8,
+                195u8,
+                157u8,
+                185u8,
+                158u8,
+            ];
+            pub fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
+                if log.topics.len() != 1usize {
+                    return false;
+                }
+                if log.data.len() != 96usize {
+                    return false;
+                }
+                return log.topics.get(0).expect("bounds already checked").as_ref()
+                    == Self::TOPIC_ID;
+            }
+            pub fn decode(
+                log: &substreams_ethereum::pb::eth::v2::Log,
+            ) -> Result<Self, String> {
+                let mut values = ethabi::decode(
+                        &[
+                            ethabi::ParamType::Uint(256usize),
+                            ethabi::ParamType::Uint(256usize),
+                            ethabi::ParamType::Uint(256usize),
+                        ],
+                        log.data.as_ref(),
+                    )
+                    .map_err(|e| format!("unable to decode log.data: {:?}", e))?;
+                values.reverse();
+                Ok(Self {
+                    a: {
+                        let mut v = [0 as u8; 32];
+                        values
+                            .pop()
+                            .expect(INTERNAL_ERR)
+                            .into_uint()
+                            .expect(INTERNAL_ERR)
+                            .to_big_endian(v.as_mut_slice());
+                        substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
+                    },
+                    fee: {
+                        let mut v = [0 as u8; 32];
+                        values
+                            .pop()
+                            .expect(INTERNAL_ERR)
+                            .into_uint()
+                            .expect(INTERNAL_ERR)
+                            .to_big_endian(v.as_mut_slice());
+                        substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
+                    },
+                    admin_fee: {
+                        let mut v = [0 as u8; 32];
+                        values
+                            .pop()
+                            .expect(INTERNAL_ERR)
+                            .into_uint()
+                            .expect(INTERNAL_ERR)
+                            .to_big_endian(v.as_mut_slice());
+                        substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
+                    },
+                })
+            }
+        }
+        impl substreams_ethereum::Event for NewParameters2 {
+            const NAME: &'static str = "NewParameters2";
             fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
                 Self::match_log(log)
             }

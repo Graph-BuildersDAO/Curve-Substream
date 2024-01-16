@@ -12,10 +12,9 @@ use crate::{
         conversion::{convert_bigint_to_decimal, convert_enum_to_snake_case_prefix},
         format::format_address_vec,
     },
-    constants::{self, LiquidityPoolFeeType, FEE_DENOMINATOR, MISSING_OLD_POOLS},
+    constants::{self, FEE_DENOMINATOR, MISSING_OLD_POOLS},
     network_config::POOL_REGISTRIES,
-    pb::curve::types::v1::Token,
-    types::{PoolFee, PoolFees},
+    pb::curve::types::v1::{LiquidityPoolFeeType, PoolFee, PoolFees, Token},
 };
 
 use super::{
@@ -163,38 +162,52 @@ pub fn get_pool_fees(pool_address: &Vec<u8>) -> Result<PoolFees, Error> {
 
     let admin_fee = convert_bigint_to_decimal(&admin_fee, FEE_DENOMINATOR)?;
 
+    Ok(calculate_pool_fees(total_fee, admin_fee, pool_address))
+}
+
+pub fn calculate_pool_fees(
+    total_fee: BigDecimal,
+    admin_fee: BigDecimal,
+    pool_address: &Vec<u8>,
+) -> PoolFees {
     let trading_fee_id =
-        convert_enum_to_snake_case_prefix(LiquidityPoolFeeType::FixedTradingFee.as_str())
+        convert_enum_to_snake_case_prefix(LiquidityPoolFeeType::FixedTradingFee.as_str_name())
             + format_address_vec(&pool_address).as_str();
     // Calculate the trading fee. This is the total fee charged on a trade, expressed as a percentage.
     // The fee is multiplied by 100 to convert it from a decimal to a percentage format.
-    let trading_fee = PoolFee::new(
-        trading_fee_id,
-        LiquidityPoolFeeType::FixedTradingFee,
-        total_fee.clone() * BigDecimal::from(100),
-    );
+    let trading_fee = PoolFee {
+        id: trading_fee_id,
+        fee_type: LiquidityPoolFeeType::FixedTradingFee as i32,
+        fee_percentage: (total_fee.clone() * BigDecimal::from(100)).to_string(),
+    };
 
     let protocol_fee_id =
-        convert_enum_to_snake_case_prefix(LiquidityPoolFeeType::FixedProtocolFee.as_str())
+        convert_enum_to_snake_case_prefix(LiquidityPoolFeeType::FixedProtocolFee.as_str_name())
             + format_address_vec(&pool_address).as_str();
     // Calculate the protocol fee. This is a portion of the trading fees allocated to the protocol.
     // It is calculated as the product of the total fee and the admin fee, then converted to a percentage.
-    let protocol_fee = PoolFee::new(
-        protocol_fee_id,
-        LiquidityPoolFeeType::FixedProtocolFee,
-        total_fee.clone() * admin_fee.clone() * BigDecimal::from(100),
-    );
+    let protocol_fee = PoolFee {
+        id: protocol_fee_id,
+        fee_type: LiquidityPoolFeeType::FixedProtocolFee as i32,
+        fee_percentage: (total_fee.clone() * admin_fee.clone() * BigDecimal::from(100)).to_string(),
+    };
 
-    let lp_fee_id = convert_enum_to_snake_case_prefix(LiquidityPoolFeeType::FixedLpFee.as_str())
-        + format_address_vec(&pool_address).as_str();
+    let lp_fee_id =
+        convert_enum_to_snake_case_prefix(LiquidityPoolFeeType::FixedLpFee.as_str_name())
+            + format_address_vec(&pool_address).as_str();
     // Calculate the LP fee. This is the fee allocated to liquidity providers.
     // It is the remaining fee after deducting the protocol's admin fee from the total fee,
     // then converted to a percentage.
-    let lp_fee = PoolFee::new(
-        lp_fee_id,
-        LiquidityPoolFeeType::FixedLpFee,
-        (total_fee.clone() - (total_fee * admin_fee)) * BigDecimal::from(100),
-    );
+    let lp_fee = PoolFee {
+        id: lp_fee_id,
+        fee_type: LiquidityPoolFeeType::FixedLpFee as i32,
+        fee_percentage: ((total_fee.clone() - (total_fee * admin_fee)) * BigDecimal::from(100))
+            .to_string(),
+    };
 
-    Ok(PoolFees::new(trading_fee, protocol_fee, lp_fee))
+    PoolFees {
+        trading_fee: Some(trading_fee),
+        protocol_fee: Some(protocol_fee),
+        lp_fee: Some(lp_fee),
+    }
 }

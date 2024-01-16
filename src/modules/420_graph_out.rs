@@ -18,13 +18,11 @@ use crate::{
     pb::curve::types::v1::{
         events::{
             pool_event::{DepositEvent, SwapEvent, Type, WithdrawEvent},
-            PoolEvent,
+            NewParamsEvent, PoolEvent,
         },
-        Events, Pool, Pools, Token,
+        Events, Pool, PoolFee, PoolFees, Pools, Token,
     },
-    rpc::pool::get_pool_fees,
     store_key_manager::StoreKey,
-    types::{PoolFee, PoolFees},
 };
 
 // TODO: If this module gets too bulky, consider following an approach similar to Uniswap V2 SPS:
@@ -36,6 +34,7 @@ pub fn graph_out(
     events: Events,
     pools_store: StoreGetProto<Pool>,
     tokens_store: StoreGetInt64,
+    pool_fees_store: StoreGetProto<PoolFees>,
     output_token_supply_store: StoreGetBigInt,
     input_token_balances_store: StoreGetBigInt,
 ) -> Result<EntityChanges, Error> {
@@ -45,7 +44,10 @@ pub fn graph_out(
     // Create entities related to Pool contract deployments
     for pool in pools.pools {
         let pool_address = Hex::decode(&pool.address)?;
-        let pool_fees = get_pool_fees(&pool_address)?;
+
+        let pool_fees: PoolFees = pool_fees_store
+            .get_last(StoreKey::pool_fees_key(&pool.address))
+            .unwrap_or(PoolFees::default());
 
         create_pool_entity(&mut tables, &pool, &pool_fees);
         create_pool_fee_entities(&mut tables, &pool_fees);
@@ -60,6 +62,8 @@ pub fn graph_out(
         &output_token_supply_store,
         &input_token_balances_store,
     );
+    // Update fees from new params events
+    update_pool_fees(&mut tables, events.new_params_events, &pool_fees_store);
 
     Ok(tables.to_entity_changes())
 }
@@ -155,7 +159,7 @@ fn create_pool_fee_entity(tables: &mut Tables, fee: &PoolFee) {
     tables
         .create_row("LiquidityPoolFee", fee.get_id())
         .set("feePercentage", fee.get_fee_percentage())
-        .set("feeType", fee.get_fee_type().as_str());
+        .set("feeType", fee.get_fee_type());
 }
 
 fn create_pool_token_entities(
@@ -249,6 +253,20 @@ fn create_pool_events_entities(
                     }
                 }
             }
+        }
+    }
+}
+
+fn update_pool_fees(
+    tables: &mut Tables,
+    new_params_events: Vec<NewParamsEvent>,
+    pool_fees_store: &StoreGetProto<PoolFees>,
+) {
+    for event in new_params_events {
+        let pool_fees = pool_fees_store.get_last(StoreKey::pool_fees_key(&event.pool_address));
+        if let Some(pool_fees) = pool_fees {
+            // This should override the Fees entities related to the Pool
+            create_pool_fee_entities(tables, &pool_fees);
         }
     }
 }

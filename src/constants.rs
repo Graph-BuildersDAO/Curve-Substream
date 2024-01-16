@@ -53,6 +53,7 @@ pub mod protocol_type {
     pub const GENERIC: &'static str = "GENERIC";
 }
 
+// TODO we may be able to remove this as it now is handled in the pb file.
 pub enum LiquidityPoolFeeType {
     FixedTradingFee,
     TieredTradingFee,

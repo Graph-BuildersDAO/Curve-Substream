@@ -673,6 +673,28 @@
     "type": "event"
   },
   {
+    "name": "NewParameters",
+    "inputs": [
+        {
+            "type": "uint256",
+            "name": "A",
+            "indexed": false
+        },
+        {
+            "type": "uint256",
+            "name": "fee",
+            "indexed": false
+        },
+        {
+            "type": "uint256",
+            "name": "admin_fee",
+            "indexed": false
+        }
+    ],
+    "anonymous": false,
+    "type": "event"
+},
+  {
     "name": "RampAgamma",
     "inputs": [
       {
