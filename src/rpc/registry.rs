@@ -3,7 +3,7 @@ use substreams::{errors::Error, Hex};
 use substreams_ethereum::NULL_ADDRESS;
 
 use crate::{
-    abi::{address_provider as address_provider_abi, registry},
+    abi::curve::{address_provider as address_provider_abi, registry},
     constants,
 };
 

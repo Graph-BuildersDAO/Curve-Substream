@@ -7,7 +7,7 @@ use substreams_ethereum::{
 };
 
 use crate::{
-    abi::registry::events::{
+    abi::curve::registry::events::{
         BasePoolAdded, CryptoPoolDeployed, MetaPoolDeployed, PlainPoolDeployed, PoolAdded1,
         PoolAdded2,
     },
