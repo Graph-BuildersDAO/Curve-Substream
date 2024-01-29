@@ -1,7 +1,7 @@
 use hex_literal::hex;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use substreams::scalar::BigInt;
+use substreams::scalar::{BigDecimal, BigInt};
 
 use crate::network_config::{PoolDetails, MISSING_OLD_POOLS_DATA};
 
@@ -88,8 +88,33 @@ pub mod protocol {
 pub const CURVE_ADDRESS_PROVIDER: [u8; 20] = hex!("0000000022d53366457f9d5e68ec105046fc4383");
 pub const ETH_ADDRESS: [u8; 20] = hex!("EeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE");
 
+pub static BLACKLISTED_TOKENS: &[&str] = &[
+    "0000000000000000000000000000000000000000", // Null Address
+    "b755b949c126c04e0348dd881a5cf55d424742b2", // Curve USD-BTC-ETH
+    "d79138c49c49200a1afc935171d1bdad084fdc95", // Curve.fi Factory Plain Pool: 3pool
+    "37c9be6c81990398e9b87494484afc6a4608c25d", // Curve.fi Factory Plain Pool: blizz
+    "f72beacc6fd334e14a7ddac25c3ce1eb8a827e10", // Curve.fi Factory USD Metapool: Defrost H2O
+    "ae6aab43c4f3e0cea4ab83752c278f8debaba689", // dForce
+    "aa9dfbf31d2f807ca4d9f7be281d75ca7bdce64d", // Curve.fi Factory Plain Pool: Curve DD2Pool
+    "83f798e925bcd4017eb265844fddabb448f1707d", // iearn USDT
+    "e6354ed5bc4b393a5aad09f21c46e101e692d447", // iearn USDT
+    "1be5d71f2da660bfdee8012ddc58d024448a0a59", // iearn USDT
+    "7f86bf177dd4f3494b841a37e810a34dd56c829b", // TricryptoUSDC
+    "f5f5b97624542d72a9e06f04804bf81baa15e2b4", // TricryptoUSDT
+    "aa91cdd7abb47f821cf07a2d38cc8668deaf1bdc", // 2jpy-2-f
+    "8343091f2499fd4b6174a46d067a920a3b851ff9", // jJPY
+];
+
 pub fn default_decimals() -> BigInt {
     BigInt::from(18)
+}
+
+pub fn default_usdc_decimals() -> BigInt {
+    BigInt::from(6)
+}
+
+pub fn default_usd_price() -> BigDecimal {
+    BigDecimal::from(1000000)
 }
 
 pub const FEE_DENOMINATOR: u64 = 10000000000;

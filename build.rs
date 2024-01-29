@@ -1,21 +1,31 @@
 use anyhow::{Ok, Result};
 use regex::Regex;
 use serde_json::Value;
-use std::fs;
+use std::{
+    fs::{self, File},
+    io::Write,
+    path::Path,
+};
 use substreams_ethereum::Abigen;
 
+// TODO: This file could do with a refactor
+//       Consider creating helper functions for all the config read/writes.
 fn main() -> Result<(), anyhow::Error> {
     let file_names = [
-        "abi/AddressProvider.abi.json",
-        "abi/ERC20.abi.json",
-        "abi/Pool.abi.json",
-        "abi/Registry.abi.json",
+        "abi/common/ERC20.abi.json",
+        "abi/curve/AddressProvider.abi.json",
+        "abi/curve/Pool.abi.json",
+        "abi/curve/Registry.abi.json",
+        "abi/oracle/SushiSwap.abi.json",
+        "abi/oracle/YearnLens.abi.json",
     ];
     let file_output_names = [
-        "src/abi/address_provider.rs",
-        "src/abi/erc20.rs",
-        "src/abi/pool.rs",
-        "src/abi/registry.rs",
+        "src/abi/common/erc20.rs",
+        "src/abi/curve/address_provider.rs",
+        "src/abi/curve/pool.rs",
+        "src/abi/curve/registry.rs",
+        "src/abi/oracle/sushiswap.rs",
+        "src/abi/oracle/yearn_lens.rs",
     ];
 
     let mut i = 0;
@@ -31,6 +41,28 @@ fn main() -> Result<(), anyhow::Error> {
             .write_to_file(file_output_names[i])?;
 
         i = i + 1;
+    }
+
+    let mut modules_by_dir: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
+
+    for f in file_output_names {
+        let path = Path::new(f);
+        if let (Some(parent), Some(file_stem)) = (path.parent(), path.file_stem()) {
+            let parent = parent.to_str().unwrap().to_string();
+            let file_stem = file_stem.to_str().unwrap().to_string();
+
+            modules_by_dir.entry(parent).or_default().push(file_stem);
+        }
+    }
+
+    for (dir, modules) in modules_by_dir {
+        let mod_file_path = Path::new(&dir).join("mod.rs");
+        let mut mod_file = File::create(mod_file_path)?;
+
+        for module in modules {
+            writeln!(mod_file, "pub mod {};", module)?;
+        }
     }
 
     generate_network_config_from_json(
@@ -181,7 +213,90 @@ fn generate_network_config_from_json(path: &str, output_path: &str) -> Result<()
         output.push_str("\npub static HARDCODED_METAPOOLS: [[u8; 20]; 0] = [];\n");
     }
 
-    fs::write(output_path, output)?;
+    // Generating an array for hardcodedStables
+    if let Some(hardcoded_stables) = json["hardcodedStables"].as_array() {
+        output.push_str(
+            format!(
+                "\npub static HARDCODED_STABLES: [[u8; 20]; {}] = [\n",
+                hardcoded_stables.len()
+            )
+            .as_str(),
+        );
+        for coin in hardcoded_stables {
+            let name = coin["name"].as_str().unwrap_or_default();
+            let address = coin["address"]
+                .as_str()
+                .unwrap_or_default()
+                .trim_start_matches("0x");
+            output.push_str(&format!("hex!(\"{}\"), // {}\n", address, name));
+        }
+        output.push_str("];\n");
+    }
 
+    if let Some(yearn_lens) = json["yearnLens"].as_object() {
+        let address = yearn_lens["address"]
+            .as_str()
+            .unwrap_or_default()
+            .trim_start_matches("0x");
+        output.push_str(&format!(
+            "\npub static YEARN_LENS: [u8; 20] = hex!(\"{}\");\n",
+            address
+        ));
+    }
+
+    if let Some(sushiswap) = json["sushiswap"].as_object() {
+        let address = sushiswap["address"]
+            .as_str()
+            .unwrap_or_default()
+            .trim_start_matches("0x");
+        output.push_str(&format!(
+            "\npub static SUSHISWAP: [u8; 20] = hex!(\"{}\");\n",
+            address
+        ));
+    }
+
+    if let Some(yearn_blacklist) = json["yearnLensBlacklist"].as_array() {
+        output.push_str(
+            format!(
+                "\npub static YEARN_LENS_BLACKLIST: [[u8; 20]; {}] = [\n",
+                yearn_blacklist.len()
+            )
+            .as_str(),
+        );
+        for token in yearn_blacklist {
+            let name = token["name"].as_str().unwrap_or_default();
+            let address = token["address"]
+                .as_str()
+                .unwrap_or_default()
+                .trim_start_matches("0x");
+            output.push_str(&format!("hex!(\"{}\"), // {}\n", address, name));
+        }
+        output.push_str("];\n");
+    } else {
+        output.push_str("\npub static YEARN_LENS_BLACKLIST: [[u8; 20]; 0] = [];\n");
+    }
+
+    if let Some(sushi_blacklist) = json["sushiBlacklist"].as_array() {
+        output.push_str(
+            format!(
+                "\npub static SUSHI_BLACKLIST: [[u8; 20]; {}] = [\n",
+                sushi_blacklist.len()
+            )
+            .as_str(),
+        );
+        for token in sushi_blacklist {
+            let name = token["name"].as_str().unwrap_or_default();
+            let address = token["address"]
+                .as_str()
+                .unwrap_or_default()
+                .trim_start_matches("0x");
+            output.push_str(&format!("hex!(\"{}\"), // {}\n", address, name));
+        }
+        output.push_str("];\n");
+    } else {
+        output.push_str("\npub static SUSHI_BLACKLIST: [[u8; 20]; 0] = [];\n");
+    }
+
+    fs::write(output_path, output)?;
     Ok(())
 }
