@@ -6,7 +6,8 @@ package:
 imports:
   graph: https://github.com/streamingfast/substreams-sink-subgraph/releases/download/v0.1.0/substreams-sink-subgraph-protodefs-v0.1.0.spkg
   entities: https://github.com/streamingfast/substreams-sink-entity-changes/releases/download/v1.3.0/substreams-sink-entity-changes-v1.3.0.spkg
-
+  chainlink_prices: https://github.com/Graph-BuildersDAO/substreams/releases/download/chainlink-prices-v1.0.2/chainlink-price-substream-v1.0.2.spkg
+  uniswap_prices: https://github.com/Graph-BuildersDAO/uniswap-pricing-substream/releases/download/v0.1.3/uniswap-pricing-v0.1.3.spkg
 
 protobuf:
   files:
@@ -22,8 +23,7 @@ binaries:
 modules:
   - name: map_pools_created
     kind: map
-    # initialBlock: 9456293
-    initialBlock: 18838383
+    initialBlock: 9456293
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:
@@ -52,8 +52,7 @@ modules:
 
   - name: map_extract_pool_events
     kind: map
-    # initialBlock: 9456293
-    initialBlock: 18838383
+    initialBlock: 9456293
     inputs:
       - source: sf.ethereum.type.v2.Block
       - store: store_pools_created
@@ -74,8 +73,22 @@ modules:
     inputs:
       - map: map_extract_pool_events
 
+  - name: store_pool_tvl
+    kind: store
+    initialBlock: 9456293
+    updatePolicy: set
+    valueType: bigint
+    inputs:
+      - store: store_pools_created
+      - store: store_input_token_balances
+      - store: store_input_token_balances
+        mode: deltas
+      - store: chainlink_prices:chainlink_price_store
+      - store: uniswap_prices:store_uniswap_prices
+
   - name: graph_out
     kind: map
+    initialBlock: 9456293
     inputs:
       - source: sf.substreams.v1.Clock
       - map: map_pools_created
@@ -84,7 +97,27 @@ modules:
       - store: store_tokens
       - store: store_output_token_supply
       - store: store_input_token_balances
+      - store: store_pool_tvl
     output:
       type: proto:sf.substreams.sink.entity.v1.EntityChanges
 
 network: mainnet
+
+networks:
+  mainnet:
+    initialBlock:
+      chainlink_prices:store_confirmed_feeds: 9456293
+      chainlink_prices:get_chainlink_answers: 9456293
+      chainlink_prices:chainlink_price_store: 9456293
+      chainlink_prices:graph_out: 9456293
+      uniswap_prices:map_pair_created_events: 9456293
+      uniswap_prices:store_pair_created_events: 9456293
+      uniswap_prices:map_weth_prices: 9456293
+      uniswap_prices:store_weth_prices: 9456293
+      uniswap_prices:map_uniswap_prices: 9456293
+      uniswap_prices:store_uniswap_prices: 9456293
+      uniswap_prices:warmup: 9456293
+      uniswap_prices:chainlink_prices:chainlink_price_store: 9456293
+      uniswap_prices:chainlink_prices:graph_out: 9456293
+      uniswap_prices:chainlink_prices:get_chainlink_answers: 9456293
+      uniswap_prices:chainlink_prices:store_confirmed_feeds: 9456293

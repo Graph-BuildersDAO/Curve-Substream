@@ -83,6 +83,7 @@ pub mod events {
         pub timestamp: u64,
         #[prost(uint64, tag="11")]
         pub block_number: u64,
+        /// TODO is there benefit in storing the total supply here or in the event types?
         #[prost(string, tag="12")]
         pub pool_address: ::prost::alloc::string::String,
         #[prost(oneof="pool_event::Type", tags="1, 2, 3")]

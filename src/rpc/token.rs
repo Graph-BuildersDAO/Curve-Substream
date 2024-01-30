@@ -3,7 +3,7 @@ use substreams::{errors::Error, log, scalar::BigInt, Hex};
 use substreams_ethereum::rpc::RpcBatch;
 
 use crate::{
-    abi::erc20::functions,
+    abi::common::erc20::functions,
     common::utils,
     constants,
     pb::curve::types::v1::Token,

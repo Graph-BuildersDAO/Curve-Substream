@@ -7,7 +7,7 @@ use substreams::{
 use substreams_ethereum::{rpc::RpcBatch, NULL_ADDRESS};
 
 use crate::{
-    abi::pool::functions,
+    abi::curve::pool::functions,
     common::{
         conversion::{convert_bigint_to_decimal, convert_enum_to_snake_case_prefix},
         format::format_address_vec,

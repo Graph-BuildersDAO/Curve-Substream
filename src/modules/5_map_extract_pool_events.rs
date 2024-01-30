@@ -13,8 +13,8 @@ use substreams_ethereum::{
 
 use crate::{
     abi::{
-        erc20::events::Transfer,
-        pool::events::{
+        common::erc20::events::Transfer,
+        curve::pool::events::{
             AddLiquidity1, AddLiquidity2, AddLiquidity3, AddLiquidity4, AddLiquidity5,
             RemoveLiquidity1, RemoveLiquidity2, RemoveLiquidity3, RemoveLiquidity4,
             RemoveLiquidity5, RemoveLiquidityImbalance1, RemoveLiquidityImbalance2,

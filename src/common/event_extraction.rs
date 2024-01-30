@@ -4,7 +4,7 @@ use anyhow::anyhow;
 use substreams::errors::Error;
 use substreams_ethereum::{block_view, pb::eth::v2::TransactionTrace, Event};
 
-use crate::abi::erc20::events::Transfer;
+use crate::abi::common::erc20::events::Transfer;
 
 pub fn extract_specific_transfer_event(
     trx: &TransactionTrace,

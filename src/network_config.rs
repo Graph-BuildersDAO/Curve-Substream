@@ -88,3 +88,63 @@ hex!("4f3E8F405CF5aFC05D68142F3783bDfE13811522"), // usdn
 ];
 
 pub static HARDCODED_METAPOOLS: [[u8; 20]; 0] = [];
+
+pub static HARDCODED_STABLES: [[u8; 20]; 40] = [
+hex!("6b175474e89094c44da98b954eedeac495271d0f"), // DAI
+hex!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"), // USDC
+hex!("dac17f958d2ee523a2206206994597c13d831ec7"), // Tether USD
+hex!("6c3f90f043a72fa612cbac8115ee7e52bde6e490"), // Curve.fi DAI/USDC/USDT
+hex!("853d955acef822db058eb8505911ed77f175b99e"), // FRAX
+hex!("d632f22692fac7611d2aa1c0d552930d43caed3b"), // Curve.fi Factory USD Metapool: Frax
+hex!("99d8a9c45b2eca8864373a26d1459e3dff1e17f3"), // Magic Internet Money
+hex!("5a6a4d54456819380173272a5e8e9b9904bdf41b"), // Curve.fi Factory USD Metapool: Magic Internet Money 3Pool
+hex!("bc6da0fe9ad5f3b0d58160288917aa56653660e9"), // Alchemix USD
+hex!("43b4fdfd4ff969587185cdb6f0bd875c5fc83f8c"), // Curve.fi Factory USD Metapool: Alchemix USD
+hex!("57ab1ec28d129707052df4df418d58a2d46d5f51"), // Synth SUSD
+hex!("c25a3a3b969415c80451098fa907ec722572917f"), // Curve.fi DAI/USDC/USDT/sUSD
+hex!("0000000000085d4780b73119b644ae5ecd22b376"), // TrueUSD
+hex!("ecd5e75afb02efa118af914515d6521aabd189f1"), // Curve.fi Factory USD Metapool: TrueUSD
+hex!("fd2a8fa60abd58efe3eee34dd494cd491dc14900"), // Curve.fi aDAI/aUSDC/aUSDT
+hex!("8ee017541375f6bcd802ba119bddc94dad6911a1"), // Curve.fi Factory USD Metapool: PUSd
+hex!("5b3b5df2bf2b6543f78e053bd91c4bdd820929f1"), // Curve.fi Factory USD Metapool: USDM
+hex!("04b727c7e246ca70d496ecf52e6b6280f3c8077d"), // Curve.fi Factory USD Metapool: apeUSDFRAXBP
+hex!("3175df0976dfa876431c2e9ee6bc45b65d3473cc"), // Curve.fi FRAX/USDC
+hex!("bcb91e689114b9cc865ad7871845c95241df4105"), // Curve.fi Factory USD Metapool: PWRD Metapool
+hex!("3b3ac5386837dc563660fb6a0937dfaa5924333b"), // Curve.fi yDAI/yUSDC/yUSDT/yBUSD
+hex!("c2f5fea5197a3d92736500fd7733fcc7a3bbdf3f"), // Curve.fi Factory USD Metapool: fUSD-3pool
+hex!("0c10bf8fcb7bf5412187a595ab97a3609160b5c6"), // Decentralized USD
+hex!("028171bca77440897b824ca71d1c56cac55b68a3"), // Aave interest bearing DAI
+hex!("3ed3b47dd13ec9a98b44e6204a523e766b225811"), // Aave interest bearing USDT
+hex!("bcca60bb61934080951369a648fb03df4f96263c"), // Aave interest bearing USDC
+hex!("6c5024cd4f8a59110119c56f8933403a539555eb"), // Aave interest bearing SUSD
+hex!("466a756e9a7401b5e2444a3fcb3c2c12fbea0a54"), // Stablecoin
+hex!("31d4eb09a216e181ec8a43ce79226a487d6f0ba9"), // USDM
+hex!("ff709449528b6fb6b88f557f7d93dece33bca78d"), // ApeUSD
+hex!("f0a93d4994b3d98fb5e3a2f90dbc2d69073cb86b"), // PWRD Stablecoin
+hex!("42ef9077d8e79689799673ae588e046f8832cb95"), // fryUSD
+hex!("0e2ec54fc0b509f445631bf4b91ab8168230c752"), // LINKUSD
+hex!("ea3fb6f331735252e7bfb0b24b3b761301293dbe"), // Vader USD
+hex!("4fabb145d64652a948d72533023f6e7a623c7c53"), // Binance USD
+hex!("956f47f50a910163d8bf957cf5846d573e7f87ca"), // Fei USD
+hex!("c7d9c108d4e1dd1484d3e2568d7f74bfd763d356"), // SORA Synthetic USD
+hex!("d71ecff9342a5ced620049e616c5035f1db98620"), // Synth sEUR
+hex!("056fd409e1d7a124bd7017459dfea2f387b6d5cd"), // gUSD
+hex!("5f98805a4e8be255a32880fdec7f6728c6568ba0"), // lUSD
+];
+
+pub static YEARN_LENS: [u8; 20] = hex!("83d95e0d5f402511db06817aff3f9ea88224b030");
+
+pub static SUSHISWAP: [u8; 20] = hex!("5ea7e501c9a23f4a76dc7d33a11d995b13a1dd25");
+
+pub static YEARN_LENS_BLACKLIST: [[u8; 20]; 7] = [
+hex!("5f98805a4e8be255a32880fdec7f6728c6568ba0"), // LUSD
+hex!("8daebade922df735c38c80c7ebd708af50815faa"), // tBTC
+hex!("0316eb71485b0ab14103307bf65a021042c6d380"), // Huobi BTC
+hex!("ca3d75ac011bf5ad07a98d02f18225f9bd9a6bdf"), // crvTriCrypto
+hex!("ae7ab96520de3a18e5e111b5eaab095312d7fe84"), // stETH
+hex!("7f86bf177dd4f3494b841a37e810a34dd56c829b"), // TricryptoUSDC
+hex!("f5f5b97624542d72a9e06f04804bf81baa15e2b4"), // TricryptoUSDT
+];
+
+pub static SUSHI_BLACKLIST: [[u8; 20]; 0] = [
+];

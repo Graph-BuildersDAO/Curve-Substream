@@ -3,7 +3,7 @@ use substreams::{
     errors::Error,
     pb::substreams::Clock,
     scalar::{BigDecimal, BigInt},
-    store::{StoreGet, StoreGetBigInt, StoreGetInt64, StoreGetProto},
+    store::{StoreGet, StoreGetBigDecimal, StoreGetBigInt, StoreGetInt64, StoreGetProto},
     Hex,
 };
 use substreams_entity_change::{pb::entity::EntityChanges, tables::Tables};
@@ -38,6 +38,7 @@ pub fn graph_out(
     tokens_store: StoreGetInt64,
     output_token_supply_store: StoreGetBigInt,
     input_token_balances_store: StoreGetBigInt,
+    pool_tvl_store: StoreGetBigDecimal,
 ) -> Result<EntityChanges, Error> {
     let mut tables = Tables::new();
     create_protocol_entity(&mut tables, &clock);
@@ -59,6 +60,7 @@ pub fn graph_out(
         &pools_store,
         &output_token_supply_store,
         &input_token_balances_store,
+        &pool_tvl_store,
     );
 
     Ok(tables.to_entity_changes())
@@ -203,6 +205,7 @@ fn create_pool_events_entities(
     pools_store: &StoreGetProto<Pool>,
     output_token_supply_store: &StoreGetBigInt,
     input_token_balances_store: &StoreGetBigInt,
+    pool_tvl_store: &StoreGetBigDecimal,
 ) {
     for event in pool_events {
         if let Some(event_type) = &event.r#type {
@@ -218,6 +221,7 @@ fn create_pool_events_entities(
                             &event,
                             &pool.input_tokens_ordered,
                             input_token_balances_store,
+                            pool_tvl_store,
                         );
                     }
                 }
@@ -232,6 +236,7 @@ fn create_pool_events_entities(
                             &event,
                             &pool.input_tokens_ordered,
                             input_token_balances_store,
+                            pool_tvl_store,
                         );
                     }
                 }
@@ -245,6 +250,7 @@ fn create_pool_events_entities(
                             &event,
                             &pool.input_tokens_ordered,
                             input_token_balances_store,
+                            pool_tvl_store,
                         )
                     }
                 }
@@ -277,6 +283,7 @@ fn update_input_token_balances(
     event: &PoolEvent,
     input_tokens: &Vec<String>,
     input_token_balances_store: &StoreGetBigInt,
+    pool_tvl_store: &StoreGetBigDecimal,
 ) {
     let input_token_balances: Vec<BigInt> = input_tokens
         .iter()
@@ -288,7 +295,7 @@ fn update_input_token_balances(
             {
                 Some(balance) => balance,
                 None => input_token_balances_store
-                    .get_first(&input_token_balance_key)
+                    .get_last(&input_token_balance_key)
                     .unwrap_or_else(|| {
                         substreams::log::debug!(
                             "No input token balance found for pool {} and token {}",
@@ -301,12 +308,18 @@ fn update_input_token_balances(
             input_token_balance
         })
         .collect();
+
+    let tvl = pool_tvl_store
+        .get_last(StoreKey::pool_tvl_key(&event.pool_address))
+        .unwrap_or(BigDecimal::zero());
+
     tables
         .update_row(
             "LiquidityPool",
             format::format_address_string(&event.pool_address),
         )
-        .set("inputTokenBalances", input_token_balances);
+        .set("inputTokenBalances", input_token_balances)
+        .set("totalValueLockedUSD", tvl);
 }
 
 fn create_deposit_entity(
