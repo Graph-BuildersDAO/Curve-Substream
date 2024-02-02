@@ -42,24 +42,32 @@ message Events {
   message PoolEvent {
     oneof type {
       SwapEvent swap_event = 1;
-      DepositEvent deposit_event = 2;
-      WithdrawEvent withdraw_event = 3;
+      SwapUnderlyingEvent swap_underlying_event = 2;
+      DepositEvent deposit_event = 3;
+      WithdrawEvent withdraw_event = 5;
     }
     // Common fields
-    string transaction_hash = 4;
-    uint32 tx_index = 5;
-    uint32 log_index = 6;
-    uint64 log_ordinal = 7;
-    string to_address = 8;
-    string from_address = 9;
-    uint64 timestamp = 10;
-    uint64 block_number = 11;
-    string pool_address = 12;
+    string transaction_hash = 6;
+    uint32 tx_index = 7;
+    uint32 log_index = 8;
+    uint64 log_ordinal = 9;
+    string to_address = 10;
+    string from_address = 11;
+    uint64 timestamp = 12;
+    uint64 block_number = 13;
+    string pool_address = 14;
     // TODO is there benefit in storing the total supply here or in the event types?
 
     message SwapEvent {
       TokenAmount token_in = 1;
       TokenAmount token_out = 2;
+    }
+
+    message SwapUnderlyingEvent {
+      TokenAmount token_in = 1;
+      TokenAmount token_out = 2;
+      string base_pool_address = 3;
+      TokenAmount lp_token_burnt = 4;
     }
 
     message DepositEvent {
