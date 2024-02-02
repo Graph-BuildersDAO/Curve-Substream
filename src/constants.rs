@@ -1,6 +1,6 @@
 use hex_literal::hex;
 use lazy_static::lazy_static;
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Div};
 use substreams::scalar::{BigDecimal, BigInt};
 
 use crate::network_config::{PoolDetails, MISSING_OLD_POOLS_DATA};
@@ -105,16 +105,25 @@ pub static BLACKLISTED_TOKENS: &[&str] = &[
     "8343091f2499fd4b6174a46d067a920a3b851ff9", // jJPY
 ];
 
-pub fn default_decimals() -> BigInt {
-    BigInt::from(18)
+pub fn default_decimals() -> u64 {
+    18
 }
 
-pub fn default_usdc_decimals() -> BigInt {
-    BigInt::from(6)
+pub fn default_decimals_big() -> BigInt {
+    BigInt::from(default_decimals())
 }
 
-pub fn default_usd_price() -> BigDecimal {
-    BigDecimal::from(1000000)
+pub fn default_usdc_decimals() -> u64 {
+    6
+}
+
+// Price per USDC in token's units
+pub fn usdc_smallest_unit_value() -> BigDecimal {
+    BigDecimal::from(10u64.pow(default_usdc_decimals() as u32))
+}
+
+pub fn one_usd_value() -> BigDecimal {
+    BigDecimal::from(1)
 }
 
 pub const FEE_DENOMINATOR: u64 = 10000000000;

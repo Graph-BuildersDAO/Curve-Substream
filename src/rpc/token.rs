@@ -23,7 +23,7 @@ pub fn create_token(token_address: &Vec<u8>, pool_address: &Vec<u8>) -> Result<T
             address: Hex::encode(&token_address),
             name: String::from("ETH"),
             symbol: String::from("ETH"),
-            decimals: constants::default_decimals().to_u64(),
+            decimals: constants::default_decimals(),
             total_supply: total_supply.to_string(),
             is_base_pool_lp_token: false,
         });
@@ -46,7 +46,7 @@ pub fn create_token(token_address: &Vec<u8>, pool_address: &Vec<u8>) -> Result<T
             Hex::encode(&token_address)
         ),
     )
-    .unwrap_or_else(|| constants::default_decimals());
+    .unwrap_or_else(|| constants::default_decimals_big());
 
     let name = decode_rpc_response::<_, functions::Name>(
         &responses[1],
