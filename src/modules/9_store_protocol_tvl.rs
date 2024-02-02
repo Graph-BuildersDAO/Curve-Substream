@@ -2,7 +2,7 @@ use std::ops::Sub;
 
 use substreams::store::{DeltaBigDecimal, Deltas, StoreAdd, StoreAddBigDecimal, StoreNew};
 
-use crate::store_key_manager::StoreKey;
+use crate::key_management::store_key_manager::StoreKey;
 
 #[substreams::handlers::store]
 pub fn store_protocol_tvl(

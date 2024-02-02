@@ -1,8 +1,8 @@
 use substreams::store::{StoreAdd, StoreAddBigInt, StoreNew};
 
 use crate::{
+    key_management::store_key_manager::StoreKey,
     pb::curve::types::v1::{events::pool_event::Type, Events},
-    store_key_manager::StoreKey,
 };
 
 #[substreams::handlers::store]

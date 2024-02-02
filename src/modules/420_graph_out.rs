@@ -17,6 +17,7 @@ use crate::{
         utils,
     },
     constants,
+    key_management::{entity_key_manager::EntityKey, store_key_manager::StoreKey},
     network_config::DEFAULT_NETWORK,
     pb::curve::types::v1::{
         events::{
@@ -26,7 +27,6 @@ use crate::{
         Events, Pool, Pools, Token,
     },
     rpc::pool::get_pool_fees,
-    store_key_manager::StoreKey,
     types::{PoolFee, PoolFees},
 };
 
@@ -60,7 +60,7 @@ pub fn graph_out(
 
     for delta in pools_count_deltas.iter().last() {
         tables
-            .update_row("DexAmmProtocol", utils::get_protocol_id())
+            .update_row("DexAmmProtocol", EntityKey::protocol_key())
             .set("totalPoolCount", delta.new_value);
     }
 
@@ -290,7 +290,7 @@ fn create_pool_events_entities(
         if let Some(tvl) = protocol_tvl_store.get_last(StoreKey::protocol_tvl_key()) {
             // Update the DexAmmProtocol entity with the new `totalValueLockedUSD` value
             tables
-                .update_row("DexAmmProtocol", utils::get_protocol_id())
+                .update_row("DexAmmProtocol", EntityKey::protocol_key())
                 .set("totalValueLockedUSD", tvl);
         }
     }
@@ -310,7 +310,7 @@ fn update_pool_output_token_supply(
     tables
         .update_row(
             "LiquidityPool",
-            format::format_address_string(&event.pool_address),
+            EntityKey::liquidity_pool_key(&event.pool_address),
         )
         .set("outputTokenSupply", output_token_supply);
 }
@@ -353,7 +353,7 @@ fn update_input_token_balances(
     tables
         .update_row(
             "LiquidityPool",
-            format::format_address_string(&event.pool_address),
+            EntityKey::liquidity_pool_key(&event.pool_address),
         )
         .set("inputTokenBalances", input_token_balances)
         .set("totalValueLockedUSD", tvl);
@@ -365,8 +365,6 @@ fn create_deposit_entity(
     event: &PoolEvent,
     deposit: &DepositEvent,
 ) {
-    // TODO create an entitiy key store and remove this madness
-    let key = format!("deposit-0x{}-{}", event.transaction_hash, event.log_index);
     let (input_tokens, input_token_amounts): (Vec<String>, Vec<BigInt>) = deposit
         .input_tokens
         .iter()
@@ -380,7 +378,10 @@ fn create_deposit_entity(
     let output_token_amount =
         BigInt::try_from(deposit.output_token.as_ref().unwrap().clone().amount).unwrap();
     tables
-        .create_row("Deposit", key)
+        .create_row(
+            "Deposit",
+            EntityKey::deposit_key(&event.transaction_hash, &event.log_index),
+        )
         .set(
             "hash",
             format::format_address_string(&event.transaction_hash),
@@ -408,7 +409,6 @@ fn create_withdraw_entity(
     event: &PoolEvent,
     withdraw: &WithdrawEvent,
 ) {
-    let key = format!("withdraw-0x{}-{}", event.transaction_hash, event.log_index);
     let (input_tokens, input_token_amounts): (Vec<String>, Vec<BigInt>) = withdraw
         .input_tokens
         .iter()
@@ -422,7 +422,10 @@ fn create_withdraw_entity(
     let output_token_amount =
         BigInt::try_from(withdraw.output_token.as_ref().unwrap().amount.clone()).unwrap();
     tables
-        .create_row("Withdraw", key)
+        .create_row(
+            "Withdraw",
+            EntityKey::withdraw_key(&event.transaction_hash, &event.log_index),
+        )
         .set(
             "hash",
             format::format_address_string(&event.transaction_hash),
@@ -445,9 +448,11 @@ fn create_withdraw_entity(
 }
 
 fn create_swap_entity(tables: &mut Tables, event: &PoolEvent, swap: &SwapEvent) {
-    let key = format!("swap-0x{}-{}", event.transaction_hash, event.log_index);
     tables
-        .create_row("Swap", key)
+        .create_row(
+            "Swap",
+            EntityKey::swap_key(&event.transaction_hash, &event.log_index),
+        )
         .set(
             "hash",
             format::format_address_string(&event.transaction_hash),
@@ -513,12 +518,15 @@ fn create_swap_underlying_entity(
         .set("timestamp", BigInt::from(event.timestamp))
         .set(
             "tokenIn",
-            format::format_address_string(&swap_underlying.token_in.as_ref().unwrap().token_address),
+            format::format_address_string(
+                &swap_underlying.token_in.as_ref().unwrap().token_address,
+            ),
         )
         .set(
             "amountIn",
             BigInt::from(
-                swap_underlying.token_in
+                swap_underlying
+                    .token_in
                     .as_ref()
                     .unwrap()
                     .amount
@@ -529,12 +537,15 @@ fn create_swap_underlying_entity(
         .set("amountInUSD", BigDecimal::zero())
         .set(
             "tokenOut",
-            format::format_address_string(&swap_underlying.token_out.as_ref().unwrap().token_address),
+            format::format_address_string(
+                &swap_underlying.token_out.as_ref().unwrap().token_address,
+            ),
         )
         .set(
             "amountOut",
             BigInt::from(
-                swap_underlying.token_out
+                swap_underlying
+                    .token_out
                     .as_ref()
                     .unwrap()
                     .amount

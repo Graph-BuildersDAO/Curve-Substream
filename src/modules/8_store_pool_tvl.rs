@@ -11,13 +11,13 @@ use substreams::{
 
 use crate::{
     constants::{one_usd_value, BLACKLISTED_TOKENS},
+    key_management::store_key_manager::StoreKey,
     network_config::HARDCODED_STABLES,
     pb::{
         curve::types::v1::{Pool, Token},
         uniswap_pricing::v1::Erc20Price,
     },
     rpc::oracle::{get_usdc_price_price_sushi, get_usdc_price_yearn},
-    store_key_manager::StoreKey,
 };
 
 #[substreams::handlers::store]
