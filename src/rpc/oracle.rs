@@ -23,7 +23,7 @@ pub fn get_usdc_price_yearn(token_address: Vec<u8>) -> Option<BigDecimal> {
         yearn_lens::functions::GetPriceUsdcRecommended { token_address }.call(YEARN_LENS.to_vec());
 
     if let Some(price) = price_opt {
-        return Some(price.to_decimal(default_usdc_decimals().to_u64()));
+        return Some(price.to_decimal(default_usdc_decimals()));
     }
     None
 }
@@ -38,7 +38,7 @@ pub fn get_usdc_price_price_sushi(token_address: Vec<u8>) -> Option<BigDecimal> 
     let price_opt = sushiswap::functions::GetPriceUsdc { token_address }.call(SUSHISWAP.to_vec());
 
     if let Some(price) = price_opt {
-        return Some(price.to_decimal(default_usdc_decimals().to_u64()));
+        return Some(price.to_decimal(default_usdc_decimals()));
     }
     None
 }
