@@ -3,7 +3,10 @@ use substreams::{
     errors::Error,
     pb::substreams::Clock,
     scalar::{BigDecimal, BigInt},
-    store::{StoreGet, StoreGetBigDecimal, StoreGetBigInt, StoreGetInt64, StoreGetProto},
+    store::{
+        DeltaInt64, Deltas, StoreGet, StoreGetBigDecimal, StoreGetBigInt, StoreGetInt64,
+        StoreGetProto,
+    },
     Hex,
 };
 use substreams_entity_change::{pb::entity::EntityChanges, tables::Tables};
@@ -39,6 +42,7 @@ pub fn graph_out(
     output_token_supply_store: StoreGetBigInt,
     input_token_balances_store: StoreGetBigInt,
     pool_tvl_store: StoreGetBigDecimal,
+    protocol_tvl_store: StoreGetBigDecimal,
 ) -> Result<EntityChanges, Error> {
     let mut tables = Tables::new();
     create_protocol_entity(&mut tables, &clock);
@@ -61,6 +65,7 @@ pub fn graph_out(
         &output_token_supply_store,
         &input_token_balances_store,
         &pool_tvl_store,
+        &protocol_tvl_store,
     );
 
     Ok(tables.to_entity_changes())
@@ -206,6 +211,7 @@ fn create_pool_events_entities(
     output_token_supply_store: &StoreGetBigInt,
     input_token_balances_store: &StoreGetBigInt,
     pool_tvl_store: &StoreGetBigDecimal,
+    protocol_tvl_store: &StoreGetBigDecimal,
 ) {
     for event in pool_events {
         if let Some(event_type) = &event.r#type {
@@ -255,6 +261,16 @@ fn create_pool_events_entities(
                     }
                 }
             }
+        }
+    }
+
+    if !pool_events.is_empty() {
+        // Retrieve the latest TVL from the store
+        if let Some(tvl) = protocol_tvl_store.get_last(StoreKey::protocol_tvl_key()) {
+            // Update the DexAmmProtocol entity with the new `totalValueLockedUSD` value
+            tables
+                .update_row("DexAmmProtocol", utils::get_protocol_id())
+                .set("totalValueLockedUSD", tvl);
         }
     }
 }
