@@ -67,26 +67,26 @@ pub mod events {
 #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct PoolEvent {
         /// Common fields
-        #[prost(string, tag="4")]
+        #[prost(string, tag="6")]
         pub transaction_hash: ::prost::alloc::string::String,
-        #[prost(uint32, tag="5")]
+        #[prost(uint32, tag="7")]
         pub tx_index: u32,
-        #[prost(uint32, tag="6")]
+        #[prost(uint32, tag="8")]
         pub log_index: u32,
-        #[prost(uint64, tag="7")]
+        #[prost(uint64, tag="9")]
         pub log_ordinal: u64,
-        #[prost(string, tag="8")]
+        #[prost(string, tag="10")]
         pub to_address: ::prost::alloc::string::String,
-        #[prost(string, tag="9")]
+        #[prost(string, tag="11")]
         pub from_address: ::prost::alloc::string::String,
-        #[prost(uint64, tag="10")]
+        #[prost(uint64, tag="12")]
         pub timestamp: u64,
-        #[prost(uint64, tag="11")]
+        #[prost(uint64, tag="13")]
         pub block_number: u64,
         /// TODO is there benefit in storing the total supply here or in the event types?
-        #[prost(string, tag="12")]
+        #[prost(string, tag="14")]
         pub pool_address: ::prost::alloc::string::String,
-        #[prost(oneof="pool_event::Type", tags="1, 2, 3")]
+        #[prost(oneof="pool_event::Type", tags="1, 2, 3, 5")]
         pub r#type: ::core::option::Option<pool_event::Type>,
     }
     /// Nested message and enum types in `PoolEvent`.
@@ -98,6 +98,18 @@ pub mod events {
             pub token_in: ::core::option::Option<TokenAmount>,
             #[prost(message, optional, tag="2")]
             pub token_out: ::core::option::Option<TokenAmount>,
+        }
+        #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+        pub struct SwapUnderlyingEvent {
+            #[prost(message, optional, tag="1")]
+            pub token_in: ::core::option::Option<TokenAmount>,
+            #[prost(message, optional, tag="2")]
+            pub token_out: ::core::option::Option<TokenAmount>,
+            #[prost(string, tag="3")]
+            pub base_pool_address: ::prost::alloc::string::String,
+            #[prost(message, optional, tag="4")]
+            pub lp_token_burnt: ::core::option::Option<TokenAmount>,
         }
         #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -134,8 +146,10 @@ pub mod events {
             #[prost(message, tag="1")]
             SwapEvent(SwapEvent),
             #[prost(message, tag="2")]
-            DepositEvent(DepositEvent),
+            SwapUnderlyingEvent(SwapUnderlyingEvent),
             #[prost(message, tag="3")]
+            DepositEvent(DepositEvent),
+            #[prost(message, tag="5")]
             WithdrawEvent(WithdrawEvent),
         }
     }
