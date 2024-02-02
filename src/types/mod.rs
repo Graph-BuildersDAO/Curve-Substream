@@ -1,6 +1,7 @@
-mod pool;
-mod pool_event;
-mod pool_fees;
-mod token;
+pub mod pool;
+pub mod pool_event;
+pub mod pool_fees;
+pub mod token;
+pub mod transfer;
 
 pub use pool_fees::{PoolFee, PoolFees};
