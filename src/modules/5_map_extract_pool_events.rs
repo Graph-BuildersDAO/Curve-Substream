@@ -27,13 +27,16 @@ use crate::{
     network_config,
     pb::curve::types::v1::{
         events::{
-            pool_event::{DepositEvent, SwapEvent, TokenAmount, Type, WithdrawEvent},
+            pool_event::{
+                DepositEvent, SwapEvent, SwapUnderlyingEvent, TokenAmount, Type, WithdrawEvent,
+            },
             PoolEvent,
         },
         Events, Pool,
     },
     rpc::{pool::get_pool_underlying_coins, registry::get_pool_underlying_coins_from_registry},
     store_key_manager::StoreKey,
+    types::transfer,
 };
 
 #[substreams::handlers::map]
@@ -64,7 +67,6 @@ pub fn map_extract_pool_events(
                         &swap.tokens_sold,
                         &swap.tokens_bought,
                         &swap.buyer,
-                        false,
                     );
                 } else if let Some(swap) = TokenExchange2::match_and_decode(&log) {
                     extract_swap_event(
@@ -78,21 +80,21 @@ pub fn map_extract_pool_events(
                         &swap.tokens_sold,
                         &swap.tokens_bought,
                         &swap.buyer,
-                        false,
                     );
-                } else if let Some(swap) = TokenExchangeUnderlying::match_and_decode(&log) {
-                    extract_swap_event(
+                } else if let Some(swap_underlying) =
+                    TokenExchangeUnderlying::match_and_decode(&log)
+                {
+                    extract_swap_underlying_event(
                         &mut pool_events,
                         &blk,
                         trx,
                         log,
                         &pool,
-                        &swap.sold_id,
-                        &swap.bought_id,
-                        &swap.tokens_sold,
-                        &swap.tokens_bought,
-                        &swap.buyer,
-                        true,
+                        &swap_underlying.sold_id,
+                        &swap_underlying.bought_id,
+                        &swap_underlying.tokens_sold,
+                        &swap_underlying.tokens_bought,
+                        &swap_underlying.buyer,
                     );
                 } else if let Some(deposit) = AddLiquidity1::match_and_decode(&log) {
                     let fees = vec![deposit.fee.into()];
@@ -289,7 +291,6 @@ fn extract_swap_event(
     tokens_sold: &BigInt,
     tokens_bought: &BigInt,
     buyer: &Vec<u8>,
-    with_underlying: bool,
 ) {
     let pool_address = &pool.address;
     substreams::log::info!(format!(
@@ -300,33 +301,13 @@ fn extract_swap_event(
     let in_address_index = sold_id.to_i32().to_usize().unwrap();
     let out_address_index = bought_id.to_i32().to_usize().unwrap();
 
-    let (token_in_address, token_out_address) = if with_underlying {
-        match get_underlying_coin_addresses(
-            pool,
-            &pool_address,
-            in_address_index,
-            out_address_index,
-            bought_id,
-        ) {
-            Ok((in_addr, out_addr)) => (in_addr, out_addr),
-            Err(e) => {
-                substreams::log::debug!("Error in `extract_swap_event`: {:?}", e);
-                return;
-            }
-        }
-    } else {
-        (
-            pool.input_tokens_ordered[in_address_index].clone(),
-            pool.input_tokens_ordered[out_address_index].clone(),
-        )
-    };
     let token_in = TokenAmount {
-        token_address: token_in_address,
+        token_address: pool.input_tokens_ordered[in_address_index].clone(),
         amount: tokens_sold.into(),
     };
 
     let token_out = TokenAmount {
-        token_address: token_out_address,
+        token_address: pool.input_tokens_ordered[out_address_index].clone(),
         amount: tokens_bought.into(),
     };
 
@@ -346,6 +327,96 @@ fn extract_swap_event(
         block_number: blk.number,
         pool_address: pool_address.to_string(),
         r#type: Some(Type::SwapEvent(swap_event)),
+    })
+}
+
+fn extract_swap_underlying_event(
+    pool_events: &mut Vec<PoolEvent>,
+    blk: &eth::Block,
+    trx: &TransactionTrace,
+    log: &Log,
+    pool: &Pool,
+    sold_id: &BigInt,
+    bought_id: &BigInt,
+    tokens_sold: &BigInt,
+    tokens_bought: &BigInt,
+    buyer: &Vec<u8>,
+) {
+    let pool_address = &pool.address;
+    substreams::log::info!(format!(
+        "Extracting Swap Underlying from transaction {} and pool {}",
+        Hex::encode(&trx.hash),
+        &pool_address
+    ));
+    let in_address_index = sold_id.to_i32().to_usize().unwrap();
+    let out_address_index = bought_id.to_i32().to_usize().unwrap();
+
+    let (token_in_address, token_out_address) =
+        match get_underlying_coin_addresses(pool, in_address_index, out_address_index, bought_id) {
+            Ok((in_addr, out_addr)) => (in_addr, out_addr),
+            Err(e) => {
+                substreams::log::debug!("Error in `extract_swap_event`: {:?}", e);
+                return;
+            }
+        };
+
+    let token_in = TokenAmount {
+        token_address: token_in_address,
+        amount: tokens_sold.into(),
+    };
+
+    let token_out = TokenAmount {
+        token_address: token_out_address,
+        amount: tokens_bought.into(),
+    };
+
+    // Get burn transfer. During an ExchangeUnderlying, the metapool withdraws underlying coins from
+    // the base pool. To do this, the underlying pools LP tokens are burnt.
+    let token_burnt: TokenAmount = match event_extraction::extract_specific_transfer_event(
+        trx,
+        None,
+        Some(&pool.address_vec()),
+        Some(&NULL_ADDRESS.to_vec()),
+    ) {
+        Ok(burn_transfer) => TokenAmount {
+            token_address: Hex::encode(burn_transfer.token_address),
+            amount: burn_transfer.transfer.value.into(),
+        },
+        Err(e) => {
+            substreams::log::debug!("Error in `map_extract_pool_events`: {:?}", e);
+            return;
+        }
+    };
+
+    // As part of the tx logs, we can find the RemoveLiquidity event emitted from the base pool.
+    // This allows us to get the base pool's address.
+    let remove_liquidity_transfer = match event_extraction::extract_remove_liquidity_one_event(&trx)
+    {
+        Ok(remove_transfer) => remove_transfer,
+        Err(e) => {
+            substreams::log::debug!("Error in `map_extract_pool_events`: {:?}", e);
+            return;
+        }
+    };
+
+    let swap_underlying_event = SwapUnderlyingEvent {
+        token_in: Some(token_in),
+        token_out: Some(token_out),
+        lp_token_burnt: Some(token_burnt),
+        base_pool_address: Hex::encode(remove_liquidity_transfer.pool_address),
+    };
+
+    pool_events.push(PoolEvent {
+        transaction_hash: Hex::encode(&trx.hash),
+        tx_index: trx.index,
+        log_index: log.index,
+        log_ordinal: log.ordinal,
+        to_address: pool_address.to_string(),
+        from_address: Hex::encode(buyer),
+        timestamp: blk.timestamp_seconds(),
+        block_number: blk.number,
+        pool_address: pool_address.to_string(),
+        r#type: Some(Type::SwapUnderlyingEvent(swap_underlying_event)),
     })
 }
 
@@ -379,20 +450,30 @@ fn extract_deposit_event(
             amount: amount.into(),
         })
         .collect();
-    let output_token_transfer = event_extraction::extract_specific_transfer_event(
+
+    let output_token_amount = event_extraction::extract_specific_transfer_event(
         &trx,
-        &pool_address,
-        &NULL_ADDRESS.to_vec(),
-        &provider,
-    );
-    // This is the amount of output token (LP token) transferred to the liquidity provider
-    let output_token_amount = match output_token_transfer {
-        Ok(transfer) => transfer.value,
-        Err(e) => {
-            substreams::log::debug!("Error in `map_extract_pool_events`: {:?}", e);
-            BigInt::zero()
-        }
-    };
+        Some(&pool_address),
+        Some(&NULL_ADDRESS.to_vec()),
+        Some(&provider),
+    )
+    .or_else(|_| {
+        // If finding a `Transfer` event with the provider as `to` fails, it may involve a Deposit Zap contract.
+        // In such cases, LP tokens are sent to the user interacting with the Deposit Zap, not the contract itself.
+        // Hence, we retry without specifying the `to` address, though the initial attempt aims for precision when possible.
+        event_extraction::extract_specific_transfer_event(
+            &trx,
+            Some(&pool_address),
+            Some(&NULL_ADDRESS.to_vec()),
+            None,
+        )
+    })
+    .map(|transfer| transfer.transfer.value)
+    .unwrap_or_else(|e| {
+        substreams::log::debug!("Error in `map_extract_pool_events`: {:?}", e);
+        BigInt::zero()
+    });
+
     let deposit_event = DepositEvent {
         input_tokens,
         output_token: Some(TokenAmount {
@@ -448,11 +529,11 @@ fn extract_withdraw_event(
         .collect();
     let output_token_amount = match event_extraction::extract_specific_transfer_event(
         &trx,
-        &pool_address,
-        &provider,
-        &NULL_ADDRESS.to_vec(),
+        Some(&pool_address),
+        Some(&provider),
+        Some(&NULL_ADDRESS.to_vec()),
     ) {
-        Ok(burn_transfer) => burn_transfer.value,
+        Ok(burn_transfer) => burn_transfer.transfer.value,
         Err(e) => {
             substreams::log::debug!("Error in `map_extract_pool_events`: {:?}", e);
             BigInt::zero()
@@ -558,13 +639,12 @@ fn extract_withdraw_one_event(
 
 fn get_underlying_coin_addresses(
     pool: &Pool,
-    pool_address: &str,
     in_index: usize,
     out_index: usize,
     bought_id: &BigInt,
 ) -> Result<(String, String), Error> {
-    let registry_address = Hex::decode(&pool.registry_address).unwrap();
-    let pool_address = Hex::decode(pool_address).unwrap();
+    let registry_address = pool.registry_address_vec();
+    let pool_address = pool.address_vec();
     let underlying_coins = if registry_address == NULL_ADDRESS.to_vec() {
         get_pool_underlying_coins(&pool_address)
     } else {
@@ -591,7 +671,7 @@ fn get_underlying_coin_addresses(
                     Hex::encode(&coins[out_index]),
                 ))
             } else {
-                Err(anyhow!("Error in `get_underlying_coin_addresses`: No underlying coins found for pool {}.", Hex::encode(&pool_address)))
+                Err(anyhow!("Error in `get_underlying_coin_addresses`: No underlying coins found for pool {}.", pool.address))
             }
         }
         Err(e) => Err(anyhow!("Error in `get_underlying_coin_addresses`: {:?}", e)),

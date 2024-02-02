@@ -29,6 +29,7 @@ pub fn create_token(token_address: &Vec<u8>, pool_address: &Vec<u8>) -> Result<T
         });
     }
 
+    // TODO add error handling to batch stuff (see uniswap pricing)
     let batch = RpcBatch::new();
     let responses = batch
         .add(functions::Decimals {}, token_address.clone())

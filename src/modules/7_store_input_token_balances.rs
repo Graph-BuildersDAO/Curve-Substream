@@ -11,7 +11,7 @@ pub fn store_input_token_balances(events: Events, store: StoreAddBigInt) {
         if let Some(event_type) = &event.r#type {
             match event_type {
                 Type::DepositEvent(deposit) => {
-                    // Deposit events will always increase the balances of input tokens
+                    // `Deposit` events will always increase the balances of input tokens
                     for input_token in &deposit.input_tokens {
                         store.add(
                             event.log_ordinal,
@@ -24,7 +24,7 @@ pub fn store_input_token_balances(events: Events, store: StoreAddBigInt) {
                     }
                 }
                 Type::WithdrawEvent(withdraw) => {
-                    // Withdraw events will always decrease the balances of input tokens
+                    // `Withdraw` events will always decrease the balances of input tokens
                     for input_token in &withdraw.input_tokens {
                         store.add(
                             event.log_ordinal,
@@ -55,6 +55,28 @@ pub fn store_input_token_balances(events: Events, store: StoreAddBigInt) {
                         ),
                         swap.token_out_amount_big().neg(),
                     );
+                }
+                Type::SwapUnderlyingEvent(swap_underlying) => {
+                    // Input token balance increments as normal
+                    store.add(
+                        event.log_ordinal,
+                        StoreKey::input_token_balance_key(
+                            &event.pool_address,
+                            &swap_underlying.token_in_ref().token_address,
+                        ),
+                        swap_underlying.token_in_amount_big(),
+                    );
+                    // As this is a metapool, the LP token burnt to exchange for the underlying asset needs to be updated.
+                    // A remove liquidity event will also be emitted as part of the transaction. The output token balance
+                    // on the base pool will be updated by the remove liquidity event, so we don't need to handle that here.
+                    store.add(
+                        event.log_ordinal,
+                        StoreKey::input_token_balance_key(
+                            &event.pool_address,
+                            &swap_underlying.lp_token_burnt_ref().token_address,
+                        ),
+                        swap_underlying.lp_token_burnt_amount_big().neg(),
+                    )
                 }
             }
         }

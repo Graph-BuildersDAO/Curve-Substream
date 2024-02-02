@@ -20,7 +20,7 @@ use crate::{
     network_config::DEFAULT_NETWORK,
     pb::curve::types::v1::{
         events::{
-            pool_event::{DepositEvent, SwapEvent, Type, WithdrawEvent},
+            pool_event::{DepositEvent, SwapEvent, SwapUnderlyingEvent, Type, WithdrawEvent},
             PoolEvent,
         },
         Events, Pool, Pools, Token,
@@ -220,7 +220,7 @@ fn create_pool_events_entities(
     pool_tvl_store: &StoreGetBigDecimal,
     protocol_tvl_store: &StoreGetBigDecimal,
 ) {
-    for event in pool_events {
+    for event in &pool_events {
         if let Some(event_type) = &event.r#type {
             match event_type {
                 Type::DepositEvent(deposit) => {
@@ -258,6 +258,20 @@ fn create_pool_events_entities(
                         pools_store.get_last(StoreKey::pool_key(&event.pool_address))
                     {
                         create_swap_entity(tables, &event, &swap);
+                        update_input_token_balances(
+                            tables,
+                            &event,
+                            &pool.input_tokens_ordered,
+                            input_token_balances_store,
+                            pool_tvl_store,
+                        )
+                    }
+                }
+                Type::SwapUnderlyingEvent(swap_underlying) => {
+                    if let Some(pool) =
+                        pools_store.get_last(StoreKey::pool_key(&event.pool_address))
+                    {
+                        create_swap_underlying_entity(tables, &event, swap_underlying);
                         update_input_token_balances(
                             tables,
                             &event,
@@ -351,6 +365,7 @@ fn create_deposit_entity(
     event: &PoolEvent,
     deposit: &DepositEvent,
 ) {
+    // TODO create an entitiy key store and remove this madness
     let key = format!("deposit-0x{}-{}", event.transaction_hash, event.log_index);
     let (input_tokens, input_token_amounts): (Vec<String>, Vec<BigInt>) = deposit
         .input_tokens
@@ -467,6 +482,59 @@ fn create_swap_entity(tables: &mut Tables, event: &PoolEvent, swap: &SwapEvent) 
             "amountOut",
             BigInt::from(
                 swap.token_out
+                    .as_ref()
+                    .unwrap()
+                    .amount
+                    .parse::<u64>()
+                    .unwrap_or_default(),
+            ),
+        )
+        .set("amountOutUSD", BigDecimal::zero())
+        .set("pool", format::format_address_string(&event.pool_address));
+}
+
+fn create_swap_underlying_entity(
+    tables: &mut Tables,
+    event: &PoolEvent,
+    swap_underlying: &SwapUnderlyingEvent,
+) {
+    let key = format!("swap-0x{}-{}", event.transaction_hash, event.log_index);
+    tables
+        .create_row("Swap", key)
+        .set(
+            "hash",
+            format::format_address_string(&event.transaction_hash),
+        )
+        .set("logIndex", event.log_index as i32)
+        .set("protocol", utils::get_protocol_id())
+        .set("to", format::format_address_string(&event.to_address))
+        .set("from", format::format_address_string(&event.from_address))
+        .set("blockNumber", BigInt::from(event.block_number))
+        .set("timestamp", BigInt::from(event.timestamp))
+        .set(
+            "tokenIn",
+            format::format_address_string(&swap_underlying.token_in.as_ref().unwrap().token_address),
+        )
+        .set(
+            "amountIn",
+            BigInt::from(
+                swap_underlying.token_in
+                    .as_ref()
+                    .unwrap()
+                    .amount
+                    .parse::<u64>()
+                    .unwrap_or_default(),
+            ),
+        )
+        .set("amountInUSD", BigDecimal::zero())
+        .set(
+            "tokenOut",
+            format::format_address_string(&swap_underlying.token_out.as_ref().unwrap().token_address),
+        )
+        .set(
+            "amountOut",
+            BigInt::from(
+                swap_underlying.token_out
                     .as_ref()
                     .unwrap()
                     .amount
