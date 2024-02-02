@@ -10,7 +10,7 @@ use substreams::{
 };
 
 use crate::{
-    constants::{default_usd_price, default_usdc_decimals, BLACKLISTED_TOKENS},
+    constants::{one_usd_value, BLACKLISTED_TOKENS},
     network_config::HARDCODED_STABLES,
     pb::{
         curve::types::v1::{Pool, Token},
@@ -83,7 +83,7 @@ fn calculate_token_tvl(
         .iter()
         .any(|&addr| Hex::encode(addr) == token.address)
     {
-        return default_usd_price() * balance.to_decimal(default_usdc_decimals().to_u64());
+        return one_usd_value() * balance.to_decimal(token.decimals);
     }
 
     // Attempt to get a price from the Uniswap Prices store

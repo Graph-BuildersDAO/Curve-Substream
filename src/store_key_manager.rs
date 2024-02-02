@@ -2,6 +2,7 @@ pub enum StoreKey {
     // Curve sustream specific store key variants
     Pool(String),
     PoolTvl(String),
+    ProtocolTvl,
     Token(String),
     OutputTokenSupply(String),
     InputTokenBalance(String, String),
@@ -16,9 +17,13 @@ impl StoreKey {
     pub fn pool_key(pool_address: &str) -> String {
         StoreKey::Pool(pool_address.to_string()).to_key_string()
     }
-    
+
     pub fn pool_tvl_key(pool_address: &str) -> String {
         StoreKey::PoolTvl(pool_address.to_string()).to_key_string()
+    }
+
+    pub fn protocol_tvl_key() -> String {
+        StoreKey::ProtocolTvl.to_key_string()
     }
 
     pub fn token_key(token_address: &str) -> String {
@@ -77,14 +82,19 @@ impl StoreKey {
         match self {
             StoreKey::Pool(addr) => format!("Pool:{}", addr),
             StoreKey::PoolTvl(addr) => format!("PoolTvl:{}", addr),
+            StoreKey::ProtocolTvl => "ProtocolTvl".to_string(),
             StoreKey::Token(addr) => format!("Token:{}", addr),
             StoreKey::OutputTokenSupply(addr) => format!("OutputTokenSupply:{}", addr),
             StoreKey::InputTokenBalance(pool_addr, token_addr) => {
                 format!("InputTokenBalance:{}:{}", pool_addr, token_addr)
             }
             StoreKey::ProtocolPoolCount => "ProtocolPoolCount".to_string(),
-            StoreKey::UniswapPriceByTokenAddress(addr) => format!("UsdPriceByTokenAddress:{}", addr),
-            StoreKey::UniswapPriceByTokenSymbol(symbol) => format!("UsdPriceByTokenSymbol:{}", symbol),
+            StoreKey::UniswapPriceByTokenAddress(addr) => {
+                format!("UsdPriceByTokenAddress:{}", addr)
+            }
+            StoreKey::UniswapPriceByTokenSymbol(symbol) => {
+                format!("UsdPriceByTokenSymbol:{}", symbol)
+            }
             StoreKey::ChainlinkPriceBySymbol(symbol) => format!("price_by_symbol:{}:USD", symbol),
         }
     }

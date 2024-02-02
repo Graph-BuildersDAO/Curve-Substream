@@ -22,6 +22,9 @@ mod store_input_token_balances;
 #[path = "8_store_pool_tvl.rs"]
 mod store_pool_tvl;
 
+#[path = "9_store_protocol_tvl.rs"]
+mod store_protocol_tvl;
+
 // TODO: Will decrement once we have added and finalised all the other modules.
 #[path = "420_graph_out.rs"]
 mod graph_out;
@@ -33,5 +36,6 @@ pub use store_input_token_balances::store_input_token_balances;
 pub use store_output_token_supply::store_output_token_supply;
 pub use store_pool_count::store_pool_count;
 pub use store_pool_tvl::store_pool_tvl;
+pub use store_protocol_tvl::store_protocol_tvl;
 pub use store_pools_created::store_pools_created;
 pub use store_tokens::store_tokens;
