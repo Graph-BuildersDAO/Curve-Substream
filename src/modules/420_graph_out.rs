@@ -38,6 +38,7 @@ pub fn graph_out(
     pools: Pools,
     events: Events,
     pools_store: StoreGetProto<Pool>,
+    pools_count_deltas: Deltas<DeltaInt64>,
     tokens_store: StoreGetInt64,
     output_token_supply_store: StoreGetBigInt,
     input_token_balances_store: StoreGetBigInt,
@@ -55,6 +56,12 @@ pub fn graph_out(
         create_pool_entity(&mut tables, &pool, &pool_fees);
         create_pool_fee_entities(&mut tables, &pool_fees);
         create_pool_token_entities(&mut tables, &pool, &tokens_store)?;
+    }
+
+    for delta in pools_count_deltas.iter().last() {
+        tables
+            .update_row("DexAmmProtocol", utils::get_protocol_id())
+            .set("totalPoolCount", delta.new_value);
     }
 
     // Create entities related to Pool events
