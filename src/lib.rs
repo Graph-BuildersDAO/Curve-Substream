@@ -4,7 +4,7 @@ mod modules;
 mod network_config;
 mod pb;
 mod rpc;
-mod store_key_manager;
+mod key_management;
 mod types;
 mod common;
 

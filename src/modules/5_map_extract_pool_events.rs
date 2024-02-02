@@ -24,6 +24,7 @@ use crate::{
     },
     common::event_extraction,
     constants::network,
+    key_management::store_key_manager::StoreKey,
     network_config,
     pb::curve::types::v1::{
         events::{
@@ -35,7 +36,6 @@ use crate::{
         Events, Pool,
     },
     rpc::{pool::get_pool_underlying_coins, registry::get_pool_underlying_coins_from_registry},
-    store_key_manager::StoreKey,
     types::transfer,
 };
 
