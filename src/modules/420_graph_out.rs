@@ -503,9 +503,11 @@ fn create_swap_underlying_entity(
     event: &PoolEvent,
     swap_underlying: &SwapUnderlyingEvent,
 ) {
-    let key = format!("swap-0x{}-{}", event.transaction_hash, event.log_index);
     tables
-        .create_row("Swap", key)
+        .create_row(
+            "Swap",
+            EntityKey::swap_key(&event.transaction_hash, &event.log_index),
+        )
         .set(
             "hash",
             format::format_address_string(&event.transaction_hash),

@@ -117,11 +117,6 @@ pub fn default_usdc_decimals() -> u64 {
     6
 }
 
-// Price per USDC in token's units
-pub fn usdc_smallest_unit_value() -> BigDecimal {
-    BigDecimal::from(10u64.pow(default_usdc_decimals() as u32))
-}
-
 pub fn one_usd_value() -> BigDecimal {
     BigDecimal::from(1)
 }
