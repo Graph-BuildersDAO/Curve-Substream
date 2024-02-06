@@ -16,7 +16,8 @@ use crate::{
         common::erc20::events::Transfer,
         curve::pool::events::{
             AddLiquidity1, AddLiquidity2, AddLiquidity3, AddLiquidity4, AddLiquidity5,
-            RemoveLiquidity1, RemoveLiquidity2, RemoveLiquidity3, RemoveLiquidity4,
+            ApplyNewFee1, ApplyNewFee2, NewFee1, NewFee2, NewParameters1, NewParameters2,
+            NewParameters3, RemoveLiquidity1, RemoveLiquidity2, RemoveLiquidity3, RemoveLiquidity4,
             RemoveLiquidity5, RemoveLiquidityImbalance1, RemoveLiquidityImbalance2,
             RemoveLiquidityImbalance3, RemoveLiquidityOne1, RemoveLiquidityOne2, TokenExchange1,
             TokenExchange2, TokenExchangeUnderlying,
@@ -31,12 +32,14 @@ use crate::{
             pool_event::{
                 DepositEvent, SwapEvent, SwapUnderlyingEvent, TokenAmount, Type, WithdrawEvent,
             },
-            PoolEvent,
+            FeeChangeEvent, PoolEvent,
         },
         Events, Pool,
     },
-    rpc::{pool::get_pool_underlying_coins, registry::get_pool_underlying_coins_from_registry},
-    types::transfer,
+    rpc::{
+        pool::{get_pool_fee_and_admin_fee, get_pool_underlying_coins},
+        registry::get_pool_underlying_coins_from_registry,
+    },
 };
 
 #[substreams::handlers::map]
@@ -47,6 +50,7 @@ pub fn map_extract_pool_events(
     // Initialise events and its fields
     let mut events = Events::default();
     let mut pool_events: Vec<PoolEvent> = Vec::new();
+    let mut fee_change_events: Vec<FeeChangeEvent> = Vec::new();
 
     // Check if event is coming from the pool contract
     for trx in blk.transactions() {
@@ -272,11 +276,102 @@ pub fn map_extract_pool_events(
                         withdraw.token_amount,
                         withdraw.coin_amount,
                     );
+                } else if let Some(fee_change) = ApplyNewFee1::match_and_decode(&log) {
+                    fee_change_events.push(FeeChangeEvent {
+                        transaction_hash: Hex::encode(&trx.hash),
+                        tx_index: trx.index,
+                        log_index: log.index,
+                        log_ordinal: log.ordinal,
+                        timestamp: blk.timestamp_seconds(),
+                        block_number: blk.number,
+                        fee: fee_change.fee.to_string(),
+                        admin_fee: None,
+                        pool_address: pool.address.clone(),
+                    });
+                } else if let Some(fee_change) = ApplyNewFee2::match_and_decode(&log) {
+                    fee_change_events.push(FeeChangeEvent {
+                        transaction_hash: Hex::encode(&trx.hash),
+                        tx_index: trx.index,
+                        log_index: log.index,
+                        log_ordinal: log.ordinal,
+                        timestamp: blk.timestamp_seconds(),
+                        block_number: blk.number,
+                        fee: fee_change.fee.to_string(),
+                        admin_fee: None,
+                        pool_address: pool.address.clone(),
+                    });
+                } else if let Some(fee_change) = NewFee1::match_and_decode(&log) {
+                    fee_change_events.push(FeeChangeEvent {
+                        transaction_hash: Hex::encode(&trx.hash),
+                        tx_index: trx.index,
+                        log_index: log.index,
+                        log_ordinal: log.ordinal,
+                        timestamp: blk.timestamp_seconds(),
+                        block_number: blk.number,
+                        fee: fee_change.fee.to_string(),
+                        admin_fee: Some(fee_change.admin_fee.to_string()),
+                        pool_address: pool.address.clone(),
+                    });
+                } else if let Some(fee_change) = NewFee2::match_and_decode(&log) {
+                    fee_change_events.push(FeeChangeEvent {
+                        transaction_hash: Hex::encode(&trx.hash),
+                        tx_index: trx.index,
+                        log_index: log.index,
+                        log_ordinal: log.ordinal,
+                        timestamp: blk.timestamp_seconds(),
+                        block_number: blk.number,
+                        fee: fee_change.fee.to_string(),
+                        admin_fee: Some(fee_change.admin_fee.to_string()),
+                        pool_address: pool.address.clone(),
+                    });
+                } else if let Some(fee_change) = NewParameters1::match_and_decode(&log) {
+                    fee_change_events.push(FeeChangeEvent {
+                        transaction_hash: Hex::encode(&trx.hash),
+                        tx_index: trx.index,
+                        log_index: log.index,
+                        log_ordinal: log.ordinal,
+                        timestamp: blk.timestamp_seconds(),
+                        block_number: blk.number,
+                        fee: fee_change.fee.to_string(),
+                        admin_fee: Some(fee_change.admin_fee.to_string()),
+                        pool_address: pool.address.clone(),
+                    });
+                } else if let Some(_fee_change) = NewParameters2::match_and_decode(&log) {
+                    // let (total_fee, admin_fee) = get_pool_fee_and_admin_fee(&pool.address_vec())?;
+                    let (total_fee, admin_fee) = (BigInt::from(1), BigInt::from(2));
+
+                    fee_change_events.push(FeeChangeEvent {
+                        transaction_hash: Hex::encode(&trx.hash),
+                        tx_index: trx.index,
+                        log_index: log.index,
+                        log_ordinal: log.ordinal,
+                        timestamp: blk.timestamp_seconds(),
+                        block_number: blk.number,
+                        fee: total_fee.to_string(),
+                        admin_fee: Some(admin_fee.to_string()),
+                        pool_address: pool.address.clone(),
+                    });
+                } else if let Some(_fee_change) = NewParameters3::match_and_decode(&log) {
+                    // let (total_fee, admin_fee) = get_pool_fee_and_admin_fee(&pool.address_vec())?;
+                    let (total_fee, admin_fee) = (BigInt::from(1), BigInt::from(2));
+
+                    fee_change_events.push(FeeChangeEvent {
+                        transaction_hash: Hex::encode(&trx.hash),
+                        tx_index: trx.index,
+                        log_index: log.index,
+                        log_ordinal: log.ordinal,
+                        timestamp: blk.timestamp_seconds(),
+                        block_number: blk.number,
+                        fee: total_fee.to_string(),
+                        admin_fee: Some(admin_fee.to_string()),
+                        pool_address: pool.address.clone(),
+                    });
                 }
             }
         }
     }
     events.pool_events = pool_events;
+    events.fee_changes_events = fee_change_events;
     Ok(events)
 }
 

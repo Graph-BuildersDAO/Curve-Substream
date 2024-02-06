@@ -31,6 +31,7 @@ modules:
 
   - name: store_pools_created
     kind: store
+    initialBlock: 9456293
     updatePolicy: set
     valueType: proto:curve.types.v1.Pools
     inputs:
@@ -58,6 +59,16 @@ modules:
       - store: store_pools_created
     output:
       type: proto:curve.types.v1.Events
+
+  - name: store_pool_fees
+    kind: store
+    initialBlock: 9456293
+    updatePolicy: set
+    valueType: proto:curve.types.v1.PoolFees
+    inputs:
+      - map: map_pools_created
+      - map: map_extract_pool_events
+
 
   - name: store_output_token_supply
     kind: store
@@ -88,7 +99,7 @@ modules:
 
   - name: store_protocol_tvl
     kind: store
-    initialBlock: 13044095
+    initialBlock: 9456293
     updatePolicy: add
     valueType: bigdecimal
     inputs:
@@ -97,13 +108,16 @@ modules:
 
   - name: graph_out
     kind: map
-    initialBlock: 13044095
+    initialBlock: 9456293
     inputs:
       - source: sf.substreams.v1.Clock
       - map: map_pools_created
       - map: map_extract_pool_events
       - store: store_pools_created
       - store: store_pool_count
+        mode: deltas
+      - store: store_pool_fees
+      - store: store_pool_fees
         mode: deltas
       - store: store_tokens
       - store: store_output_token_supply

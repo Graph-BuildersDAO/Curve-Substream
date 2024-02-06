@@ -1,13 +1,12 @@
 use anyhow::anyhow;
 use substreams::{
     errors::Error,
-    pb::substreams::Clock,
+    pb::substreams::{store_delta::Operation, Clock},
     scalar::{BigDecimal, BigInt},
     store::{
-        DeltaInt64, Deltas, StoreGet, StoreGetBigDecimal, StoreGetBigInt, StoreGetInt64,
-        StoreGetProto,
+        DeltaInt64, DeltaProto, Deltas, StoreGet, StoreGetBigDecimal, StoreGetBigInt,
+        StoreGetInt64, StoreGetProto,
     },
-    Hex,
 };
 use substreams_entity_change::{pb::entity::EntityChanges, tables::Tables};
 
@@ -24,10 +23,8 @@ use crate::{
             pool_event::{DepositEvent, SwapEvent, SwapUnderlyingEvent, Type, WithdrawEvent},
             PoolEvent,
         },
-        Events, Pool, Pools, Token,
+        Events, Pool, PoolFee, PoolFees, Pools, Token,
     },
-    rpc::pool::get_pool_fees,
-    types::{PoolFee, PoolFees},
 };
 
 // TODO: If this module gets too bulky, consider following an approach similar to Uniswap V2 SPS:
@@ -39,6 +36,8 @@ pub fn graph_out(
     events: Events,
     pools_store: StoreGetProto<Pool>,
     pools_count_deltas: Deltas<DeltaInt64>,
+    pool_fees_store: StoreGetProto<PoolFees>,
+    pool_fees_deltas: Deltas<DeltaProto<PoolFees>>,
     tokens_store: StoreGetInt64,
     output_token_supply_store: StoreGetBigInt,
     input_token_balances_store: StoreGetBigInt,
@@ -50,9 +49,9 @@ pub fn graph_out(
 
     // Create entities related to Pool contract deployments
     for pool in pools.pools {
-        let pool_address = Hex::decode(&pool.address)?;
-        let pool_fees = get_pool_fees(&pool_address)?;
-
+        // TODO: Should we move the getting of pool fees to the functions that use them?
+        // Pools must have related fees for the output data to be accurate and useful.
+        let pool_fees = pool_fees_store.must_get_last(StoreKey::pool_fees_key(&pool.address));
         create_pool_entity(&mut tables, &pool, &pool_fees);
         create_pool_fee_entities(&mut tables, &pool_fees);
         create_pool_token_entities(&mut tables, &pool, &tokens_store)?;
@@ -62,6 +61,12 @@ pub fn graph_out(
         tables
             .update_row("DexAmmProtocol", EntityKey::protocol_key())
             .set("totalPoolCount", delta.new_value);
+    }
+
+    for delta in pool_fees_deltas.iter() {
+        if delta.operation == Operation::Update {
+            update_pool_fee_entities(&mut tables, &delta.new_value)
+        }
     }
 
     // Create entities related to Pool events
@@ -167,9 +172,22 @@ fn create_pool_fee_entities(tables: &mut Tables, pool_fees: &PoolFees) {
 
 fn create_pool_fee_entity(tables: &mut Tables, fee: &PoolFee) {
     tables
-        .create_row("LiquidityPoolFee", fee.get_id())
-        .set("feePercentage", fee.get_fee_percentage())
-        .set("feeType", fee.get_fee_type().as_str());
+        .create_row("LiquidityPoolFee", &fee.id)
+        .set("feePercentage", fee.fee_percentage_big_decimal())
+        .set("feeType", fee.fee_type().as_str_name());
+}
+
+fn update_pool_fee_entities(tables: &mut Tables, pool_fees: &PoolFees) {
+    update_pool_fee_entity(tables, pool_fees.trading_fee());
+    update_pool_fee_entity(tables, pool_fees.protocol_fee());
+    update_pool_fee_entity(tables, pool_fees.lp_fee());
+}
+
+fn update_pool_fee_entity(tables: &mut Tables, fee: &PoolFee) {
+    tables
+        .update_row("LiquidityPoolFee", &fee.id)
+        .set("feePercentage", fee.fee_percentage_big_decimal())
+        .set("feeType", fee.fee_type().as_str_name());
 }
 
 fn create_pool_token_entities(

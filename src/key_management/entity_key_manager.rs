@@ -1,8 +1,12 @@
-use crate::common::{format::format_address_string, utils};
+use crate::{
+    common::{conversion::convert_enum_to_snake_case_prefix, format::format_address_string, utils},
+    pb::curve::types::v1::LiquidityPoolFeeType,
+};
 
 pub enum EntityKey {
     Protocol,
     LiquidityPool(String),
+    LiquidityPoolFee(String, String),
     Deposit(String, String),
     Swap(String, String),
     Withdraw(String, String),
@@ -17,6 +21,14 @@ impl EntityKey {
     // This function will handle the formatting.
     pub fn liquidity_pool_key(pool_address: &str) -> String {
         EntityKey::LiquidityPool(pool_address.to_string()).to_key_string()
+    }
+
+    pub fn pool_fee_id(fee_type: &LiquidityPoolFeeType, pool_address: &str) -> String {
+        EntityKey::LiquidityPoolFee(
+            convert_enum_to_snake_case_prefix(fee_type.as_str_name()),
+            pool_address.to_string(),
+        )
+        .to_key_string()
     }
 
     pub fn deposit_key(transaction_hash: &str, log_index: &u32) -> String {
@@ -35,6 +47,9 @@ impl EntityKey {
         match self {
             EntityKey::Protocol => utils::get_protocol_id(),
             EntityKey::LiquidityPool(address) => format_address_string(address),
+            EntityKey::LiquidityPoolFee(fee_type, pool_address) => {
+                format!("{}{}", fee_type, pool_address)
+            }
             EntityKey::Deposit(tx_hash, log_index) => {
                 format!("deposit-0x{}-{}", tx_hash, log_index)
             }
