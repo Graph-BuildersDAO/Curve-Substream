@@ -555,6 +555,35 @@
     "type": "event"
   },
   {
+    "name": "ApplyNewFee",
+    "inputs": [
+      {
+        "name": "fee",
+        "type": "uint256",
+        "indexed": false
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
+  {
+    "name": "ApplyNewFee",
+    "inputs": [
+      {
+        "name": "fee",
+        "type": "uint256",
+        "indexed": false
+      },
+      {
+        "name": "offpeg_fee_multiplier",
+        "type": "uint256",
+        "indexed": false
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
+  {
     "name": "CommitNewAdmin",
     "inputs": [
       {
@@ -623,6 +652,65 @@
       },
       {
         "name": "ma_half_time",
+        "type": "uint256",
+        "indexed": false
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
+  {
+    "name": "NewParameters",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "A",
+        "indexed": false
+      },
+      {
+        "type": "uint256",
+        "name": "fee",
+        "indexed": false
+      },
+      {
+        "type": "uint256",
+        "name": "admin_fee",
+        "indexed": false
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
+  {
+    "name": "NewParameters",
+    "inputs": [
+      {
+        "name": "mid_fee",
+        "type": "uint256",
+        "indexed": false
+      },
+      {
+        "name": "out_fee",
+        "type": "uint256",
+        "indexed": false
+      },
+      {
+        "name": "fee_gamma",
+        "type": "uint256",
+        "indexed": false
+      },
+      {
+        "name": "allowed_extra_profit",
+        "type": "uint256",
+        "indexed": false
+      },
+      {
+        "name": "adjustment_step",
+        "type": "uint256",
+        "indexed": false
+      },
+      {
+        "name": "ma_time",
         "type": "uint256",
         "indexed": false
       }
