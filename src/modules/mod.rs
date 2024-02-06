@@ -13,16 +13,19 @@ mod store_tokens;
 #[path = "5_map_extract_pool_events.rs"]
 mod map_extract_pool_events;
 
-#[path = "6_store_output_token_supply.rs"]
+#[path = "6_store_pool_fees.rs"]
+mod store_pool_fees;
+
+#[path = "7_store_output_token_supply.rs"]
 mod store_output_token_supply;
 
-#[path = "7_store_input_token_balances.rs"]
+#[path = "8_store_input_token_balances.rs"]
 mod store_input_token_balances;
 
-#[path = "8_store_pool_tvl.rs"]
+#[path = "9_store_pool_tvl.rs"]
 mod store_pool_tvl;
 
-#[path = "9_store_protocol_tvl.rs"]
+#[path = "10_store_protocol_tvl.rs"]
 mod store_protocol_tvl;
 
 // TODO: Will decrement once we have added and finalised all the other modules.
@@ -39,3 +42,4 @@ pub use store_pool_tvl::store_pool_tvl;
 pub use store_protocol_tvl::store_protocol_tvl;
 pub use store_pools_created::store_pools_created;
 pub use store_tokens::store_tokens;
+pub use store_pool_fees::store_pool_fees;

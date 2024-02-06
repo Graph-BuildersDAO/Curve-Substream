@@ -1,6 +1,7 @@
 pub enum StoreKey {
     // Curve sustream specific store key variants
     Pool(String),
+    PoolFees(String),
     PoolTvl(String),
     ProtocolTvl,
     Token(String),
@@ -16,6 +17,10 @@ pub enum StoreKey {
 impl StoreKey {
     pub fn pool_key(pool_address: &str) -> String {
         StoreKey::Pool(pool_address.to_string()).to_key_string()
+    }
+
+    pub fn pool_fees_key(pool_address: &str) -> String {
+        StoreKey::PoolFees(pool_address.to_string()).to_key_string()
     }
 
     pub fn pool_tvl_key(pool_address: &str) -> String {
@@ -81,6 +86,7 @@ impl StoreKey {
     fn to_key_string(&self) -> String {
         match self {
             StoreKey::Pool(addr) => format!("Pool:{}", addr),
+            StoreKey::PoolFees(addr) => format!("PoolFees:{}", addr),
             StoreKey::PoolTvl(addr) => format!("PoolTvl:{}", addr),
             StoreKey::ProtocolTvl => "ProtocolTvl".to_string(),
             StoreKey::Token(addr) => format!("Token:{}", addr),

@@ -57,9 +57,32 @@ pub struct Pools {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PoolFee {
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(enumeration="LiquidityPoolFeeType", tag="2")]
+    pub fee_type: i32,
+    /// BigDecimal string representation
+    #[prost(string, tag="3")]
+    pub fee_percentage: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PoolFees {
+    #[prost(message, optional, tag="1")]
+    pub trading_fee: ::core::option::Option<PoolFee>,
+    #[prost(message, optional, tag="2")]
+    pub protocol_fee: ::core::option::Option<PoolFee>,
+    #[prost(message, optional, tag="3")]
+    pub lp_fee: ::core::option::Option<PoolFee>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Events {
     #[prost(message, repeated, tag="1")]
     pub pool_events: ::prost::alloc::vec::Vec<events::PoolEvent>,
+    #[prost(message, repeated, tag="2")]
+    pub fee_changes_events: ::prost::alloc::vec::Vec<events::FeeChangeEvent>,
 }
 /// Nested message and enum types in `Events`.
 pub mod events {
@@ -151,6 +174,60 @@ pub mod events {
             DepositEvent(DepositEvent),
             #[prost(message, tag="5")]
             WithdrawEvent(WithdrawEvent),
+        }
+    }
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct FeeChangeEvent {
+        #[prost(string, tag="1")]
+        pub transaction_hash: ::prost::alloc::string::String,
+        #[prost(uint32, tag="2")]
+        pub tx_index: u32,
+        #[prost(uint32, tag="3")]
+        pub log_index: u32,
+        #[prost(uint64, tag="4")]
+        pub log_ordinal: u64,
+        #[prost(uint64, tag="5")]
+        pub timestamp: u64,
+        #[prost(uint64, tag="6")]
+        pub block_number: u64,
+        #[prost(string, tag="7")]
+        pub fee: ::prost::alloc::string::String,
+        #[prost(string, optional, tag="8")]
+        pub admin_fee: ::core::option::Option<::prost::alloc::string::String>,
+        #[prost(string, tag="9")]
+        pub pool_address: ::prost::alloc::string::String,
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum LiquidityPoolFeeType {
+    Unknown = 0,
+    FixedTradingFee = 1,
+    FixedProtocolFee = 2,
+    FixedLpFee = 3,
+}
+impl LiquidityPoolFeeType {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            LiquidityPoolFeeType::Unknown => "UNKNOWN",
+            LiquidityPoolFeeType::FixedTradingFee => "FIXED_TRADING_FEE",
+            LiquidityPoolFeeType::FixedProtocolFee => "FIXED_PROTOCOL_FEE",
+            LiquidityPoolFeeType::FixedLpFee => "FIXED_LP_FEE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "UNKNOWN" => Some(Self::Unknown),
+            "FIXED_TRADING_FEE" => Some(Self::FixedTradingFee),
+            "FIXED_PROTOCOL_FEE" => Some(Self::FixedProtocolFee),
+            "FIXED_LP_FEE" => Some(Self::FixedLpFee),
+            _ => None,
         }
     }
 }

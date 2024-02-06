@@ -1,9 +1,13 @@
 use std::str::FromStr;
 
-use substreams::scalar::BigInt;
+use substreams::{scalar::BigInt, Hex};
 
-use crate::pb::curve::types::v1::events::pool_event::{
-    DepositEvent, SwapEvent, SwapUnderlyingEvent, TokenAmount, WithdrawEvent,
+use crate::{
+    constants::default_admin_fee,
+    pb::curve::types::v1::events::{
+        pool_event::{DepositEvent, SwapEvent, SwapUnderlyingEvent, TokenAmount, WithdrawEvent},
+        FeeChangeEvent,
+    },
 };
 
 impl DepositEvent {
@@ -73,5 +77,22 @@ impl SwapUnderlyingEvent {
 impl TokenAmount {
     pub fn amount_big(&self) -> BigInt {
         BigInt::from_str(self.amount.as_str()).unwrap()
+    }
+}
+
+impl FeeChangeEvent {
+    pub fn pool_address_vec(&self) -> Vec<u8> {
+        Hex::decode(&self.pool_address).unwrap()
+    }
+
+    pub fn fee_big(&self) -> BigInt {
+        BigInt::from_str(self.fee.as_str()).unwrap()
+    }
+
+    pub fn admin_fee_big(&self) -> BigInt {
+        match &self.admin_fee {
+            Some(fee) => BigInt::from_str(fee.as_str()).unwrap(),
+            None => default_admin_fee(),
+        }
     }
 }

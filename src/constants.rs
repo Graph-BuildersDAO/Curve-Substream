@@ -122,6 +122,7 @@ pub fn one_usd_value() -> BigDecimal {
 }
 
 pub const FEE_DENOMINATOR: u64 = 10000000000;
+pub const FEE_DECIMALS: u64 = 10;
 
 pub fn default_pool_fee() -> BigInt {
     BigInt::from(4000000)
