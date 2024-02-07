@@ -337,8 +337,7 @@ pub fn map_extract_pool_events(
                         pool_address: pool.address.clone(),
                     });
                 } else if let Some(_fee_change) = NewParameters2::match_and_decode(&log) {
-                    // let (total_fee, admin_fee) = get_pool_fee_and_admin_fee(&pool.address_vec())?;
-                    let (total_fee, admin_fee) = (BigInt::from(1), BigInt::from(2));
+                    let (total_fee, admin_fee) = get_pool_fee_and_admin_fee(&pool.address_vec())?;
 
                     fee_change_events.push(FeeChangeEvent {
                         transaction_hash: Hex::encode(&trx.hash),
@@ -352,8 +351,7 @@ pub fn map_extract_pool_events(
                         pool_address: pool.address.clone(),
                     });
                 } else if let Some(_fee_change) = NewParameters3::match_and_decode(&log) {
-                    // let (total_fee, admin_fee) = get_pool_fee_and_admin_fee(&pool.address_vec())?;
-                    let (total_fee, admin_fee) = (BigInt::from(1), BigInt::from(2));
+                    let (total_fee, admin_fee) = get_pool_fee_and_admin_fee(&pool.address_vec())?;
 
                     fee_change_events.push(FeeChangeEvent {
                         transaction_hash: Hex::encode(&trx.hash),

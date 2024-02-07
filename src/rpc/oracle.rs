@@ -11,7 +11,7 @@ use crate::{
 //       In the subgraph its does it each time a getOrCreateToken is called.
 //       If we list out all the times its called this would help decide when we
 //       should update it in the substream.
-pub fn get_usdc_price_yearn(token_address: Vec<u8>) -> Option<BigDecimal> {
+pub fn get_usd_price_from_yearn(token_address: Vec<u8>) -> Option<BigDecimal> {
     if YEARN_LENS_BLACKLIST
         .iter()
         .any(|&addr| addr.as_ref() == token_address.as_slice())
@@ -28,7 +28,7 @@ pub fn get_usdc_price_yearn(token_address: Vec<u8>) -> Option<BigDecimal> {
     None
 }
 
-pub fn get_usdc_price_price_sushi(token_address: Vec<u8>) -> Option<BigDecimal> {
+pub fn get_usd_price_from_sushi(token_address: Vec<u8>) -> Option<BigDecimal> {
     if SUSHI_BLACKLIST
         .iter()
         .any(|&addr| addr.as_ref() == token_address.as_slice())
