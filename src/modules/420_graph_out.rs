@@ -4,8 +4,8 @@ use substreams::{
     pb::substreams::{store_delta::Operation, Clock},
     scalar::{BigDecimal, BigInt},
     store::{
-        DeltaInt64, DeltaProto, Deltas, StoreGet, StoreGetBigDecimal, StoreGetBigInt,
-        StoreGetInt64, StoreGetProto,
+        DeltaBigDecimal, DeltaInt64, DeltaProto, Deltas, StoreGet, StoreGetBigDecimal,
+        StoreGetBigInt, StoreGetInt64, StoreGetProto,
     },
 };
 use substreams_entity_change::{pb::entity::EntityChanges, tables::Tables};
@@ -41,6 +41,10 @@ pub fn graph_out(
     tokens_store: StoreGetInt64,
     output_token_supply_store: StoreGetBigInt,
     input_token_balances_store: StoreGetBigInt,
+    pool_volume_usd_store: StoreGetBigDecimal,
+    pool_volume_usd_deltas: Deltas<DeltaBigDecimal>,
+    protocol_volume_store: StoreGetBigDecimal,
+    protocol_volume_deltas: Deltas<DeltaBigDecimal>,
     pool_tvl_store: StoreGetBigDecimal,
     protocol_tvl_store: StoreGetBigDecimal,
 ) -> Result<EntityChanges, Error> {
@@ -57,7 +61,7 @@ pub fn graph_out(
         create_pool_token_entities(&mut tables, &pool, &tokens_store)?;
     }
 
-    for delta in pools_count_deltas.iter().last() {
+    for delta in pools_count_deltas.deltas.iter().last() {
         tables
             .update_row("DexAmmProtocol", EntityKey::protocol_key())
             .set("totalPoolCount", delta.new_value);
@@ -66,6 +70,34 @@ pub fn graph_out(
     for delta in pool_fees_deltas.iter() {
         if delta.operation == Operation::Update {
             update_pool_fee_entities(&mut tables, &delta.new_value)
+        }
+    }
+
+    for delta in pool_volume_usd_deltas.deltas.iter() {
+        // Attempt to extract the pool address from the store key
+        if let Some((pool_address, _, _)) = StoreKey::extract_parts_from_key(&delta.key) {
+            if let Some(volume) =
+                // If volume is found, update the corresponding row in the "LiquidityPool" table
+                // with the cumulative volume in USD
+                pool_volume_usd_store.get_last(StoreKey::pool_volume_usd_key(&pool_address))
+            {
+                tables
+                    .update_row(
+                        "LiquidityPool",
+                        EntityKey::liquidity_pool_key(&pool_address),
+                    )
+                    .set("cumulativeVolumeUSD", volume);
+            } else {
+                substreams::log::info!("No volume data found for pool: {}", pool_address);
+            }
+        }
+    }
+
+    if !protocol_volume_deltas.deltas.is_empty() {
+        if let Some(volume) = protocol_volume_store.get_last(StoreKey::protocol_volume_usd_key()) {
+            tables
+                .update_row("DexAmmProtocol", EntityKey::protocol_key())
+                .set("cumulativeVolumeUSD", volume);
         }
     }
 

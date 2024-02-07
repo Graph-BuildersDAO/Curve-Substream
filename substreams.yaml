@@ -23,7 +23,7 @@ binaries:
 modules:
   - name: map_pools_created
     kind: map
-    initialBlock: 9456293
+    initialBlock: 13987012
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:
@@ -31,7 +31,6 @@ modules:
 
   - name: store_pools_created
     kind: store
-    initialBlock: 9456293
     updatePolicy: set
     valueType: proto:curve.types.v1.Pools
     inputs:
@@ -53,7 +52,6 @@ modules:
 
   - name: map_extract_pool_events
     kind: map
-    initialBlock: 9456293
     inputs:
       - source: sf.ethereum.type.v2.Block
       - store: store_pools_created
@@ -62,7 +60,6 @@ modules:
 
   - name: store_pool_fees
     kind: store
-    initialBlock: 9456293
     updatePolicy: set
     valueType: proto:curve.types.v1.PoolFees
     inputs:
@@ -84,9 +81,37 @@ modules:
     inputs:
       - map: map_extract_pool_events
 
+  - name: store_pool_volume_native
+    kind: store
+    updatePolicy: add
+    valueType: bigint
+    inputs:
+      - source: sf.substreams.v1.Clock
+      - map: map_extract_pool_events
+      - store: store_pools_created
+  
+  - name: store_pool_volume_usd
+    kind: store
+    updatePolicy: add
+    valueType: bigdecimal
+    inputs:
+      - source: sf.substreams.v1.Clock
+      - map: map_extract_pool_events
+      - store: store_pools_created
+      - store: chainlink_prices:chainlink_price_store
+      - store: uniswap_prices:store_uniswap_prices
+  
+  - name: store_protocol_volume_usd
+    kind: store
+    updatePolicy: add
+    valueType: bigdecimal
+    inputs:
+      - source: sf.substreams.v1.Clock
+      - store: store_pool_volume_usd
+        mode: deltas
+
   - name: store_pool_tvl
     kind: store
-    initialBlock: 9456293
     updatePolicy: set
     valueType: bigdecimal
     inputs:
@@ -99,7 +124,6 @@ modules:
 
   - name: store_protocol_tvl
     kind: store
-    initialBlock: 9456293
     updatePolicy: add
     valueType: bigdecimal
     inputs:
@@ -108,7 +132,7 @@ modules:
 
   - name: graph_out
     kind: map
-    initialBlock: 9456293
+    initialBlock: 13987012
     inputs:
       - source: sf.substreams.v1.Clock
       - map: map_pools_created
@@ -132,18 +156,18 @@ network: mainnet
 networks:
   mainnet:
     initialBlock:
-      chainlink_prices:store_confirmed_feeds: 9456293
-      chainlink_prices:get_chainlink_answers: 9456293
-      chainlink_prices:chainlink_price_store: 9456293
-      chainlink_prices:graph_out: 9456293
-      uniswap_prices:map_pair_created_events: 9456293
-      uniswap_prices:store_pair_created_events: 9456293
-      uniswap_prices:map_weth_prices: 9456293
-      uniswap_prices:store_weth_prices: 9456293
-      uniswap_prices:map_uniswap_prices: 9456293
-      uniswap_prices:store_uniswap_prices: 9456293
-      uniswap_prices:warmup: 9456293
-      uniswap_prices:chainlink_prices:chainlink_price_store: 9456293
-      uniswap_prices:chainlink_prices:graph_out: 9456293
-      uniswap_prices:chainlink_prices:get_chainlink_answers: 9456293
-      uniswap_prices:chainlink_prices:store_confirmed_feeds: 9456293
+      chainlink_prices:store_confirmed_feeds: 13987012
+      chainlink_prices:get_chainlink_answers: 13987012
+      chainlink_prices:chainlink_price_store: 13987012
+      chainlink_prices:graph_out: 13987012
+      uniswap_prices:map_pair_created_events: 13987012
+      uniswap_prices:store_pair_created_events: 13987012
+      uniswap_prices:map_weth_prices: 13987012
+      uniswap_prices:store_weth_prices: 13987012
+      uniswap_prices:map_uniswap_prices: 13987012
+      uniswap_prices:store_uniswap_prices: 13987012
+      uniswap_prices:warmup: 13987012
+      uniswap_prices:chainlink_prices:chainlink_price_store: 13987012
+      uniswap_prices:chainlink_prices:graph_out: 13987012
+      uniswap_prices:chainlink_prices:get_chainlink_answers: 13987012
+      uniswap_prices:chainlink_prices:store_confirmed_feeds: 13987012
