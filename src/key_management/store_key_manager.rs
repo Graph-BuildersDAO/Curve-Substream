@@ -10,6 +10,7 @@ pub enum StoreKey {
     PoolTokenDailyVolumeUsd(String, String, i64),
     PoolTokenHourlyVolumeUsd(String, String, i64),
     PoolTvl(String),
+    PoolTokenTvl(String, String),
     ProtocolPoolCount,
     ProtocolVolumeUsd,
     ProtocolDailyVolumeUsd(i64),
@@ -104,6 +105,10 @@ impl StoreKey {
         StoreKey::PoolTvl(pool_address.to_string()).to_key_string()
     }
 
+    pub fn pool_token_tvl_key(pool_address: &str, token_address: &str) -> String {
+        StoreKey::PoolTokenTvl(pool_address.to_string(), token_address.to_string()).to_key_string()
+    }
+
     pub fn protocol_volume_usd_key() -> String {
         StoreKey::ProtocolVolumeUsd.to_key_string()
     }
@@ -175,14 +180,16 @@ impl StoreKey {
                     )),
                     _ => None,
                 }
-            },
+            }
 
-            Some("InputTokenBalance") => match (parts.get(1), parts.get(2)) {
-                (Some(&pool_addr), Some(&token_addr)) => {
-                    Some((pool_addr.to_string(), Some(token_addr.to_string()), None))
+            Some("InputTokenBalance") | Some("PoolTokenTvl") => {
+                match (parts.get(1), parts.get(2)) {
+                    (Some(&pool_addr), Some(&token_addr)) => {
+                        Some((pool_addr.to_string(), Some(token_addr.to_string()), None))
+                    }
+                    _ => None,
                 }
-                _ => None,
-            },
+            }
 
             Some("UsdPriceByTokenAddress")
             | Some("UsdPriceByTokenSymbol")
@@ -229,6 +236,7 @@ impl StoreKey {
                 )
             }
             StoreKey::PoolTvl(addr) => format!("PoolTvl:{}", addr),
+            StoreKey::PoolTokenTvl(pool, token) => format!("PoolTokenTvl:{}:{}", pool, token),
             StoreKey::ProtocolPoolCount => "ProtocolPoolCount".to_string(),
             StoreKey::ProtocolVolumeUsd => "ProtocolVolumeUsd".to_string(),
             StoreKey::ProtocolDailyVolumeUsd(day_id) => {

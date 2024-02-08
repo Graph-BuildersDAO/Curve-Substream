@@ -1,3 +1,8 @@
+use std::{
+    collections::HashSet,
+    ops::{Div, Mul},
+};
+
 use anyhow::anyhow;
 use substreams::{
     errors::Error,
@@ -46,6 +51,7 @@ pub fn graph_out(
     protocol_volume_store: StoreGetBigDecimal,
     protocol_volume_deltas: Deltas<DeltaBigDecimal>,
     pool_tvl_store: StoreGetBigDecimal,
+    pool_tvl_deltas: Deltas<DeltaBigDecimal>,
     protocol_tvl_store: StoreGetBigDecimal,
 ) -> Result<EntityChanges, Error> {
     let mut tables = Tables::new();
@@ -98,6 +104,47 @@ pub fn graph_out(
             tables
                 .update_row("DexAmmProtocol", EntityKey::protocol_key())
                 .set("cumulativeVolumeUSD", volume);
+        }
+    }
+
+    // Start - Pool TVL weights updates
+    if !pool_tvl_deltas.deltas.is_empty() {
+        // Initialize a HashSet to store unique pool addresses
+        let mut unique_pool_addresses = HashSet::new();
+
+        // Filter and extract unique pool addresses
+        for delta in pool_tvl_deltas.deltas {
+            if delta.key.starts_with("PoolTvl:") {
+                // Extract the pool address from the key
+                if let Some((pool_address, _, _)) = StoreKey::extract_parts_from_key(&delta.key) {
+                    unique_pool_addresses.insert(pool_address);
+                }
+            }
+        }
+        for pool_address in unique_pool_addresses.iter() {
+            let pool = pools_store.must_get_last(StoreKey::pool_key(pool_address));
+            if let Some(pool_tvl) = pool_tvl_store.get_last(StoreKey::pool_tvl_key(pool_address)) {
+                let input_token_weights = if pool_tvl == BigDecimal::zero() {
+                    vec![BigDecimal::zero(); pool.input_tokens.len()]
+                } else {
+                    pool.input_tokens
+                        .iter()
+                        .map(|token| {
+                            pool_tvl_store
+                                .get_last(StoreKey::pool_token_tvl_key(
+                                    pool_address,
+                                    &token.address,
+                                ))
+                                .map_or(BigDecimal::zero(), |token_tvl| {
+                                    token_tvl.div(&pool_tvl).mul(BigDecimal::from(100))
+                                })
+                        })
+                        .collect()
+                };
+                tables
+                    .update_row("LiquidityPool", EntityKey::liquidity_pool_key(pool_address))
+                    .set("inputTokenWeights", input_token_weights);
+            }
         }
     }
 
