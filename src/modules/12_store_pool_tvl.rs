@@ -49,9 +49,18 @@ pub fn store_pool_tvl(
                 if let Some(balance) = store_balance {
                     let price_usd = get_token_usd_price(&token, &uniswap_prices, &chainlink_prices);
                     let token_tvl = balance.to_decimal(token.decimals) * price_usd;
+                    
+                    // Store Input Token TVL for a specific Pool
+                    output_store.set(
+                        delta.ordinal,
+                        StoreKey::pool_token_tvl_key(&pool_address, &token.address),
+                        &token_tvl,
+                    );
                     tvl = tvl.add(token_tvl);
+
                 }
             }
+            // Store Pool total TVL
             output_store.set(delta.ordinal, StoreKey::pool_tvl_key(&pool_address), &tvl);
         }
     }
