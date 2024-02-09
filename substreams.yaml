@@ -43,6 +43,15 @@ modules:
     inputs:
       - map: map_pools_created
 
+  - name: store_pool_addresses
+    kind: store
+    updatePolicy: set_if_not_exists
+    valueType: string
+    inputs:
+      - map: map_pools_created
+      - store: store_pool_count
+        mode: deltas
+
   - name: store_tokens
     kind: store
     updatePolicy: add
@@ -66,7 +75,6 @@ modules:
       - map: map_pools_created
       - map: map_extract_pool_events
 
-
   - name: store_output_token_supply
     kind: store
     updatePolicy: add
@@ -89,7 +97,7 @@ modules:
       - source: sf.substreams.v1.Clock
       - map: map_extract_pool_events
       - store: store_pools_created
-  
+
   - name: store_pool_volume_usd
     kind: store
     updatePolicy: add
@@ -100,7 +108,7 @@ modules:
       - store: store_pools_created
       - store: chainlink_prices:chainlink_price_store
       - store: uniswap_prices:store_uniswap_prices
-  
+
   - name: store_protocol_volume_usd
     kind: store
     updatePolicy: add
@@ -130,6 +138,14 @@ modules:
       - store: store_pool_tvl
         mode: deltas
 
+  - name: store_current_time_snapshots
+    kind: store
+    initialBlock: 13987012
+    updatePolicy: set
+    valueType: int64
+    inputs:
+      - source: sf.substreams.v1.Clock
+
   - name: graph_out
     kind: map
     initialBlock: 13987012
@@ -139,15 +155,30 @@ modules:
       - map: map_extract_pool_events
       - store: store_pools_created
       - store: store_pool_count
+      - store: store_pool_count
         mode: deltas
+      - store: store_pool_addresses
       - store: store_pool_fees
       - store: store_pool_fees
         mode: deltas
       - store: store_tokens
       - store: store_output_token_supply
       - store: store_input_token_balances
+      - store: store_pool_volume_native
+      - store: store_pool_volume_usd
+      - store: store_pool_volume_usd
+        mode: deltas
+      - store: store_protocol_volume_usd
+      - store: store_protocol_volume_usd
+        mode: deltas
       - store: store_pool_tvl
+      - store: store_pool_tvl
+        mode: deltas
       - store: store_protocol_tvl
+      - store: store_current_time_snapshots
+        mode: deltas
+      - store: chainlink_prices:chainlink_price_store
+      - store: uniswap_prices:store_uniswap_prices
     output:
       type: proto:sf.substreams.sink.entity.v1.EntityChanges
 
