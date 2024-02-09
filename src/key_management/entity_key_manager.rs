@@ -7,6 +7,9 @@ pub enum EntityKey {
     Protocol,
     LiquidityPool(String),
     LiquidityPoolFee(String, String),
+    LiquidityPoolDailySnapshot(String, i64),
+    LiquidityPoolHourlySnapshot(String, i64),
+    ProtocolDailyFinancialsSnapshot(i64),
     Deposit(String, String),
     Swap(String, String),
     Withdraw(String, String),
@@ -31,6 +34,18 @@ impl EntityKey {
         .to_key_string()
     }
 
+    pub fn pool_daily_snapshot_key(pool_address: &str, day_id: &i64) -> String {
+        EntityKey::LiquidityPoolDailySnapshot(pool_address.to_string(), *day_id).to_key_string()
+    }
+
+    pub fn pool_hourly_snapshot_key(pool_address: &str, hour_id: &i64) -> String {
+        EntityKey::LiquidityPoolHourlySnapshot(pool_address.to_string(), *hour_id).to_key_string()
+    }
+
+    pub fn protocol_daily_financials_key(day_id: &i64) -> String {
+        EntityKey::ProtocolDailyFinancialsSnapshot(*day_id).to_key_string()
+    }
+
     pub fn deposit_key(transaction_hash: &str, log_index: &u32) -> String {
         EntityKey::Deposit(transaction_hash.to_string(), log_index.to_string()).to_key_string()
     }
@@ -50,6 +65,21 @@ impl EntityKey {
             EntityKey::LiquidityPoolFee(fee_type, pool_address) => {
                 format!("{}{}", fee_type, pool_address)
             }
+            EntityKey::LiquidityPoolDailySnapshot(pool_address, day_id) => {
+                format!(
+                    "{}-{}",
+                    format_address_string(pool_address),
+                    day_id.to_string()
+                )
+            }
+            EntityKey::LiquidityPoolHourlySnapshot(pool_address, hour_id) => {
+                format!(
+                    "{}-{}",
+                    format_address_string(pool_address),
+                    hour_id.to_string()
+                )
+            }
+            EntityKey::ProtocolDailyFinancialsSnapshot(day_id) => day_id.to_string(),
             EntityKey::Deposit(tx_hash, log_index) => {
                 format!("deposit-0x{}-{}", tx_hash, log_index)
             }

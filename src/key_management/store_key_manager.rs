@@ -1,6 +1,7 @@
 pub enum StoreKey {
     // Curve sustream specific store key variants
     Pool(String),
+    PoolAddress(i64),
     PoolFees(String),
     PoolVolumeUsd(String),
     PoolDailyVolumeUsd(String, i64),
@@ -18,6 +19,8 @@ pub enum StoreKey {
     Token(String),
     OutputTokenSupply(String),
     InputTokenBalance(String, String),
+    CurrentDayId,
+    CurrentHourId,
     // External packages store key variants
     UniswapPriceByTokenAddress(String),
     UniswapPriceByTokenSymbol(String),
@@ -27,6 +30,10 @@ pub enum StoreKey {
 impl StoreKey {
     pub fn pool_key(pool_address: &str) -> String {
         StoreKey::Pool(pool_address.to_string()).to_key_string()
+    }
+
+    pub fn pool_address_key(current_count: &i64) -> String {
+        StoreKey::PoolAddress(current_count.to_owned()).to_key_string()
     }
 
     pub fn pool_fees_key(pool_address: &str) -> String {
@@ -134,6 +141,14 @@ impl StoreKey {
             .to_key_string()
     }
 
+    pub fn current_day_id_key() -> String {
+        StoreKey::CurrentDayId.to_key_string()
+    }
+
+    pub fn current_hour_id_key() -> String {
+        StoreKey::CurrentHourId.to_key_string()
+    }
+
     pub fn uniswap_price_by_token_address_key(token_address: &str) -> String {
         StoreKey::UniswapPriceByTokenAddress(token_address.to_string()).to_key_string()
     }
@@ -149,6 +164,8 @@ impl StoreKey {
     pub fn extract_parts_from_key(key: &str) -> Option<(String, Option<String>, Option<i64>)> {
         let parts: Vec<&str> = key.split(':').collect();
         match parts.get(0).map(|s| *s) {
+            Some("PoolAddress") => parts.get(1).map(|&id| (id.to_string(), None, None)),
+
             Some("Pool")
             | Some("PoolFees")
             | Some("PoolVolumeUsd")
@@ -203,36 +220,45 @@ impl StoreKey {
     fn to_key_string(&self) -> String {
         match self {
             StoreKey::Pool(addr) => format!("Pool:{}", addr),
+            StoreKey::PoolAddress(count) => format!("PoolAddress:{}", count.to_string()),
             StoreKey::PoolFees(addr) => format!("PoolFees:{}", addr),
             StoreKey::PoolVolumeUsd(addr) => format!("PoolVolumeUsd:{}", addr),
             StoreKey::PoolDailyVolumeUsd(addr, day_id) => {
-                format!("PoolDailyVolumeUsd:{}:{}", addr, day_id)
+                format!("PoolDailyVolumeUsd:{}:{}", addr, day_id.to_string())
             }
             StoreKey::PoolHourlyVolumeUsd(addr, hour_id) => {
-                format!("PoolHourlyVolumeUsd:{}:{}", addr, hour_id)
+                format!("PoolHourlyVolumeUsd:{}:{}", addr, hour_id.to_string())
             }
             StoreKey::PoolTokenDailyVolumeNative(pool_addr, token_addr, day_id) => {
                 format!(
                     "PoolTokenDailyVolumeNative:{}:{}:{}",
-                    pool_addr, token_addr, day_id
+                    pool_addr,
+                    token_addr,
+                    day_id.to_string()
                 )
             }
             StoreKey::PoolTokenHourlyVolumeNative(pool_addr, token_addr, hour_id) => {
                 format!(
                     "PoolTokenHourlyVolumeNative:{}:{}:{}",
-                    pool_addr, token_addr, hour_id
+                    pool_addr,
+                    token_addr,
+                    hour_id.to_string()
                 )
             }
             StoreKey::PoolTokenDailyVolumeUsd(pool_addr, token_addr, day_id) => {
                 format!(
                     "PoolTokenDailyVolumeUsd:{}:{}:{}",
-                    pool_addr, token_addr, day_id
+                    pool_addr,
+                    token_addr,
+                    day_id.to_string()
                 )
             }
             StoreKey::PoolTokenHourlyVolumeUsd(pool_addr, token_addr, hour_id) => {
                 format!(
                     "PoolTokenHourlyVolumeUsd:{}:{}:{}",
-                    pool_addr, token_addr, hour_id
+                    pool_addr,
+                    token_addr,
+                    hour_id.to_string()
                 )
             }
             StoreKey::PoolTvl(addr) => format!("PoolTvl:{}", addr),
@@ -240,7 +266,7 @@ impl StoreKey {
             StoreKey::ProtocolPoolCount => "ProtocolPoolCount".to_string(),
             StoreKey::ProtocolVolumeUsd => "ProtocolVolumeUsd".to_string(),
             StoreKey::ProtocolDailyVolumeUsd(day_id) => {
-                format!("ProtocolDailyVolumeUsd:{}", day_id)
+                format!("ProtocolDailyVolumeUsd:{}", day_id.to_string())
             }
             StoreKey::ProtocolTvl => "ProtocolTvl".to_string(),
             StoreKey::Token(addr) => format!("Token:{}", addr),
@@ -248,6 +274,8 @@ impl StoreKey {
             StoreKey::InputTokenBalance(pool_addr, token_addr) => {
                 format!("InputTokenBalance:{}:{}", pool_addr, token_addr)
             }
+            StoreKey::CurrentDayId => "CurrentDayId".to_string(),
+            StoreKey::CurrentHourId => "CurrentHourId".to_string(),
             StoreKey::UniswapPriceByTokenAddress(addr) => {
                 format!("UsdPriceByTokenAddress:{}", addr)
             }

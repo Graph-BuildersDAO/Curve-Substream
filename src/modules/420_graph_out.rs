@@ -1,4 +1,5 @@
 use std::{
+    borrow::BorrowMut,
     collections::HashSet,
     ops::{Div, Mul},
 };
@@ -10,7 +11,7 @@ use substreams::{
     scalar::{BigDecimal, BigInt},
     store::{
         DeltaBigDecimal, DeltaInt64, DeltaProto, Deltas, StoreGet, StoreGetBigDecimal,
-        StoreGetBigInt, StoreGetInt64, StoreGetProto,
+        StoreGetBigInt, StoreGetInt64, StoreGetProto, StoreGetString,
     },
 };
 use substreams_entity_change::{pb::entity::EntityChanges, tables::Tables};
@@ -18,18 +19,23 @@ use substreams_entity_change::{pb::entity::EntityChanges, tables::Tables};
 use crate::{
     common::{
         format::{self, format_address_string},
+        prices::get_token_usd_price,
         utils,
     },
     constants,
     key_management::{entity_key_manager::EntityKey, store_key_manager::StoreKey},
     network_config::DEFAULT_NETWORK,
-    pb::curve::types::v1::{
-        events::{
-            pool_event::{DepositEvent, SwapEvent, SwapUnderlyingEvent, Type, WithdrawEvent},
-            PoolEvent,
+    pb::{
+        curve::types::v1::{
+            events::{
+                pool_event::{DepositEvent, SwapEvent, SwapUnderlyingEvent, Type, WithdrawEvent},
+                PoolEvent,
+            },
+            Events, Pool, PoolFee, PoolFees, Pools, Token,
         },
-        Events, Pool, PoolFee, PoolFees, Pools, Token,
+        uniswap_pricing::v1::Erc20Price,
     },
+    types::snapshot::SnapshotType,
 };
 
 // TODO: If this module gets too bulky, consider following an approach similar to Uniswap V2 SPS:
@@ -40,12 +46,15 @@ pub fn graph_out(
     pools: Pools,
     events: Events,
     pools_store: StoreGetProto<Pool>,
-    pools_count_deltas: Deltas<DeltaInt64>,
+    pool_count_store: StoreGetInt64,
+    pool_count_deltas: Deltas<DeltaInt64>,
+    pool_addresses_store: StoreGetString,
     pool_fees_store: StoreGetProto<PoolFees>,
     pool_fees_deltas: Deltas<DeltaProto<PoolFees>>,
     tokens_store: StoreGetInt64,
     output_token_supply_store: StoreGetBigInt,
     input_token_balances_store: StoreGetBigInt,
+    pool_volume_native_store: StoreGetBigInt,
     pool_volume_usd_store: StoreGetBigDecimal,
     pool_volume_usd_deltas: Deltas<DeltaBigDecimal>,
     protocol_volume_store: StoreGetBigDecimal,
@@ -53,6 +62,9 @@ pub fn graph_out(
     pool_tvl_store: StoreGetBigDecimal,
     pool_tvl_deltas: Deltas<DeltaBigDecimal>,
     protocol_tvl_store: StoreGetBigDecimal,
+    store_current_time_snapshots: Deltas<DeltaInt64>,
+    uniswap_prices: StoreGetProto<Erc20Price>,
+    chainlink_prices: StoreGetBigDecimal,
 ) -> Result<EntityChanges, Error> {
     let mut tables = Tables::new();
     create_protocol_entity(&mut tables, &clock);
@@ -67,7 +79,7 @@ pub fn graph_out(
         create_pool_token_entities(&mut tables, &pool, &tokens_store)?;
     }
 
-    for delta in pools_count_deltas.deltas.iter().last() {
+    for delta in pool_count_deltas.deltas.iter().last() {
         tables
             .update_row("DexAmmProtocol", EntityKey::protocol_key())
             .set("totalPoolCount", delta.new_value);
@@ -123,28 +135,10 @@ pub fn graph_out(
         }
         for pool_address in unique_pool_addresses.iter() {
             let pool = pools_store.must_get_last(StoreKey::pool_key(pool_address));
-            if let Some(pool_tvl) = pool_tvl_store.get_last(StoreKey::pool_tvl_key(pool_address)) {
-                let input_token_weights = if pool_tvl == BigDecimal::zero() {
-                    vec![BigDecimal::zero(); pool.input_tokens.len()]
-                } else {
-                    pool.input_tokens
-                        .iter()
-                        .map(|token| {
-                            pool_tvl_store
-                                .get_last(StoreKey::pool_token_tvl_key(
-                                    pool_address,
-                                    &token.address,
-                                ))
-                                .map_or(BigDecimal::zero(), |token_tvl| {
-                                    token_tvl.div(&pool_tvl).mul(BigDecimal::from(100))
-                                })
-                        })
-                        .collect()
-                };
-                tables
-                    .update_row("LiquidityPool", EntityKey::liquidity_pool_key(pool_address))
-                    .set("inputTokenWeights", input_token_weights);
-            }
+            let input_token_weights = get_input_token_weights(&pool, &pool_tvl_store);
+            tables
+                .update_row("LiquidityPool", EntityKey::liquidity_pool_key(pool_address))
+                .set("inputTokenWeights", input_token_weights);
         }
     }
 
@@ -159,7 +153,341 @@ pub fn graph_out(
         &protocol_tvl_store,
     );
 
+    for delta in store_current_time_snapshots.deltas {
+        if delta.operation == Operation::Create {
+            continue;
+        }
+        // This condition indicates the delta relates to a new day.
+        if delta.key == StoreKey::current_day_id_key()
+            && delta.operation == Operation::Update
+            && delta.old_value != delta.new_value
+        {
+            let day_id = delta.old_value;
+            // We have identified a new day, create snapshots for the previous day.
+            create_protocol_financials_daily_snapshot(
+                &clock,
+                &mut tables,
+                &day_id,
+                &protocol_tvl_store,
+                &protocol_volume_store,
+            );
+            create_liquidity_pool_snapshots(
+                &SnapshotType::Daily,
+                &day_id,
+                &mut tables,
+                &clock,
+                &pool_count_store,
+                &pool_addresses_store,
+                &pools_store,
+                &pool_tvl_store,
+                &pool_volume_usd_store,
+                &pool_volume_native_store,
+                &input_token_balances_store,
+                &output_token_supply_store,
+                &uniswap_prices,
+                &chainlink_prices,
+            );
+        }
+        // This condition indicates the delta relates to a new hour
+        else if delta.key == StoreKey::current_hour_id_key()
+            && delta.operation == Operation::Update
+            && delta.old_value != delta.new_value
+        {
+            let hour_id = delta.old_value;
+            create_liquidity_pool_snapshots(
+                &SnapshotType::Hourly,
+                &hour_id,
+                &mut tables,
+                &clock,
+                &pool_count_store,
+                &pool_addresses_store,
+                &pools_store,
+                &pool_tvl_store,
+                &pool_volume_usd_store,
+                &pool_volume_native_store,
+                &input_token_balances_store,
+                &output_token_supply_store,
+                &uniswap_prices,
+                &chainlink_prices,
+            );
+        }
+    }
+
     Ok(tables.to_entity_changes())
+}
+
+fn create_liquidity_pool_snapshots(
+    snapshot_type: &SnapshotType,
+    time_frame_id: &i64,
+    tables: &mut Tables,
+    clock: &Clock,
+    pool_count_store: &StoreGetInt64,
+    pool_addresses_store: &StoreGetString,
+    pools_store: &StoreGetProto<Pool>,
+    pool_tvl_store: &StoreGetBigDecimal,
+    pool_volume_usd_store: &StoreGetBigDecimal,
+    pool_volume_native_store: &StoreGetBigInt,
+    input_token_balances_store: &StoreGetBigInt,
+    output_token_supply_store: &StoreGetBigInt,
+    uniswap_prices: &StoreGetProto<Erc20Price>,
+    chainlink_prices: &StoreGetBigDecimal,
+) {
+    // Create Liquidity Pools daily snapshots
+    let pool_count = pool_count_store
+        .get_last(StoreKey::protocol_pool_count_key())
+        .unwrap();
+
+    for i in 1..=pool_count {
+        let pool_address = pool_addresses_store
+            .get_last(StoreKey::pool_address_key(&i))
+            .unwrap();
+
+        let pool = pools_store
+            .get_last(StoreKey::pool_key(&pool_address))
+            .unwrap();
+
+        let pool_tvl_usd = pool_tvl_store
+            .get_last(StoreKey::pool_tvl_key(&pool.address))
+            .unwrap();
+
+        // Get the volume in the pool for a given timeframe (Daily/Hourly)
+        let pool_volume = match snapshot_type {
+            SnapshotType::Daily => pool_volume_usd_store
+                .get_last(StoreKey::pool_volume_usd_daily_key(
+                    &pool.address,
+                    &time_frame_id,
+                ))
+                .unwrap(),
+            SnapshotType::Hourly => pool_volume_usd_store
+                .get_last(StoreKey::pool_volume_usd_hourly_key(
+                    &pool.address,
+                    &time_frame_id,
+                ))
+                .unwrap(),
+        };
+
+        // Get the volumes of each pool input token for a given timeframe (Daily/Hourly)
+        let (volume_by_token_native, volume_by_token_usd) = get_pool_token_volumes_in_timeframe(
+            &pool,
+            time_frame_id,
+            snapshot_type,
+            pool_volume_native_store,
+            pool_volume_usd_store,
+        );
+
+        let pool_cumulative_volume_usd = pool_volume_usd_store
+            .get_last(StoreKey::pool_volume_usd_key(&pool.address))
+            .unwrap();
+
+        let input_token_balances = get_input_token_balances(
+            &pool_address,
+            &pool.input_tokens,
+            &input_token_balances_store,
+        );
+
+        let input_token_weights = get_input_token_weights(&pool, &pool_tvl_store);
+
+        let output_token_supply = output_token_supply_store
+            .get_last(StoreKey::output_token_supply_key(&pool_address))
+            .unwrap_or_else(|| BigInt::zero());
+
+        let output_token_price =
+            get_token_usd_price(pool.output_token_ref(), &uniswap_prices, &chainlink_prices);
+
+        // Create the relevant timeframe snapshot
+        match snapshot_type {
+            SnapshotType::Daily => create_pool_daily_snapshot(
+                tables,
+                clock,
+                time_frame_id,
+                &pool_address,
+                &pool_tvl_usd,
+                &pool_volume,
+                &volume_by_token_native,
+                &volume_by_token_usd,
+                &pool_cumulative_volume_usd,
+                &input_token_balances,
+                &input_token_weights,
+                &output_token_supply,
+                &output_token_price,
+            ),
+            SnapshotType::Hourly => create_pool_hourly_snapshot(
+                tables,
+                clock,
+                time_frame_id,
+                &pool_address,
+                &pool_tvl_usd,
+                &pool_volume,
+                &volume_by_token_native,
+                &volume_by_token_usd,
+                &pool_cumulative_volume_usd,
+                &input_token_balances,
+                &input_token_weights,
+                &output_token_supply,
+                &output_token_price,
+            ),
+        }
+    }
+}
+
+fn create_pool_daily_snapshot(
+    tables: &mut Tables,
+    clock: &Clock,
+    day_id: &i64,
+    pool_address: &str,
+    pool_tvl_usd: &BigDecimal,
+    pool_volume_daily: &BigDecimal,
+    volume_by_token_native: &Vec<BigInt>,
+    volume_by_token_usd: &Vec<BigDecimal>,
+    pool_cumulative_volume_usd: &BigDecimal,
+    input_token_balances: &Vec<BigInt>,
+    input_token_weights: &Vec<BigDecimal>,
+    output_token_supply: &BigInt,
+    output_token_price: &BigDecimal,
+) {
+    tables
+        .create_row(
+            "LiquidityPoolDailySnapshot",
+            EntityKey::pool_daily_snapshot_key(pool_address, day_id),
+        )
+        .set("protocol", EntityKey::protocol_key())
+        .set("pool", EntityKey::liquidity_pool_key(pool_address))
+        .set("blockNumber", BigInt::from(clock.number))
+        .set(
+            "timestamp",
+            BigInt::from(clock.timestamp.clone().unwrap().seconds),
+        )
+        .set("totalValueLockedUSD", pool_tvl_usd)
+        .set("dailyVolumeUSD", pool_volume_daily)
+        .set("dailyVolumeByTokenAmount", volume_by_token_native)
+        .set("dailyVolumeByTokenUSD", volume_by_token_usd)
+        .set("cumulativeVolumeUSD", pool_cumulative_volume_usd)
+        .set("inputTokenBalances", input_token_balances)
+        .set("inputTokenWeights", input_token_weights)
+        .set("outputTokenSupply", output_token_supply)
+        .set("outputTokenPriceUSD", output_token_price);
+}
+
+fn create_pool_hourly_snapshot(
+    tables: &mut Tables,
+    clock: &Clock,
+    hour_id: &i64,
+    pool_address: &str,
+    pool_tvl_usd: &BigDecimal,
+    pool_volume_hourly: &BigDecimal,
+    volume_by_token_native: &Vec<BigInt>,
+    volume_by_token_usd: &Vec<BigDecimal>,
+    pool_cumulative_volume_usd: &BigDecimal,
+    input_token_balances: &Vec<BigInt>,
+    input_token_weights: &Vec<BigDecimal>,
+    output_token_supply: &BigInt,
+    output_token_price: &BigDecimal,
+) {
+    tables
+        .create_row(
+            "LiquidityPoolHourlySnapshot",
+            EntityKey::pool_hourly_snapshot_key(&pool_address, hour_id),
+        )
+        .set("protocol", EntityKey::protocol_key())
+        .set("pool", EntityKey::liquidity_pool_key(pool_address))
+        .set("blockNumber", BigInt::from(clock.number))
+        .set(
+            "timestamp",
+            BigInt::from(clock.timestamp.clone().unwrap().seconds),
+        )
+        .set("totalValueLockedUSD", pool_tvl_usd)
+        .set("hourlyVolumeUSD", pool_volume_hourly)
+        .set("hourlyVolumeByTokenAmount", volume_by_token_native)
+        .set("hourlyVolumeByTokenUSD", volume_by_token_usd)
+        .set("cumulativeVolumeUSD", pool_cumulative_volume_usd)
+        .set("inputTokenBalances", input_token_balances)
+        .set("inputTokenWeights", input_token_weights)
+        .set("outputTokenSupply", output_token_supply)
+        .set("outputTokenPriceUSD", output_token_price);
+}
+
+fn get_pool_token_volumes_in_timeframe(
+    pool: &Pool,
+    time_frame_id: &i64,
+    snapshot_type: &SnapshotType,
+    pool_volume_native_store: &StoreGetBigInt,
+    pool_volume_usd_store: &StoreGetBigDecimal,
+) -> (Vec<BigInt>, Vec<BigDecimal>) {
+    let mut pool_volume_by_token_native: Vec<BigInt> = Vec::new();
+    let mut pool_volume_by_token_usd: Vec<BigDecimal> = Vec::new();
+
+    for token in &pool.input_tokens {
+        let native_volume_key = match snapshot_type {
+            SnapshotType::Daily => StoreKey::pool_token_volume_native_daily_key(
+                &pool.address,
+                &token.address,
+                &time_frame_id,
+            ),
+            SnapshotType::Hourly => StoreKey::pool_token_volume_native_hourly_key(
+                &pool.address,
+                &token.address,
+                &time_frame_id,
+            ),
+        };
+        let usd_volume_key = match snapshot_type {
+            SnapshotType::Daily => StoreKey::pool_token_volume_usd_daily_key(
+                &pool.address,
+                &token.address,
+                &time_frame_id,
+            ),
+            SnapshotType::Hourly => StoreKey::pool_token_volume_usd_hourly_key(
+                &pool.address,
+                &token.address,
+                &time_frame_id,
+            ),
+        };
+
+        // Fetch and push the native volume for the token
+        let token_native_volume = pool_volume_native_store
+            .get_last(&native_volume_key)
+            .unwrap_or_else(|| BigInt::from(0)); // Default to 0 if not found
+        pool_volume_by_token_native.push(token_native_volume);
+
+        // Fetch and push the USD volume for the token
+        let token_usd_volume = pool_volume_usd_store
+            .get_last(&usd_volume_key)
+            .unwrap_or_else(|| BigDecimal::from(0)); // Default to 0 if not found
+        pool_volume_by_token_usd.push(token_usd_volume);
+    }
+
+    (pool_volume_by_token_native, pool_volume_by_token_usd)
+}
+
+fn create_protocol_financials_daily_snapshot(
+    clock: &Clock,
+    tables: &mut Tables,
+    day_id: &i64,
+    protocol_tvl_store: &StoreGetBigDecimal,
+    protocol_volume_store: &StoreGetBigDecimal,
+) {
+    let tvl_usd = protocol_tvl_store
+        .get_last(StoreKey::protocol_tvl_key())
+        .unwrap();
+    let daily_volume = protocol_volume_store
+        .get_last(StoreKey::protocol_daily_volume_usd_key(&day_id))
+        .unwrap();
+    let cumulative_volume = protocol_volume_store
+        .get_last(StoreKey::protocol_volume_usd_key())
+        .unwrap();
+    tables
+        .create_row(
+            "FinancialsDailySnapshot",
+            EntityKey::protocol_daily_financials_key(&day_id),
+        )
+        .set("protocol", EntityKey::protocol_key())
+        .set("totalValueLockedUSD", tvl_usd)
+        .set("dailyVolumeUSD", daily_volume)
+        .set("cumulativeVolumeUSD", cumulative_volume)
+        .set("blockNumber", BigInt::from(clock.number))
+        .set(
+            "timestamp",
+            BigInt::from(clock.timestamp.clone().unwrap().seconds),
+        );
 }
 
 fn create_protocol_entity(tables: &mut Tables, clock: &Clock) {
@@ -329,7 +657,7 @@ fn create_pool_events_entities(
                         update_input_token_balances(
                             tables,
                             &event,
-                            &pool.input_tokens_ordered,
+                            &pool.input_tokens,
                             input_token_balances_store,
                             pool_tvl_store,
                         );
@@ -344,7 +672,7 @@ fn create_pool_events_entities(
                         update_input_token_balances(
                             tables,
                             &event,
-                            &pool.input_tokens_ordered,
+                            &pool.input_tokens,
                             input_token_balances_store,
                             pool_tvl_store,
                         );
@@ -358,7 +686,7 @@ fn create_pool_events_entities(
                         update_input_token_balances(
                             tables,
                             &event,
-                            &pool.input_tokens_ordered,
+                            &pool.input_tokens,
                             input_token_balances_store,
                             pool_tvl_store,
                         )
@@ -372,7 +700,7 @@ fn create_pool_events_entities(
                         update_input_token_balances(
                             tables,
                             &event,
-                            &pool.input_tokens_ordered,
+                            &pool.input_tokens,
                             input_token_balances_store,
                             pool_tvl_store,
                         )
@@ -412,36 +740,63 @@ fn update_pool_output_token_supply(
         .set("outputTokenSupply", output_token_supply);
 }
 
+fn get_input_token_balances(
+    pool_address: &str,
+    input_tokens: &Vec<Token>,
+    input_token_balances_store: &StoreGetBigInt,
+) -> Vec<BigInt> {
+    input_tokens
+        .iter()
+        .map(|token| {
+            let input_token_balance_key =
+                StoreKey::input_token_balance_key(&pool_address, &token.address);
+            input_token_balances_store
+                .get_last(input_token_balance_key)
+                .unwrap_or_else(|| {
+                    substreams::log::debug!(
+                        "No input token balance found for pool {} and token {}",
+                        pool_address,
+                        token.address
+                    );
+                    BigInt::zero()
+                })
+        })
+        .collect()
+}
+
+fn get_input_token_weights(pool: &Pool, pool_tvl_store: &StoreGetBigDecimal) -> Vec<BigDecimal> {
+    if let Some(pool_tvl) = pool_tvl_store.get_last(StoreKey::pool_tvl_key(&pool.address)) {
+        if pool_tvl == BigDecimal::zero() {
+            vec![BigDecimal::zero(); pool.input_tokens.len()]
+        } else {
+            pool.input_tokens
+                .iter()
+                .map(|token| {
+                    pool_tvl_store
+                        .get_last(StoreKey::pool_token_tvl_key(&pool.address, &token.address))
+                        .map_or(BigDecimal::zero(), |token_tvl| {
+                            token_tvl.div(&pool_tvl).mul(BigDecimal::from(100))
+                        })
+                })
+                .collect()
+        }
+    } else {
+        vec![BigDecimal::zero(); pool.input_tokens.len()]
+    }
+}
+
 fn update_input_token_balances(
     tables: &mut Tables,
     event: &PoolEvent,
-    input_tokens: &Vec<String>,
+    input_tokens: &Vec<Token>,
     input_token_balances_store: &StoreGetBigInt,
     pool_tvl_store: &StoreGetBigDecimal,
 ) {
-    let input_token_balances: Vec<BigInt> = input_tokens
-        .iter()
-        .map(|input_token| {
-            let input_token_balance_key =
-                StoreKey::input_token_balance_key(&event.pool_address, &input_token);
-            let input_token_balance = match input_token_balances_store
-                .get_at(event.log_ordinal, &input_token_balance_key)
-            {
-                Some(balance) => balance,
-                None => input_token_balances_store
-                    .get_last(&input_token_balance_key)
-                    .unwrap_or_else(|| {
-                        substreams::log::debug!(
-                            "No input token balance found for pool {} and token {}",
-                            &event.pool_address,
-                            &input_token
-                        );
-                        BigInt::zero()
-                    }),
-            };
-            input_token_balance
-        })
-        .collect();
+    let input_token_balances = get_input_token_balances(
+        &event.pool_address,
+        input_tokens,
+        input_token_balances_store,
+    );
 
     let tvl = pool_tvl_store
         .get_last(StoreKey::pool_tvl_key(&event.pool_address))
