@@ -146,6 +146,17 @@ modules:
     inputs:
       - source: sf.substreams.v1.Clock
 
+  - name: prune
+    kind: store
+    updatePolicy: set
+    valueType: string
+    inputs:
+      - store: store_pools_created
+      - store: store_pool_count
+      - store: store_pool_addresses
+      - store: store_current_time_snapshots
+        mode: deltas
+
   - name: graph_out
     kind: map
     initialBlock: 13987012
@@ -179,6 +190,7 @@ modules:
         mode: deltas
       - store: chainlink_prices:chainlink_price_store
       - store: uniswap_prices:store_uniswap_prices
+      - store: prune
     output:
       type: proto:sf.substreams.sink.entity.v1.EntityChanges
 

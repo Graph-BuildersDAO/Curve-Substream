@@ -11,7 +11,7 @@ use crate::key_management::entity_key_manager::EntityKey;
 use crate::key_management::store_key_manager::StoreKey;
 use crate::pb::curve::types::v1::Pool;
 use crate::pb::uniswap_pricing::v1::Erc20Price;
-use crate::types::snapshot::SnapshotType;
+use crate::types::timeframe::Timeframe;
 
 pub struct SnapshotCreator<'a> {
     tables: &'a mut Tables,
@@ -69,15 +69,15 @@ impl<'a> SnapshotCreator<'a> {
         let tvl_usd = self
             .protocol_tvl_store
             .get_last(StoreKey::protocol_tvl_key())
-            .unwrap();
+            .unwrap_or_else(|| BigDecimal::zero());
         let daily_volume = self
             .protocol_volume_store
             .get_last(StoreKey::protocol_daily_volume_usd_key(&day_id))
-            .unwrap();
+            .unwrap_or_else(|| BigDecimal::zero());
         let cumulative_volume = self
             .protocol_volume_store
             .get_last(StoreKey::protocol_volume_usd_key())
-            .unwrap();
+            .unwrap_or_else(|| BigDecimal::zero());
         self.tables
             .create_row(
                 "FinancialsDailySnapshot",
@@ -96,46 +96,52 @@ impl<'a> SnapshotCreator<'a> {
 
     pub fn create_liquidity_pool_snapshots(
         &mut self,
-        snapshot_type: &SnapshotType,
+        snapshot_type: &Timeframe,
         time_frame_id: &i64,
     ) {
-        let pool_count = self
+        let pool_count = match self
             .pool_count_store
             .get_last(StoreKey::protocol_pool_count_key())
-            .unwrap();
+        {
+            Some(count) => count,
+            None => return,
+        };
 
         for i in 1..=pool_count {
-            let pool_address = self
+            let pool_address = match self
                 .pool_addresses_store
                 .get_last(StoreKey::pool_address_key(&i))
-                .unwrap();
+            {
+                Some(address) => address,
+                None => return,
+            };
 
-            let pool = self
-                .pools_store
-                .get_last(StoreKey::pool_key(&pool_address))
-                .unwrap();
+            let pool = match self.pools_store.get_last(StoreKey::pool_key(&pool_address)) {
+                Some(pool) => pool,
+                None => return,
+            };
 
             let pool_tvl_usd = self
                 .pool_tvl_store
                 .get_last(StoreKey::pool_tvl_key(&pool.address))
-                .unwrap();
+                .unwrap_or_else(|| BigDecimal::zero());
 
             // Get the volume in the pool for a given timeframe (Daily/Hourly)
             let pool_volume = match snapshot_type {
-                SnapshotType::Daily => self
+                Timeframe::Daily => self
                     .pool_volume_usd_store
                     .get_last(StoreKey::pool_volume_usd_daily_key(
                         &pool.address,
                         &time_frame_id,
                     ))
-                    .unwrap(),
-                SnapshotType::Hourly => self
+                    .unwrap_or_else(|| BigDecimal::zero()),
+                Timeframe::Hourly => self
                     .pool_volume_usd_store
                     .get_last(StoreKey::pool_volume_usd_hourly_key(
                         &pool.address,
                         &time_frame_id,
                     ))
-                    .unwrap(),
+                    .unwrap_or_else(|| BigDecimal::zero()),
             };
 
             // Get the volumes of each pool input token for a given timeframe (Daily/Hourly)
@@ -150,7 +156,7 @@ impl<'a> SnapshotCreator<'a> {
             let pool_cumulative_volume_usd = self
                 .pool_volume_usd_store
                 .get_last(StoreKey::pool_volume_usd_key(&pool.address))
-                .unwrap();
+                .unwrap_or_else(|| BigDecimal::zero());
 
             let input_token_balances = get_input_token_balances(
                 &pool_address,
@@ -173,7 +179,7 @@ impl<'a> SnapshotCreator<'a> {
 
             // Create the relevant timeframe snapshot
             match snapshot_type {
-                SnapshotType::Daily => Self::create_pool_daily_snapshot(
+                Timeframe::Daily => Self::create_pool_daily_snapshot(
                     self.tables,
                     self.clock,
                     time_frame_id,
@@ -188,7 +194,7 @@ impl<'a> SnapshotCreator<'a> {
                     &output_token_supply,
                     &output_token_price,
                 ),
-                SnapshotType::Hourly => Self::create_pool_hourly_snapshot(
+                Timeframe::Hourly => Self::create_pool_hourly_snapshot(
                     self.tables,
                     self.clock,
                     time_frame_id,
@@ -287,7 +293,7 @@ impl<'a> SnapshotCreator<'a> {
 fn get_pool_token_volumes_in_timeframe(
     pool: &Pool,
     time_frame_id: &i64,
-    snapshot_type: &SnapshotType,
+    snapshot_type: &Timeframe,
     pool_volume_native_store: &StoreGetBigInt,
     pool_volume_usd_store: &StoreGetBigDecimal,
 ) -> (Vec<BigInt>, Vec<BigDecimal>) {
@@ -296,24 +302,24 @@ fn get_pool_token_volumes_in_timeframe(
 
     for token in &pool.input_tokens {
         let native_volume_key = match snapshot_type {
-            SnapshotType::Daily => StoreKey::pool_token_volume_native_daily_key(
+            Timeframe::Daily => StoreKey::pool_token_volume_native_daily_key(
                 &pool.address,
                 &token.address,
                 &time_frame_id,
             ),
-            SnapshotType::Hourly => StoreKey::pool_token_volume_native_hourly_key(
+            Timeframe::Hourly => StoreKey::pool_token_volume_native_hourly_key(
                 &pool.address,
                 &token.address,
                 &time_frame_id,
             ),
         };
         let usd_volume_key = match snapshot_type {
-            SnapshotType::Daily => StoreKey::pool_token_volume_usd_daily_key(
+            Timeframe::Daily => StoreKey::pool_token_volume_usd_daily_key(
                 &pool.address,
                 &token.address,
                 &time_frame_id,
             ),
-            SnapshotType::Hourly => StoreKey::pool_token_volume_usd_hourly_key(
+            Timeframe::Hourly => StoreKey::pool_token_volume_usd_hourly_key(
                 &pool.address,
                 &token.address,
                 &time_frame_id,
