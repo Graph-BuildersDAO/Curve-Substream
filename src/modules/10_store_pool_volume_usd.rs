@@ -12,6 +12,7 @@ use crate::{
         curve::types::v1::{events::pool_event::Type, Events, Pool},
         uniswap_pricing::v1::Erc20Price,
     },
+    snapshot::utils::calculate_day_hour_id,
 };
 
 #[substreams::handlers::store]
@@ -23,12 +24,7 @@ pub fn store_pool_volume_usd(
     uniswap_prices: StoreGetProto<Erc20Price>,
     store: StoreAddBigDecimal,
 ) {
-    let timestamp_seconds = clock.timestamp.unwrap().seconds;
-    let day_id = timestamp_seconds / 86400;
-    let hour_id = timestamp_seconds / 3600;
-    // TODO how do we handle prev days etc
-    let prev_day_id = day_id - 1;
-    let prev_hour_id = hour_id - 1;
+    let (day_id, hour_id) = calculate_day_hour_id(clock.timestamp.unwrap().seconds);
 
     for event in events.pool_events {
         if let Some(event_type) = &event.r#type {

@@ -5,7 +5,7 @@ use substreams::{
     store::{DeltaBigDecimal, Deltas, StoreAdd, StoreAddBigDecimal, StoreNew},
 };
 
-use crate::key_management::store_key_manager::StoreKey;
+use crate::{key_management::store_key_manager::StoreKey, snapshot::utils::calculate_day_hour_id};
 
 #[substreams::handlers::store]
 pub fn store_protocol_volume_usd(
@@ -13,9 +13,7 @@ pub fn store_protocol_volume_usd(
     pool_volume_deltas: Deltas<DeltaBigDecimal>,
     output_store: StoreAddBigDecimal,
 ) {
-    let timestamp_seconds = clock.timestamp.unwrap().seconds;
-    let day_id = timestamp_seconds / 86400;
-    let prev_day_id = day_id - 1;
+    let (day_id, _) = calculate_day_hour_id(clock.timestamp.unwrap().seconds);
 
     for delta in pool_volume_deltas.iter() {
         let tvl_diff = delta.new_value.clone().sub(delta.old_value.clone());

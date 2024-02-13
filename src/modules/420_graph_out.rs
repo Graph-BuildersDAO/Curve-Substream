@@ -36,7 +36,7 @@ use crate::{
         timeframe_change_handler::TimeframeChangeHandler,
         utils::{prepare_snapshot_closure, separate_timeframe_deltas},
     },
-    types::snapshot::SnapshotType,
+    types::timeframe::Timeframe,
 };
 
 // TODO: If this module gets too bulky, consider following an approach similar to Uniswap V2 SPS:
@@ -215,16 +215,16 @@ fn process_timeframe_deltas(
     // Prepare closures for handling new day and new hour events.
     // These closures will utilize the SnapshotCreator to generate snapshots.
     // We use Rc::clone to ensure the SnapshotCreator can be shared among closures without taking ownership.
-    let on_new_day = prepare_snapshot_closure(Rc::clone(&snapshot_creator), SnapshotType::Daily);
-    let on_new_hour = prepare_snapshot_closure(Rc::clone(&snapshot_creator), SnapshotType::Hourly);
+    let on_new_day = prepare_snapshot_closure(Rc::clone(&snapshot_creator), Timeframe::Daily);
+    let on_new_hour = prepare_snapshot_closure(Rc::clone(&snapshot_creator), Timeframe::Hourly);
 
-    // Initialize the TimeframeChangeHandler with the separated deltas and the prepared closures.
+    // Initialise the TimeframeChangeHandler with the separated deltas and the prepared closures.
     // This handler will check for updates in daily and hourly deltas and trigger the appropriate closures.
     let mut timeframe_change_handler = TimeframeChangeHandler {
         daily_deltas: &daily_deltas,
         hourly_deltas: &hourly_deltas,
         on_new_day: Box::new(on_new_day),
-        on_new_hour: Box::new(on_new_hour),
+        on_new_hour: Some(Box::new(on_new_hour)),
     };
 
     // Process the timeframe changes by iterating over deltas and triggering closures if conditions are met.

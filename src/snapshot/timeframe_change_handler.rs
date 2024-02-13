@@ -8,7 +8,7 @@ pub struct TimeframeChangeHandler<'a> {
     pub daily_deltas: &'a Deltas<DeltaInt64>,
     pub hourly_deltas: &'a Deltas<DeltaInt64>,
     pub on_new_day: Box<dyn FnMut(i64) + 'a>,
-    pub on_new_hour: Box<dyn FnMut(i64) + 'a>,
+    pub on_new_hour: Option<Box<dyn FnMut(i64) + 'a>>,
 }
 
 impl<'a> TimeframeChangeHandler<'a> {
@@ -20,10 +20,12 @@ impl<'a> TimeframeChangeHandler<'a> {
             }
         }
 
-        for delta in &self.hourly_deltas.deltas {
-            if delta.operation == Operation::Update && delta.old_value != delta.new_value {
-                // Trigger the on_new_hour closure, passing in the old value (previous hour ID) as the argument.
-                (self.on_new_hour)(delta.old_value);
+        if let Some(ref mut on_new_hour) = self.on_new_hour {
+            for delta in &self.hourly_deltas.deltas {
+                if delta.operation == Operation::Update && delta.old_value != delta.new_value {
+                    // Trigger the on_new_hour closure, passing in the old value (previous hour ID) as the argument.
+                    on_new_hour(delta.old_value);
+                }
             }
         }
     }

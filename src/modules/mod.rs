@@ -43,6 +43,9 @@ mod store_protocol_tvl;
 #[path = "14_store_current_time_snapshots.rs"]
 mod store_current_time_snapshots;
 
+#[path = "15_prune.rs"]
+mod prune;
+
 // TODO: Will decrement once we have added and finalised all the other modules.
 #[path = "420_graph_out.rs"]
 mod graph_out;
@@ -63,3 +66,4 @@ pub use store_pools_created::store_pools_created;
 pub use store_protocol_tvl::store_protocol_tvl;
 pub use store_protocol_volume_usd::store_protocol_volume_usd;
 pub use store_tokens::store_tokens;
+pub use prune::prune;
