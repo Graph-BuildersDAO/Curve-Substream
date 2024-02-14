@@ -31,12 +31,7 @@ use crate::{
         },
         uniswap_pricing::v1::Erc20Price,
     },
-    snapshot::{
-        snapshot_creator::SnapshotCreator,
-        timeframe_change_handler::TimeframeChangeHandler,
-        utils::{prepare_snapshot_closure, separate_timeframe_deltas},
-    },
-    types::timeframe::Timeframe,
+    timeframe_management::snapshot::snapshot_utils::manage_timeframe_snapshots,
 };
 
 // TODO: If this module gets too bulky, consider following an approach similar to Uniswap V2 SPS:
@@ -66,6 +61,7 @@ pub fn graph_out(
     current_time_deltas: Deltas<DeltaInt64>,
     uniswap_prices: StoreGetProto<Erc20Price>,
     chainlink_prices: StoreGetBigDecimal,
+    _prune: StoreGetString, // TODO this is needed as a module dependency for testing. Need to verify if we can remove this and prune will happen.
 ) -> Result<EntityChanges, Error> {
     let mut tables = Tables::new();
 
@@ -155,7 +151,7 @@ pub fn graph_out(
         &protocol_tvl_store,
     );
 
-    process_timeframe_deltas(
+    manage_timeframe_snapshots(
         &clock,
         &current_time_deltas,
         &mut tables,
@@ -174,61 +170,6 @@ pub fn graph_out(
     );
 
     Ok(tables.to_entity_changes())
-}
-
-fn process_timeframe_deltas(
-    clock: &Clock,
-    deltas: &Deltas<DeltaInt64>,
-    tables: &mut Tables,
-    pool_count_store: &StoreGetInt64,
-    pool_addresses_store: &StoreGetString,
-    pools_store: &StoreGetProto<Pool>,
-    pool_tvl_store: &StoreGetBigDecimal,
-    pool_volume_usd_store: &StoreGetBigDecimal,
-    pool_volume_native_store: &StoreGetBigInt,
-    protocol_tvl_store: &StoreGetBigDecimal,
-    protocol_volume_store: &StoreGetBigDecimal,
-    input_token_balances_store: &StoreGetBigInt,
-    output_token_supply_store: &StoreGetBigInt,
-    uniswap_prices: &StoreGetProto<Erc20Price>,
-    chainlink_prices: &StoreGetBigDecimal,
-) {
-    let snapshot_creator = Rc::new(RefCell::new(SnapshotCreator::new(
-        tables,
-        clock,
-        pool_count_store,
-        pool_addresses_store,
-        pools_store,
-        pool_tvl_store,
-        pool_volume_usd_store,
-        pool_volume_native_store,
-        protocol_tvl_store,
-        protocol_volume_store,
-        input_token_balances_store,
-        output_token_supply_store,
-        uniswap_prices,
-        chainlink_prices,
-    )));
-
-    let (daily_deltas, hourly_deltas) = separate_timeframe_deltas(deltas);
-
-    // Prepare closures for handling new day and new hour events.
-    // These closures will utilize the SnapshotCreator to generate snapshots.
-    // We use Rc::clone to ensure the SnapshotCreator can be shared among closures without taking ownership.
-    let on_new_day = prepare_snapshot_closure(Rc::clone(&snapshot_creator), Timeframe::Daily);
-    let on_new_hour = prepare_snapshot_closure(Rc::clone(&snapshot_creator), Timeframe::Hourly);
-
-    // Initialise the TimeframeChangeHandler with the separated deltas and the prepared closures.
-    // This handler will check for updates in daily and hourly deltas and trigger the appropriate closures.
-    let mut timeframe_change_handler = TimeframeChangeHandler {
-        daily_deltas: &daily_deltas,
-        hourly_deltas: &hourly_deltas,
-        on_new_day: Box::new(on_new_day),
-        on_new_hour: Some(Box::new(on_new_hour)),
-    };
-
-    // Process the timeframe changes by iterating over deltas and triggering closures if conditions are met.
-    timeframe_change_handler.handle_timeframe_changes();
 }
 
 fn create_protocol_entity(tables: &mut Tables, clock: &Clock) {

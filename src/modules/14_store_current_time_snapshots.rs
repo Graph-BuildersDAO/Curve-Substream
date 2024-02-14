@@ -3,7 +3,7 @@ use substreams::{
     store::{StoreNew, StoreSet, StoreSetInt64},
 };
 
-use crate::{key_management::store_key_manager::StoreKey, snapshot::utils::calculate_day_hour_id};
+use crate::{key_management::store_key_manager::StoreKey, timeframe_management::utils::calculate_day_hour_id};
 
 #[substreams::handlers::store]
 pub fn store_current_time_snapshots(clock: Clock, store: StoreSetInt64) {
