@@ -2,7 +2,10 @@ use std::ops::Div;
 
 use substreams::{
     pb::substreams::Clock,
-    store::{StoreAdd, StoreAddBigDecimal, StoreGet, StoreGetBigDecimal, StoreGetProto, StoreNew},
+    store::{
+        DeltaInt64, Deltas, StoreAdd, StoreAddBigDecimal, StoreGet, StoreGetBigDecimal,
+        StoreGetInt64, StoreGetProto, StoreGetString, StoreNew,
+    },
 };
 
 use crate::{
@@ -12,7 +15,17 @@ use crate::{
         curve::types::v1::{events::pool_event::Type, Events, Pool},
         uniswap_pricing::v1::Erc20Price,
     },
-    snapshot::utils::calculate_day_hour_id,
+    timeframe_management::{
+        pruning::{
+            pruners::{
+                pool_volume_usd_pruner::PoolVolumeUsdPruner,
+                token_volume_usd_pruner::TokenVolumeUsdPruner,
+            },
+            pruning_utils::setup_timeframe_pruning,
+            traits::ProtocolPruneAction,
+        },
+        utils::calculate_day_hour_id,
+    },
 };
 
 #[substreams::handlers::store]
@@ -20,9 +33,12 @@ pub fn store_pool_volume_usd(
     clock: Clock,
     events: Events,
     pools_store: StoreGetProto<Pool>,
+    pool_count_store: StoreGetInt64,
+    pool_addresses_store: StoreGetString,
+    current_time_deltas: Deltas<DeltaInt64>,
     chainlink_prices: StoreGetBigDecimal,
     uniswap_prices: StoreGetProto<Erc20Price>,
-    store: StoreAddBigDecimal,
+    output_store: StoreAddBigDecimal,
 ) {
     let (day_id, hour_id) = calculate_day_hour_id(clock.timestamp.unwrap().seconds);
 
@@ -63,7 +79,7 @@ pub fn store_pool_volume_usd(
                     let volume_usd =
                         (token_in_amount_usd.clone() + token_out_amount_usd.clone()).div(2);
 
-                    store.add_many(
+                    output_store.add_many(
                         event.log_ordinal,
                         &vec![
                             StoreKey::pool_volume_usd_key(&event.pool_address),
@@ -72,7 +88,7 @@ pub fn store_pool_volume_usd(
                         ],
                         &volume_usd,
                     );
-                    store.add_many(
+                    output_store.add_many(
                         event.log_ordinal,
                         &vec![
                             StoreKey::pool_token_volume_usd_daily_key(
@@ -88,7 +104,7 @@ pub fn store_pool_volume_usd(
                         ],
                         token_in_amount_usd,
                     );
-                    store.add_many(
+                    output_store.add_many(
                         event.log_ordinal,
                         &vec![
                             StoreKey::pool_token_volume_usd_daily_key(
@@ -143,7 +159,7 @@ pub fn store_pool_volume_usd(
                     let volume_usd =
                         (token_in_amount_usd.clone() + token_out_amount_usd.clone()).div(2);
 
-                    store.add_many(
+                    output_store.add_many(
                         event.log_ordinal,
                         &vec![
                             StoreKey::pool_volume_usd_key(&event.pool_address),
@@ -155,7 +171,7 @@ pub fn store_pool_volume_usd(
 
                     // For SwapUnderlying events, we only need to track the volume for the tokens related to this pool.
                     // The base pool handles the volume for the underlying token swapped out.
-                    store.add_many(
+                    output_store.add_many(
                         event.log_ordinal,
                         &vec![
                             StoreKey::pool_token_volume_usd_daily_key(
@@ -176,4 +192,24 @@ pub fn store_pool_volume_usd(
             }
         }
     }
+
+    // Initialise pruning for pool/token volume usd data using `PoolVolumeUsdPruner`/`TokenVolumeUsdPruner`.
+    // This setup registers the pruners to execute when new timeframes (day/hour) are detected,
+    // ensuring outdated data is removed to maintain store efficiency. Protocol level pruning
+    // are not required for this module, hence passed as `None`.
+    let pool_volume_usd_pruner = PoolVolumeUsdPruner {
+        store: &output_store,
+    };
+    let token_volume_usd_pruner = TokenVolumeUsdPruner {
+        store: &output_store,
+    };
+    setup_timeframe_pruning(
+        &pools_store,
+        &pool_count_store,
+        &pool_addresses_store,
+        &current_time_deltas,
+        None as Option<&dyn ProtocolPruneAction>,
+        Some(&pool_volume_usd_pruner),
+        Some(&token_volume_usd_pruner),
+    );
 }

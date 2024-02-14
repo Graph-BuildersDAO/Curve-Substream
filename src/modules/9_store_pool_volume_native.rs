@@ -1,7 +1,10 @@
 use substreams::{
     pb::substreams::Clock,
     scalar::BigInt,
-    store::{StoreAdd, StoreAddBigInt, StoreGet, StoreGetProto, StoreNew},
+    store::{
+        DeltaInt64, Deltas, StoreAdd, StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetProto,
+        StoreGetString, StoreNew,
+    },
 };
 
 use crate::{
@@ -10,7 +13,14 @@ use crate::{
         events::{pool_event::Type, PoolEvent},
         Events, Pool,
     },
-    snapshot::utils::calculate_day_hour_id,
+    timeframe_management::{
+        pruning::{
+            pruners::token_volume_native_pruner::TokenVolumeNativePruner,
+            pruning_utils::setup_timeframe_pruning,
+            traits::{PoolPruneAction, ProtocolPruneAction},
+        },
+        utils::calculate_day_hour_id,
+    },
 };
 
 #[substreams::handlers::store]
@@ -18,6 +28,9 @@ pub fn store_pool_volume_native(
     clock: Clock,
     events: Events,
     pools_store: StoreGetProto<Pool>,
+    pool_count_store: StoreGetInt64,
+    pool_addresses_store: StoreGetString,
+    current_time_deltas: Deltas<DeltaInt64>,
     output_store: StoreAddBigInt,
 ) {
     let (day_id, hour_id) = calculate_day_hour_id(clock.timestamp.unwrap().seconds);
@@ -59,6 +72,23 @@ pub fn store_pool_volume_native(
             }
         }
     }
+
+    // Initialise pruning for token volume native data using `TokenVolumeNativePruner`.
+    // This setup registers the pruner to execute when new timeframes (day/hour) are detected,
+    // ensuring outdated data is removed to maintain store efficiency. Protocol and pool level pruning
+    // are not required for this module, hence passed as `None`.
+    let token_volume_native_pruner = TokenVolumeNativePruner {
+        store: &output_store,
+    };
+    setup_timeframe_pruning(
+        &pools_store,
+        &pool_count_store,
+        &pool_addresses_store,
+        &current_time_deltas,
+        None as Option<&dyn ProtocolPruneAction>,
+        None as Option<&dyn PoolPruneAction>,
+        Some(&token_volume_native_pruner),
+    );
 }
 
 fn update_pool_volume(

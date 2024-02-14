@@ -97,6 +97,10 @@ modules:
       - source: sf.substreams.v1.Clock
       - map: map_extract_pool_events
       - store: store_pools_created
+      - store: store_pool_count
+      - store: store_pool_addresses
+      - store: store_current_time_snapshots
+        mode: deltas
 
   - name: store_pool_volume_usd
     kind: store
@@ -106,6 +110,10 @@ modules:
       - source: sf.substreams.v1.Clock
       - map: map_extract_pool_events
       - store: store_pools_created
+      - store: store_pool_count
+      - store: store_pool_addresses
+      - store: store_current_time_snapshots
+        mode: deltas
       - store: chainlink_prices:chainlink_price_store
       - store: uniswap_prices:store_uniswap_prices
 
@@ -116,6 +124,11 @@ modules:
     inputs:
       - source: sf.substreams.v1.Clock
       - store: store_pool_volume_usd
+        mode: deltas
+      - store: store_pools_created
+      - store: store_pool_count
+      - store: store_pool_addresses
+      - store: store_current_time_snapshots
         mode: deltas
 
   - name: store_pool_tvl
@@ -145,17 +158,6 @@ modules:
     valueType: int64
     inputs:
       - source: sf.substreams.v1.Clock
-
-  - name: prune
-    kind: store
-    updatePolicy: set
-    valueType: string
-    inputs:
-      - store: store_pools_created
-      - store: store_pool_count
-      - store: store_pool_addresses
-      - store: store_current_time_snapshots
-        mode: deltas
 
   - name: graph_out
     kind: map

@@ -1,7 +1,7 @@
 mod abi;
 mod common;
 mod constants;
-mod snapshot;
+mod timeframe_management;
 mod key_management;
 mod modules;
 mod network_config;
