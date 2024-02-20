@@ -1,0 +1,10 @@
+pub mod base_pool_registry;
+pub mod crv_usd_pool_factory;
+pub mod crypto_pool_factory_v2;
+pub mod crypto_swap_registry_old;
+pub mod crypto_swap_registry_v2;
+pub mod pool_registry_v1;
+pub mod pool_registry_v1_old;
+pub mod pool_registry_v2_old;
+pub mod stable_swap_factory_ng;
+pub mod tricrypto_factory_ng;
