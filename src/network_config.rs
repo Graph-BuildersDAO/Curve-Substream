@@ -7,7 +7,7 @@ pub const POOL_INFO_CONTRACT: [u8; 20] = hex!("e64608E223433E8a03a1DaaeFD8Cb638C
 pub const PROTOCOL_ADDRESS: [u8; 20] = hex!("0000000022D53366457F9d5E68Ec105046FC4383");
 pub const CRV_TOKEN_ADDRESS: [u8; 20] = hex!("d533a949740bb3306d119cc777fa900ba034cd52");
 pub const GAUGE_CONTROLLER_ADDRESS: [u8; 20] = hex!("2f50d538606fa9edd2b11e2446beb18c9d5846bb");
-pub const POOL_REGISTRIES: [[u8; 20]; 5] = [hex!("90e00ace148ca3b23ac1bc8c240c2a7dd9c2d7f5"), hex!("7d86446ddb609ed0f5f8684acf30380a356b2b4c"), hex!("B9fC157394Af804a3578134A6585C0dc9cc990d4"), hex!("8F942C20D02bEfc377D41445793068908E2250D0"), hex!("F18056Bbd320E96A48e3Fbf8bC061322531aac99"), ];
+pub const POOL_REGISTRIES: [[u8; 20]; 10] = [hex!("DE3eAD9B2145bBA2EB74007e58ED07308716B725"), hex!("4F8846Ae9380B90d2E71D5e3D042dff3E7ebb40d"), hex!("F18056Bbd320E96A48e3Fbf8bC061322531aac99"), hex!("9a32af1a11d9c937aea61a3790c2983257ea8bc0"), hex!("8F942C20D02bEfc377D41445793068908E2250D0"), hex!("B9fC157394Af804a3578134A6585C0dc9cc990d4"), hex!("90e00ace148ca3b23ac1bc8c240c2a7dd9c2d7f5"), hex!("7d86446ddb609ed0f5f8684acf30380a356b2b4c"), hex!("6A8cbed756804B16E05E741eDaBd5cB544AE21bf"), hex!("0c0e5f2fF0ff18a3be9b835635039256dC4B4963"), ];
 
 #[derive(Debug, Clone)]
 pub struct PoolDetails {
@@ -19,18 +19,26 @@ pub struct PoolDetails {
 
 pub static MISSING_OLD_POOLS_DATA: &[(&str, PoolDetails)] = &[
 ("0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7", PoolDetails { name: "3pool", address: hex!("bebc44782c7db0a1a60cb6fe97d0b483032ff1c7"), lp_token: hex!("6c3f90f043a72fa612cbac8115ee7e52bde6e490"), start_block: 10809473 }),
+("0x8301ae4fc9c624d1d396cbdaa1ed877821d7c511", PoolDetails { name: "crveth", address: hex!("8301ae4fc9c624d1d396cbdaa1ed877821d7c511"), lp_token: hex!("ed4064f376cb8d68f770fb1ff088a3d0f3ff5c4d"), start_block: 13676995 }),
+("0xb576491f1e6e5e62f1d8f26062ee822b40b0e0d4", PoolDetails { name: "cvxeth", address: hex!("b576491f1e6e5e62f1d8f26062ee822b40b0e0d4"), lp_token: hex!("3a283d9c08e8b55966afb64c515f5143cf907611"), start_block: 13783426 }),
+("0xadcfcf9894335dc340f6cd182afa45999f45fc44", PoolDetails { name: "xautusd", address: hex!("adcfcf9894335dc340f6cd182afa45999f45fc44"), lp_token: hex!("8484673ca7bff40f82b041916881aea15ee84834"), start_block: 13854276 }),
+("0x98638facf9a3865cd033f36548713183f6996122", PoolDetails { name: "spelleth", address: hex!("98638facf9a3865cd033f36548713183f6996122"), lp_token: hex!("8282bd15dca2ea2bdf24163e8f2781b30c43a2ef"), start_block: 13931746 }),
+("0x752ebeb79963cf0732e9c0fec72a49fd1defaeac", PoolDetails { name: "teth", address: hex!("752ebeb79963cf0732e9c0fec72a49fd1defaeac"), lp_token: hex!("cb08717451aae9ef950a2524e33b6dcaba60147b"), start_block: 13931849 }),
+("0xe84f5b1582ba325fdf9ce6b0c1f087ccfc924e54", PoolDetails { name: "euroc", address: hex!("e84f5b1582ba325fdf9ce6b0c1f087ccfc924e54"), lp_token: hex!("70fc957eb90e37af82acdbd12675699797745f68"), start_block: 15045848 }),
 ("0x79a8c46dea5ada233abaffd40f3a0a2b1e5a4f27", PoolDetails { name: "busd", address: hex!("79a8c46dea5ada233abaffd40f3a0a2b1e5a4f27"), lp_token: hex!("3b3ac5386837dc563660fb6a0937dfaa5924333b"), start_block: 9567295 }),
 ("0xdebf20617708857ebe4f679508e7b7863a8a8eee", PoolDetails { name: "aave", address: hex!("debf20617708857ebe4f679508e7b7863a8a8eee"), lp_token: hex!("fd2a8fa60abd58efe3eee34dd494cd491dc14900"), start_block: 11497106 }),
-("0xa96a65c051bf88b4095ee1f2451c2a9d43f53ae2", PoolDetails { name: "aeth", address: hex!("a96a65c051bf88b4095ee1f2451c2a9d43f53ae2"), lp_token: hex!("aa17a236f2badc98ddc0cf999abb47d47fc0a6cf"), start_block: 11774139 }),
+("0xa96a65c051bf88b4095ee1f2451c2a9d43f53ae2", PoolDetails { name: "ankreth", address: hex!("a96a65c051bf88b4095ee1f2451c2a9d43f53ae2"), lp_token: hex!("aa17a236f2badc98ddc0cf999abb47d47fc0a6cf"), start_block: 11774139 }),
 ("0xa2b47e3d5c44877cca798226b7b8118f9bfb7a56", PoolDetails { name: "compound", address: hex!("a2b47e3d5c44877cca798226b7b8118f9bfb7a56"), lp_token: hex!("845838df265dcd2c412a1dc9e959c7d08537f8a2"), start_block: 9554040 }),
 ("0x0ce6a5ff5217e38315f87032cf90686c96627caa", PoolDetails { name: "eurs", address: hex!("0ce6a5ff5217e38315f87032cf90686c96627caa"), lp_token: hex!("194ebd173f6cdace046c53eacce9b953f28411d1"), start_block: 11466871 }),
+("0x98a7f18d4e56cfe84e3d081b40001b3d5bd3eb8b", PoolDetails { name: "eursusd", address: hex!("98a7f18d4e56cfe84e3d081b40001b3d5bd3eb8b"), lp_token: hex!("3d229e1b4faab62f621ef2f6a610961f7bd7b23b"), start_block: 13530680 }),
 ("0x4ca9b3063ec5866a4b82e437059d2c43d1be596f", PoolDetails { name: "hbtc", address: hex!("4ca9b3063ec5866a4b82e437059d2c43d1be596f"), lp_token: hex!("b19059ebb43466c323583928285a49f558e572fd"), start_block: 10732328 }),
-("0x2dded6da1bf5dbdf597c45fcfaa3194e53ecfeaf", PoolDetails { name: "ib", address: hex!("2dded6da1bf5dbdf597c45fcfaa3194e53ecfeaf"), lp_token: hex!("5282a4ef67d9c33135340fb3289cc1711c13638c"), start_block: 11831119 }),
+("0x2dded6da1bf5dbdf597c45fcfaa3194e53ecfeaf", PoolDetails { name: "ironbank", address: hex!("2dded6da1bf5dbdf597c45fcfaa3194e53ecfeaf"), lp_token: hex!("5282a4ef67d9c33135340fb3289cc1711c13638c"), start_block: 11831119 }),
 ("0xf178c0b5bb7e7abf4e12a4838c7b7c5ba2c623c0", PoolDetails { name: "link", address: hex!("f178c0b5bb7e7abf4e12a4838c7b7c5ba2c623c0"), lp_token: hex!("cee60cfa923170e4f8204ae08b4fa6a3f5656f3a"), start_block: 11875215 }),
 ("0x06364f10b501e868329afbc005b3492902d6c763", PoolDetails { name: "pax", address: hex!("06364f10b501e868329afbc005b3492902d6c763"), lp_token: hex!("d905e2eaebe188fc92179b6350807d8bd91db0d8"), start_block: 10041041 }),
 ("0x93054188d876f558f4a66b2ef1d97d16edf0895b", PoolDetails { name: "ren", address: hex!("93054188d876f558f4a66b2ef1d97d16edf0895b"), lp_token: hex!("49849c98ae39fff122806c06791fa73784fb3675"), start_block: 10151385 }),
 ("0xeb16ae0052ed37f479f7fe63849198df1765a733", PoolDetails { name: "saave", address: hex!("eb16ae0052ed37f479f7fe63849198df1765a733"), lp_token: hex!("02d341ccb60faaf662bc0554d13778015d1b285c"), start_block: 11772500 }),
 ("0x7fc77b5c7614e1533320ea6ddc2eb61fa00a9714", PoolDetails { name: "sbtc", address: hex!("7fc77b5c7614e1533320ea6ddc2eb61fa00a9714"), lp_token: hex!("075b1bb99792c9e1041ba13afef80c91a1e70fb3"), start_block: 10276641 }),
+("0xf253f83aca21aabd2a20553ae0bf7f65c755a07f", PoolDetails { name: "sbtc2", address: hex!("f253f83aca21aabd2a20553ae0bf7f65c755a07f"), lp_token: hex!("051d7e5609917Bd9b73f04BAc0DED8Dd46a74301"), start_block: 16099802 }),
 ("0xc5424b857f758e906013f3555dad202e4bdb4567", PoolDetails { name: "seth", address: hex!("c5424b857f758e906013f3555dad202e4bdb4567"), lp_token: hex!("a3d87fffce63b53e0d54faa1cc983b7eb0b74a9c"), start_block: 11491884 }),
 ("0xdc24316b9ae028f1497c275eb9192a3ea0f67022", PoolDetails { name: "steth", address: hex!("dc24316b9ae028f1497c275eb9192a3ea0f67022"), lp_token: hex!("06325440d014e39736583c165c2963ba99faf14e"), start_block: 11592551 }),
 ("0xa5407eae9ba41422680e2e00537571bcc53efbfd", PoolDetails { name: "susd", address: hex!("a5407eae9ba41422680e2e00537571bcc53efbfd"), lp_token: hex!("c25a3a3b969415c80451098fa907ec722572917f"), start_block: 9906598 }),
@@ -52,16 +60,19 @@ pub static MISSING_OLD_POOLS_DATA: &[(&str, PoolDetails)] = &[
 ("0xc25099792e9349c7dd09759744ea681c7de2cb66", PoolDetails { name: "tbtc", address: hex!("c25099792e9349c7dd09759744ea681c7de2cb66"), lp_token: hex!("64eda51d3ad40d56b9dfc5554e06f94e1dd786fd"), start_block: 11095928 }),
 ("0xecd5e75afb02efa118af914515d6521aabd189f1", PoolDetails { name: "tusd", address: hex!("ecd5e75afb02efa118af914515d6521aabd189f1"), lp_token: hex!("ecd5e75afb02efa118af914515d6521aabd189f1"), start_block: 12010370 }),
 ("0x4807862aa8b2bf68830e4c8dc86d0e9a998e085a", PoolDetails { name: "busdv2", address: hex!("4807862aa8b2bf68830e4c8dc86d0e9a998e085a"), lp_token: hex!("4807862aa8b2bf68830e4c8dc86d0e9a998e085a"), start_block: 12240440 }),
-("0xf9440930043eb3997fc70e1339dbb11f341de7a8", PoolDetails { name: "reth", address: hex!("f9440930043eb3997fc70e1339dbb11f341de7a8"), lp_token: hex!("53a901d48795c58f485cbb38df08fa96a24669d5"), start_block: 12463576 }),
+("0xf9440930043eb3997fc70e1339dbb11f341de7a8", PoolDetails { name: "stafi-reth", address: hex!("f9440930043eb3997fc70e1339dbb11f341de7a8"), lp_token: hex!("53a901d48795c58f485cbb38df08fa96a24669d5"), start_block: 12463576 }),
 ("0x43b4fdfd4ff969587185cdb6f0bd875c5fc83f8c", PoolDetails { name: "alusd", address: hex!("43b4fdfd4ff969587185cdb6f0bd875c5fc83f8c"), lp_token: hex!("43b4fdfd4ff969587185cdb6f0bd875c5fc83f8c"), start_block: 11956693 }),
 ("0x80466c64868e1ab14a1ddf27a676c3fcbe638fe5", PoolDetails { name: "tricrypto", address: hex!("80466c64868e1ab14a1ddf27a676c3fcbe638fe5"), lp_token: hex!("ca3d75ac011bf5ad07a98d02f18225f9bd9a6bdf"), start_block: 12521538 }),
+("0xd51a44d3fae010294c616388b506acda1bfaae46", PoolDetails { name: "tricrypto2", address: hex!("d51a44d3fae010294c616388b506acda1bfaae46"), lp_token: hex!("c4ad29ba4b3c580e6d59105fff484999997675ff"), start_block: 12821148 }),
 ("0x618788357d0ebd8a37e763adab3bc575d54c2c7d", PoolDetails { name: "rai", address: hex!("618788357d0ebd8a37e763adab3bc575d54c2c7d"), lp_token: hex!("6ba5b4e438fa0aaf7c1bd179285af65d13bd3d90"), start_block: 13634171 }),
 ("0x5a6a4d54456819380173272a5e8e9b9904bdf41b", PoolDetails { name: "mim", address: hex!("5a6a4d54456819380173272a5e8e9b9904bdf41b"), lp_token: hex!("5a6a4d54456819380173272a5e8e9b9904bdf41b"), start_block: 12567592 }),
 ("0xfd5db7463a3ab53fd211b4af195c5bccc1a03890", PoolDetails { name: "eurt", address: hex!("fd5db7463a3ab53fd211b4af195c5bccc1a03890"), lp_token: hex!("fd5db7463a3ab53fd211b4af195c5bccc1a03890"), start_block: 12921922 }),
+("0x9838eccc42659fa8aa7daf2ad134b53984c9427b", PoolDetails { name: "eurtusd", address: hex!("9838eccc42659fa8aa7daf2ad134b53984c9427b"), lp_token: hex!("3b6831c0077a1e44ed0a21841c3bc4dc11bce833"), start_block: 13526617 }),
 ("0x4e0915c88bc70750d68c481540f081fefaf22273", PoolDetails { name: "4pool", address: hex!("4e0915c88bc70750d68c481540f081fefaf22273"), lp_token: hex!("4e0915c88bc70750d68c481540f081fefaf22273"), start_block: 14631356 }),
 ("0x1005f7406f32a61bd760cfa14accd2737913d546", PoolDetails { name: "2pool", address: hex!("1005f7406f32a61bd760cfa14accd2737913d546"), lp_token: hex!("1005f7406f32a61bd760cfa14accd2737913d546"), start_block: 14631073 }),
 ("0xdcef968d416a41cdac0ed8702fac8128a64241a2", PoolDetails { name: "Curve.fi FRAX/USDC", address: hex!("dcef968d416a41cdac0ed8702fac8128a64241a2"), lp_token: hex!("3175df0976dfa876431c2e9ee6bc45b65d3473cc"), start_block: 14939588 }),
 ("0xd632f22692fac7611d2aa1c0d552930d43caed3b", PoolDetails { name: "frax", address: hex!("d632f22692fac7611d2aa1c0d552930d43caed3b"), lp_token: hex!("d632f22692fac7611d2aa1c0d552930d43caed3b"), start_block: 11972002 }),
+("0xa1f8a6807c402e4a15ef4eba36528a3fed24e577", PoolDetails { name: "frxeth", address: hex!("a1f8a6807c402e4a15ef4eba36528a3fed24e577"), lp_token: hex!("f43211935c781d5ca1a41d2041f397b8a7366c7a"), start_block: 15741010 }),
 ("0xed279fdd11ca84beef15af5d39bb4d4bee23f0ca", PoolDetails { name: "lusd", address: hex!("ed279fdd11ca84beef15af5d39bb4d4bee23f0ca"), lp_token: hex!("ed279fdd11ca84beef15af5d39bb4d4bee23f0ca"), start_block: 12242627 }),
 ];
 

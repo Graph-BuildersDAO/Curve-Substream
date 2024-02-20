@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::{
     fs::{self, File},
     io::Write,
-    path::Path,
+    path::{Path, PathBuf},
 };
 use substreams_ethereum::Abigen;
 
@@ -13,6 +13,16 @@ use substreams_ethereum::Abigen;
 fn main() -> Result<(), anyhow::Error> {
     let file_names = [
         "abi/common/ERC20.abi.json",
+        "abi/curve/child_registries/BasePoolRegistry.abi.json",
+        "abi/curve/child_registries/crvUSDPoolFactory.abi.json",
+        "abi/curve/child_registries/CryptoPoolFactoryV2.abi.json",
+        "abi/curve/child_registries/CryptoSwapRegistryOld.abi.json",
+        "abi/curve/child_registries/CryptoSwapRegistryV2.abi.json",
+        "abi/curve/child_registries/PoolRegistryV1.abi.json",
+        "abi/curve/child_registries/PoolRegistryV1Old.abi.json",
+        "abi/curve/child_registries/PoolRegistryV2Old.abi.json",
+        "abi/curve/child_registries/StableSwapFactoryNG.abi.json",
+        "abi/curve/child_registries/TriCryptoFactoryNG.abi.json",
         "abi/curve/AddressProvider.abi.json",
         "abi/curve/Pool.abi.json",
         "abi/curve/Registry.abi.json",
@@ -21,6 +31,16 @@ fn main() -> Result<(), anyhow::Error> {
     ];
     let file_output_names = [
         "src/abi/common/erc20.rs",
+        "src/abi/curve/child_registries/base_pool_registry.rs",
+        "src/abi/curve/child_registries/crv_usd_pool_factory.rs",
+        "src/abi/curve/child_registries/crypto_pool_factory_v2.rs",
+        "src/abi/curve/child_registries/crypto_swap_registry_old.rs",
+        "src/abi/curve/child_registries/crypto_swap_registry_v2.rs",
+        "src/abi/curve/child_registries/pool_registry_v1.rs",
+        "src/abi/curve/child_registries/pool_registry_v1_old.rs",
+        "src/abi/curve/child_registries/pool_registry_v2_old.rs",
+        "src/abi/curve/child_registries/stable_swap_factory_ng.rs",
+        "src/abi/curve/child_registries/tricrypto_factory_ng.rs",
         "src/abi/curve/address_provider.rs",
         "src/abi/curve/pool.rs",
         "src/abi/curve/registry.rs",
@@ -59,6 +79,16 @@ fn main() -> Result<(), anyhow::Error> {
     for (dir, modules) in modules_by_dir {
         let mod_file_path = Path::new(&dir).join("mod.rs");
         let mut mod_file = File::create(mod_file_path)?;
+
+        // Get subdirectories in the current directory
+        let subdirs = get_subdirectories(Path::new(&dir));
+
+        // Write a mod line for each subdirectory
+        for subdir in subdirs {
+            if let Some(name) = subdir.file_name().and_then(|n| n.to_str()) {
+                writeln!(mod_file, "pub mod {};", name)?;
+            }
+        }
 
         for module in modules {
             writeln!(mod_file, "pub mod {};", module)?;
@@ -299,4 +329,19 @@ fn generate_network_config_from_json(path: &str, output_path: &str) -> Result<()
 
     fs::write(output_path, output)?;
     Ok(())
+}
+
+fn get_subdirectories(path: &Path) -> Vec<PathBuf> {
+    fs::read_dir(path)
+        .unwrap()
+        .filter_map(|entry| {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            if path.is_dir() {
+                Some(path)
+            } else {
+                None
+            }
+        })
+        .collect()
 }
