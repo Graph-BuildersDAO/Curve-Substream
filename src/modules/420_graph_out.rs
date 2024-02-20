@@ -61,7 +61,6 @@ pub fn graph_out(
     current_time_deltas: Deltas<DeltaInt64>,
     uniswap_prices: StoreGetProto<Erc20Price>,
     chainlink_prices: StoreGetBigDecimal,
-    _prune: StoreGetString, // TODO this is needed as a module dependency for testing. Need to verify if we can remove this and prune will happen.
 ) -> Result<EntityChanges, Error> {
     let mut tables = Tables::new();
 

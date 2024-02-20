@@ -1,20 +1,17 @@
 use anyhow::anyhow;
 use substreams::{errors::Error, Hex};
-use substreams_ethereum::{
-    block_view,
-    pb::eth::v2::{self as eth},
-    NULL_ADDRESS,
-};
+use substreams_ethereum::{block_view, pb::eth::v2 as eth, NULL_ADDRESS};
 
 use crate::{
-    abi::curve::registry::events::{
-        BasePoolAdded, CryptoPoolDeployed, MetaPoolDeployed, PlainPoolDeployed, PoolAdded1,
-        PoolAdded2,
+    abi::curve::child_registries::{
+        crv_usd_pool_factory, crypto_pool_factory_v2, pool_registry_v1, stable_swap_factory_ng,
+        tricrypto_factory_ng,
     },
     common::{event_extraction, utils},
     network_config::{PoolDetails, MISSING_OLD_POOLS_DATA, POOL_REGISTRIES},
     pb::curve::types::v1::{Pool, Pools, Token},
-    rpc::{pool, registry, token},
+    rpc::{pool, token},
+    types::event_traits::PlainPoolDeployedEvent,
 };
 
 #[substreams::handlers::map]
@@ -42,12 +39,18 @@ pub fn map_pools_created(blk: eth::Block) -> Result<Pools, Vec<Error>> {
         .iter()
         .flat_map(|&contract| {
             [
-                map_pool_added_1_events(&blk, &mut pools, contract),
-                map_pool_added_2_events(&blk, &mut pools, contract),
-                map_base_pool_added_events(&blk, &mut pools, contract),
                 map_crypto_pool_deployed_events(&blk, &mut pools, contract),
-                map_plain_pool_deployed_events(&blk, &mut pools, contract),
+                map_plain_pool_deployed_events::<crv_usd_pool_factory::events::PlainPoolDeployed>(
+                    &blk, &mut pools, contract,
+                ),
+                map_plain_pool_deployed_events::<pool_registry_v1::events::PlainPoolDeployed>(
+                    &blk, &mut pools, contract,
+                ),
+                map_plain_pool_deployed_events::<stable_swap_factory_ng::events::PlainPoolDeployed>(
+                    &blk, &mut pools, contract,
+                ),
                 map_meta_pool_deployed_events(&blk, &mut pools, contract),
+                map_tricrypto_pool_deployed_events(&blk, &mut pools, contract),
             ]
         })
         .filter_map(Result::err)
@@ -59,158 +62,6 @@ pub fn map_pools_created(blk: eth::Block) -> Result<Pools, Vec<Error>> {
     Err(errors)
 }
 
-fn map_pool_added_1_events(
-    blk: &eth::Block,
-    pools: &mut Pools,
-    address: [u8; 20],
-) -> Result<(), Error> {
-    pools.pools.append(
-        &mut blk
-            .events::<PoolAdded1>(&[&address])
-            .filter_map(|(event, log)| {
-                let lp_token_address = match registry::get_lp_token_address_from_registry(
-                    &event.pool,
-                    &address.to_vec(),
-                ) {
-                    Ok(addr) => addr,
-                    Err(e) => {
-                        substreams::log::debug!("Error in `map_pool_added_1_events`: {:?}", e);
-                        return None;
-                    }
-                };
-                let lp_token = match token::create_token(&lp_token_address, &event.pool) {
-                    Ok(token) => token,
-                    Err(e) => {
-                        substreams::log::debug!("Error in `map_pool_added_1_events`: {:?}", e);
-                        return None;
-                    }
-                };
-                let (input_tokens, input_tokens_ordered) =
-                    match get_and_sort_input_tokens(&event.pool) {
-                        Ok(result) => result,
-                        Err(e) => {
-                            substreams::log::debug!("Error in `map_pool_added_1_events`: {:?}", e);
-                            return None;
-                        }
-                    };
-                Some(create_pool(
-                    Hex::encode(&event.pool),
-                    Hex::encode(address),
-                    lp_token,
-                    input_tokens_ordered,
-                    input_tokens,
-                    utils::is_metapool(&event.pool),
-                    &log,
-                    blk,
-                ))
-            })
-            .collect(),
-    );
-    Ok(())
-}
-
-fn map_pool_added_2_events(
-    blk: &eth::Block,
-    pools: &mut Pools,
-    address: [u8; 20],
-) -> Result<(), Error> {
-    pools.pools.append(
-        &mut blk
-            .events::<PoolAdded2>(&[&address])
-            .filter_map(|(event, log)| {
-                let lp_token_address = match registry::get_lp_token_address_from_registry(
-                    &event.pool,
-                    &address.to_vec(),
-                ) {
-                    Ok(addr) => addr,
-                    Err(e) => {
-                        substreams::log::debug!("Error in `map_pool_added_2_events`: {:?}", e);
-                        return None;
-                    }
-                };
-                let lp_token = match token::create_token(&lp_token_address, &event.pool) {
-                    Ok(token) => token,
-                    Err(e) => {
-                        substreams::log::debug!("Error in `map_pool_added_2_events`: {:?}", e);
-                        return None;
-                    }
-                };
-                let (input_tokens, input_tokens_ordered) =
-                    match get_and_sort_input_tokens(&event.pool) {
-                        Ok(result) => result,
-                        Err(e) => {
-                            substreams::log::debug!("Error in `map_pool_added_2_events`: {:?}", e);
-                            return None;
-                        }
-                    };
-
-                Some(create_pool(
-                    Hex::encode(&event.pool),
-                    Hex::encode(address),
-                    lp_token,
-                    input_tokens_ordered,
-                    input_tokens,
-                    utils::is_metapool(&event.pool),
-                    &log,
-                    blk,
-                ))
-            })
-            .collect(),
-    );
-    Ok(())
-}
-
-fn map_base_pool_added_events(
-    blk: &eth::Block,
-    pools: &mut Pools,
-    address: [u8; 20],
-) -> Result<(), Error> {
-    pools.pools.append(
-        &mut blk
-            .events::<BasePoolAdded>(&[&address])
-            .filter_map(|(event, log)| {
-                let lp_token_address = match pool::get_lp_token_address_from_pool(&event.base_pool)
-                {
-                    Ok(addr) => addr,
-                    Err(e) => {
-                        substreams::log::debug!("Error in `map_base_pool_added_events`: {:?}", e);
-                        return None;
-                    }
-                };
-                let lp_token = match token::create_token(&lp_token_address, &event.base_pool) {
-                    Ok(token) => token,
-                    Err(e) => {
-                        substreams::log::debug!("Error in `map_base_pool_added_events`: {:?}", e);
-                        return None;
-                    }
-                };
-                let (input_tokens, input_tokens_ordered) =
-                    match get_and_sort_input_tokens(&event.base_pool) {
-                        Ok(result) => result,
-                        Err(e) => {
-                            substreams::log::debug!(
-                                "Error in `map_base_pool_added_events`: {:?}",
-                                e
-                            );
-                            return None;
-                        }
-                    };
-                Some(create_pool(
-                    Hex::encode(&event.base_pool),
-                    Hex::encode(address),
-                    lp_token,
-                    input_tokens_ordered,
-                    input_tokens,
-                    utils::is_metapool(&event.base_pool),
-                    &log,
-                    blk,
-                ))
-            })
-            .collect(),
-    );
-    Ok(())
-}
-
 fn map_crypto_pool_deployed_events(
     blk: &eth::Block,
     pools: &mut Pools,
@@ -218,7 +69,7 @@ fn map_crypto_pool_deployed_events(
 ) -> Result<(), Error> {
     pools.pools.append(
         &mut blk
-            .events::<CryptoPoolDeployed>(&[&address])
+            .events::<crypto_pool_factory_v2::events::CryptoPoolDeployed>(&[&address])
             .filter_map(|(event, log)| {
                 // The minter of the LP token is the liquidity pool contract.
                 let pool_address = match token::get_token_minter(&event.token) {
@@ -252,6 +103,8 @@ fn map_crypto_pool_deployed_events(
                             return None;
                         }
                     };
+                substreams::log::debug!("CryptoPoolDeployed Event");
+
                 Some(create_pool(
                     Hex::encode(&pool_address),
                     Hex::encode(address),
@@ -268,14 +121,14 @@ fn map_crypto_pool_deployed_events(
     Ok(())
 }
 
-fn map_plain_pool_deployed_events(
+fn map_plain_pool_deployed_events<E: PlainPoolDeployedEvent + substreams_ethereum::Event>(
     blk: &eth::Block,
     pools: &mut Pools,
     address: [u8; 20],
 ) -> Result<(), Error> {
     pools.pools.append(
         &mut blk
-            .events::<PlainPoolDeployed>(&[&address])
+            .events::<E>(&[&address])
             .filter_map(|(_event, log)| {
                 let transfer = match event_extraction::extract_transfer_event(&log) {
                     Ok(event) => event,
@@ -308,6 +161,8 @@ fn map_plain_pool_deployed_events(
                             return None;
                         }
                     };
+                substreams::log::debug!("PlainPoolDeployed Event");
+
                 Some(create_pool(
                     Hex::encode(&transfer.receiver),
                     Hex::encode(address),
@@ -331,13 +186,18 @@ fn map_meta_pool_deployed_events(
 ) -> Result<(), Error> {
     pools.pools.append(
         &mut blk
-            .events::<MetaPoolDeployed>(&[&address])
+            // In this block we process MetaPoolDeployed events specifically from `pool_registry_v1::events::MetaPoolDeployed`.
+            // However, due to the ABI compatibility, this will also include MetaPoolDeployed events from other contracts such as
+            // `crv_usd_pool_factory::events::MetaPoolDeployed` and `stable_swap_factory_ng::events::MetaPoolDeployed`,
+            // since they share the same ABI structure for this event type. This ensures that all MetaPoolDeployed events,
+            // regardless of the originating contract, are captured and processed here as long as they are emitted to the specified address.
+            .events::<pool_registry_v1::events::MetaPoolDeployed>(&[&address])
             .filter_map(|(_event, log)| {
                 let transfer = match event_extraction::extract_transfer_event(&log) {
                     Ok(event) => event,
                     Err(e) => {
                         substreams::log::debug!(
-                            "Error in `map_plain_pool_deployed_events`: {:?}",
+                            "Error in `map_meta_pool_deployed_events`: {:?}",
                             e
                         );
                         return None;
@@ -347,7 +207,7 @@ fn map_meta_pool_deployed_events(
                     Ok(token) => token,
                     Err(e) => {
                         substreams::log::debug!(
-                            "Error in `map_plain_pool_deployed_events`: {:?}",
+                            "Error in `map_meta_pool_deployed_events`: {:?}",
                             e
                         );
                         return None;
@@ -358,12 +218,14 @@ fn map_meta_pool_deployed_events(
                         Ok(result) => result,
                         Err(e) => {
                             substreams::log::debug!(
-                                "Error in `map_crypto_pool_deployed_events`: {:?}",
+                                "Error in `map_meta_pool_deployed_events`: {:?}",
                                 e
                             );
                             return None;
                         }
                     };
+                substreams::log::debug!("MetaPoolDeployed Event");
+
                 Some(create_pool(
                     Hex::encode(&transfer.receiver),
                     Hex::encode(address),
@@ -371,6 +233,54 @@ fn map_meta_pool_deployed_events(
                     input_tokens_ordered,
                     input_tokens,
                     utils::is_metapool(&transfer.receiver),
+                    &log,
+                    blk,
+                ))
+            })
+            .collect(),
+    );
+    Ok(())
+}
+
+fn map_tricrypto_pool_deployed_events(
+    blk: &eth::Block,
+    pools: &mut Pools,
+    address: [u8; 20],
+) -> Result<(), Error> {
+    pools.pools.append(
+        &mut blk
+            .events::<tricrypto_factory_ng::events::TricryptoPoolDeployed>(&[&address])
+            .filter_map(|(event, log)| {
+                let lp_token = match token::create_token(&event.pool, &event.pool) {
+                    Ok(token) => token,
+                    Err(e) => {
+                        substreams::log::debug!(
+                            "Error in `map_meta_pool_deployed_events`: {:?}",
+                            e
+                        );
+                        return None;
+                    }
+                };
+                let (input_tokens, input_tokens_ordered) =
+                    match get_and_sort_input_tokens(&event.pool) {
+                        Ok(result) => result,
+                        Err(e) => {
+                            substreams::log::debug!(
+                                "Error in `map_tricrypto_pool_deployed_events`: {:?}",
+                                e
+                            );
+                            return None;
+                        }
+                    };
+                substreams::log::debug!("TricryptoPoolDeployed Event");
+
+                Some(create_pool(
+                    Hex::encode(&event.pool),
+                    Hex::encode(address),
+                    lp_token,
+                    input_tokens_ordered,
+                    input_tokens,
+                    false,
                     &log,
                     blk,
                 ))
