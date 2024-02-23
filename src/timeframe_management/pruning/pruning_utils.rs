@@ -17,9 +17,9 @@ use super::traits::{PoolPruneAction, ProtocolPruneAction, TokenPruneAction};
 // and executing the appropriate pruning actions for protocols, pools, and tokens.
 // Actions must implement the above traits. See `/pruners` for specific implementations.
 pub fn setup_timeframe_pruning<'a>(
-    pools_store: &'a StoreGetProto<Pool>,
-    pool_count_store: &'a StoreGetInt64,
-    pool_addresses_store: &'a StoreGetString,
+    pools_store: Option<&'a StoreGetProto<Pool>>,
+    pool_count_store: Option<&'a StoreGetInt64>,
+    pool_addresses_store: Option<&'a StoreGetString>,
     current_time_deltas: &'a Deltas<DeltaInt64>,
     protocol_prune_action: Option<&'a dyn ProtocolPruneAction>,
     pool_prune_action: Option<&'a dyn PoolPruneAction>,
@@ -63,9 +63,9 @@ pub fn setup_timeframe_pruning<'a>(
 // It dynamically generates a closure that will be called by the TimeframeChangeHandler
 // when a new day or hour is detected, triggering the appropriate pruning actions.
 fn create_pruning_closure<'a>(
-    pools_store: &'a StoreGetProto<Pool>,
-    pool_count_store: &'a StoreGetInt64,
-    pool_addresses_store: &'a StoreGetString,
+    pools_store: Option<&'a StoreGetProto<Pool>>,
+    pool_count_store: Option<&'a StoreGetInt64>,
+    pool_addresses_store: Option<&'a StoreGetString>,
     protocol_prune_action: Option<&'a dyn ProtocolPruneAction>,
     pool_prune_action: Option<&'a dyn PoolPruneAction>,
     token_prune_action: Option<&'a dyn TokenPruneAction>,
@@ -83,18 +83,18 @@ fn create_pruning_closure<'a>(
             return;
         }
 
-        let pool_count = match pool_count_store.get_last(StoreKey::protocol_pool_count_key()) {
+        let pool_count = match pool_count_store.unwrap().get_last(StoreKey::protocol_pool_count_key()) {
             Some(count) => count,
             None => return, // Safely handle the absence of pool_count
         };
 
         for i in 1..=pool_count {
-            let pool_address = match pool_addresses_store.get_last(StoreKey::pool_address_key(&i)) {
+            let pool_address = match pool_addresses_store.unwrap().get_last(StoreKey::pool_address_key(&i)) {
                 Some(address) => address,
                 None => continue,
             };
 
-            let pool = match pools_store.get_last(StoreKey::pool_key(&pool_address)) {
+            let pool = match pools_store.unwrap().get_last(StoreKey::pool_key(&pool_address)) {
                 Some(pool) => pool,
                 None => continue,
             };

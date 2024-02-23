@@ -151,6 +151,26 @@ modules:
       - store: store_pool_tvl
         mode: deltas
 
+  - name: store_active_users
+    kind: store
+    updatePolicy: set_if_not_exists
+    valueType: int64
+    inputs:
+      - source: sf.substreams.v1.Clock
+      - map: map_extract_pool_events
+      - store: store_current_time_snapshots
+        mode: deltas
+
+  - name: store_usage_metrics
+    kind: store
+    updatePolicy: add
+    valueType: int64
+    inputs:
+      - source: sf.substreams.v1.Clock
+      - map: map_extract_pool_events
+      - store: store_active_users
+        mode: deltas
+
   - name: store_current_time_snapshots
     kind: store
     initialBlock: 13987012
@@ -188,6 +208,7 @@ modules:
       - store: store_pool_tvl
         mode: deltas
       - store: store_protocol_tvl
+      - store: store_usage_metrics
       - store: store_current_time_snapshots
         mode: deltas
       - store: chainlink_prices:chainlink_price_store

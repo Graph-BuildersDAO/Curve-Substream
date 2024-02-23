@@ -53,9 +53,9 @@ pub fn store_protocol_volume_usd(
         store: &output_store,
     };
     setup_timeframe_pruning(
-        &pools_store,
-        &pool_count_store,
-        &pool_addresses_store,
+        Some(&pools_store),
+        Some(&pool_count_store),
+        Some(&pool_addresses_store),
         &current_time_deltas,
         Some(&protocol_volume_usd_pruner),
         None as Option<&dyn PoolPruneAction>,

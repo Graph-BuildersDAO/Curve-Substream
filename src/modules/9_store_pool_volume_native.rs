@@ -81,9 +81,9 @@ pub fn store_pool_volume_native(
         store: &output_store,
     };
     setup_timeframe_pruning(
-        &pools_store,
-        &pool_count_store,
-        &pool_addresses_store,
+        Some(&pools_store),
+        Some(&pool_count_store),
+        Some(&pool_addresses_store),
         &current_time_deltas,
         None as Option<&dyn ProtocolPruneAction>,
         None as Option<&dyn PoolPruneAction>,

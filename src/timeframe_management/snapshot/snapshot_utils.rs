@@ -26,6 +26,7 @@ pub fn manage_timeframe_snapshots(
     clock: &Clock,
     deltas: &Deltas<DeltaInt64>,
     tables: &mut Tables,
+    usage_metrics_store: &StoreGetInt64,
     pool_count_store: &StoreGetInt64,
     pool_addresses_store: &StoreGetString,
     pools_store: &StoreGetProto<Pool>,
@@ -42,6 +43,7 @@ pub fn manage_timeframe_snapshots(
     let snapshot_creator = Rc::new(RefCell::new(SnapshotCreator::new(
         tables,
         clock,
+        usage_metrics_store,
         pool_count_store,
         pool_addresses_store,
         pools_store,
@@ -88,10 +90,12 @@ pub fn prepare_snapshot_closure(
         let mut creator = snapshot_creator.borrow_mut();
         match snapshot_type {
             Timeframe::Daily => {
+                creator.create_usage_metrics_snapshots(&snapshot_type, &time_frame_id);
                 creator.create_protocol_financials_daily_snapshot(&time_frame_id);
                 creator.create_liquidity_pool_snapshots(&snapshot_type, &time_frame_id);
             }
             Timeframe::Hourly => {
+                creator.create_usage_metrics_snapshots(&snapshot_type, &time_frame_id);
                 creator.create_liquidity_pool_snapshots(&snapshot_type, &time_frame_id);
             }
         }
