@@ -19,6 +19,22 @@ pub enum StoreKey {
     Token(String),
     OutputTokenSupply(String),
     InputTokenBalance(String, String),
+    ActiveUser(String),
+    ActiveUserDaily(i64, String),
+    ActiveUserDailyPrune(i64),
+    ActiveUserHourly(i64, String),
+    ActiveUserHourlyPrune(i64),
+    ActiveUserCount,
+    ActiveUserDailyCount(i64),
+    ActiveUserHourlyCount(i64),
+    TransactionDailyCount(i64),
+    TransactionHourlyCount(i64),
+    SwapDailyCount(i64),
+    SwapHourlyCount(i64),
+    DepositDailyCount(i64),
+    DepositHourlyCount(i64),
+    WithdrawDailyCount(i64),
+    WithdrawHourlyCount(i64),
     CurrentDayId,
     CurrentHourId,
     // External packages store key variants
@@ -141,6 +157,70 @@ impl StoreKey {
             .to_key_string()
     }
 
+    pub fn active_user_key(user_address: &str) -> String {
+        StoreKey::ActiveUser(user_address.to_string()).to_key_string()
+    }
+
+    pub fn active_user_daily_key(day_id: &i64, user_address: &str) -> String {
+        StoreKey::ActiveUserDaily(*day_id, user_address.to_string()).to_key_string()
+    }
+
+    pub fn active_user_daily_prune_key(day_id: &i64) -> String {
+        StoreKey::ActiveUserDailyPrune(*day_id).to_key_string()
+    }
+
+    pub fn active_user_hourly_key(hour_id: &i64, user_address: &str) -> String {
+        StoreKey::ActiveUserHourly(*hour_id, user_address.to_string()).to_key_string()
+    }
+
+    pub fn active_user_hourly_prune_key(hour_id: &i64) -> String {
+        StoreKey::ActiveUserHourlyPrune(*hour_id).to_key_string()
+    }
+
+    pub fn active_user_count_key() -> String {
+        StoreKey::ActiveUserCount.to_key_string()
+    }
+
+    pub fn active_user_daily_count_key(day_id: &i64) -> String {
+        StoreKey::ActiveUserDailyCount(*day_id).to_key_string()
+    }
+
+    pub fn active_user_hourly_count_key(hour_id: &i64) -> String {
+        StoreKey::ActiveUserHourlyCount(*hour_id).to_key_string()
+    }
+
+    pub fn transaction_daily_count_key(day_id: &i64) -> String {
+        StoreKey::TransactionDailyCount(*day_id).to_key_string()
+    }
+
+    pub fn transaction_hourly_count_key(hour_id: &i64) -> String {
+        StoreKey::TransactionHourlyCount(*hour_id).to_key_string()
+    }
+
+    pub fn swap_daily_count_key(day_id: &i64) -> String {
+        StoreKey::SwapDailyCount(*day_id).to_key_string()
+    }
+
+    pub fn swap_hourly_count_key(hour_id: &i64) -> String {
+        StoreKey::SwapHourlyCount(*hour_id).to_key_string()
+    }
+
+    pub fn deposit_daily_count_key(day_id: &i64) -> String {
+        StoreKey::DepositDailyCount(*day_id).to_key_string()
+    }
+
+    pub fn deposit_hourly_count_key(hour_id: &i64) -> String {
+        StoreKey::DepositHourlyCount(*hour_id).to_key_string()
+    }
+
+    pub fn withdraw_daily_count_key(day_id: &i64) -> String {
+        StoreKey::WithdrawDailyCount(*day_id).to_key_string()
+    }
+
+    pub fn withdraw_hourly_count_key(hour_id: &i64) -> String {
+        StoreKey::WithdrawHourlyCount(*hour_id).to_key_string()
+    }
+
     pub fn current_day_id_key() -> String {
         StoreKey::CurrentDayId.to_key_string()
     }
@@ -161,6 +241,7 @@ impl StoreKey {
         StoreKey::ChainlinkPriceBySymbol(symbol.to_string()).to_key_string()
     }
 
+    // TODO: Consider removing this and just using `key::try_first_segment` etc...
     pub fn extract_parts_from_key(key: &str) -> Option<(String, Option<String>, Option<i64>)> {
         let parts: Vec<&str> = key.split(':').collect();
         match parts.get(0).map(|s| *s) {
@@ -273,6 +354,50 @@ impl StoreKey {
             StoreKey::OutputTokenSupply(addr) => format!("OutputTokenSupply:{}", addr),
             StoreKey::InputTokenBalance(pool_addr, token_addr) => {
                 format!("InputTokenBalance:{}:{}", pool_addr, token_addr)
+            }
+            StoreKey::ActiveUser(user_addr) => format!("ActiveUser:{}", user_addr),
+            StoreKey::ActiveUserDaily(day_id, user_addr) => {
+                format!("ActiveUserDaily:{}:{}", day_id.to_string(), user_addr)
+            }
+            StoreKey::ActiveUserDailyPrune(day_id) => {
+                format!("ActiveUserDaily:{}", day_id.to_string())
+            }
+            StoreKey::ActiveUserHourly(hour_id, user_addr) => {
+                format!("ActiveUserHourly:{}:{}", hour_id.to_string(), user_addr)
+            }
+            StoreKey::ActiveUserHourlyPrune(hour_id) => {
+                format!("ActiveUserHourly:{}", hour_id.to_string())
+            }
+            StoreKey::ActiveUserCount => "ActiveUserCount".to_string(),
+            StoreKey::ActiveUserDailyCount(day_id) => {
+                format!("ActiveUserDailyCount:{}", day_id.to_string())
+            }
+            StoreKey::ActiveUserHourlyCount(hour_id) => {
+                format!("ActiveUserHourlyCount:{}", hour_id.to_string())
+            }
+            StoreKey::TransactionDailyCount(day_id) => {
+                format!("TransactionDailyCount:{}", day_id.to_string())
+            }
+            StoreKey::TransactionHourlyCount(hour_id) => {
+                format!("TransactionHourlyCount:{}", hour_id.to_string())
+            }
+            StoreKey::SwapDailyCount(day_id) => {
+                format!("SwapDailyCount:{}", day_id.to_string())
+            }
+            StoreKey::SwapHourlyCount(hour_id) => {
+                format!("SwapHourlyCount:{}", hour_id.to_string())
+            }
+            StoreKey::DepositDailyCount(day_id) => {
+                format!("DepositDailyCount:{}", day_id.to_string())
+            }
+            StoreKey::DepositHourlyCount(hour_id) => {
+                format!("DepositHourlyCount:{}", hour_id.to_string())
+            }
+            StoreKey::WithdrawDailyCount(day_id) => {
+                format!("WithdrawDailyCount:{}", day_id.to_string())
+            }
+            StoreKey::WithdrawHourlyCount(hour_id) => {
+                format!("WithdrawHourlyCount:{}", hour_id.to_string())
             }
             StoreKey::CurrentDayId => "CurrentDayId".to_string(),
             StoreKey::CurrentHourId => "CurrentHourId".to_string(),

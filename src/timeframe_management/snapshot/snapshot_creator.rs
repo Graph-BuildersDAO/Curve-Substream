@@ -16,6 +16,7 @@ use crate::types::timeframe::Timeframe;
 pub struct SnapshotCreator<'a> {
     tables: &'a mut Tables,
     clock: &'a Clock,
+    usage_metrics_store: &'a StoreGetInt64,
     pool_count_store: &'a StoreGetInt64,
     pool_addresses_store: &'a StoreGetString,
     pools_store: &'a StoreGetProto<Pool>,
@@ -34,6 +35,7 @@ impl<'a> SnapshotCreator<'a> {
     pub fn new(
         tables: &'a mut Tables,
         clock: &'a Clock,
+        usage_metrics_store: &'a StoreGetInt64,
         pool_count_store: &'a StoreGetInt64,
         pool_addresses_store: &'a StoreGetString,
         pools_store: &'a StoreGetProto<Pool>,
@@ -50,6 +52,7 @@ impl<'a> SnapshotCreator<'a> {
         Self {
             tables,
             clock,
+            usage_metrics_store,
             pool_count_store,
             pool_addresses_store,
             pools_store,
@@ -63,6 +66,162 @@ impl<'a> SnapshotCreator<'a> {
             uniswap_prices,
             chainlink_prices,
         }
+    }
+
+    pub fn create_usage_metrics_snapshots(
+        &mut self,
+        snapshot_type: &Timeframe,
+        time_frame_id: &i64,
+    ) {
+        let timeframe_active_users = match snapshot_type {
+            Timeframe::Daily => self
+                .usage_metrics_store
+                .get_last(StoreKey::active_user_daily_count_key(&time_frame_id))
+                .unwrap_or_default(),
+            Timeframe::Hourly => self
+                .usage_metrics_store
+                .get_last(StoreKey::active_user_hourly_count_key(&time_frame_id))
+                .unwrap_or_default(),
+        };
+
+        let cumulative_active_users = self
+            .usage_metrics_store
+            .get_last(StoreKey::active_user_count_key())
+            .unwrap_or_default();
+
+        let timeframe_tx_count = match snapshot_type {
+            Timeframe::Daily => self
+                .usage_metrics_store
+                .get_last(StoreKey::transaction_daily_count_key(&time_frame_id))
+                .unwrap_or_default(),
+            Timeframe::Hourly => self
+                .usage_metrics_store
+                .get_last(StoreKey::transaction_hourly_count_key(&time_frame_id))
+                .unwrap_or_default(),
+        };
+
+        let timeframe_swap_count = match snapshot_type {
+            Timeframe::Daily => self
+                .usage_metrics_store
+                .get_last(StoreKey::swap_daily_count_key(&time_frame_id))
+                .unwrap_or_default(),
+            Timeframe::Hourly => self
+                .usage_metrics_store
+                .get_last(StoreKey::swap_hourly_count_key(&time_frame_id))
+                .unwrap_or_default(),
+        };
+
+        let timeframe_deposit_count = match snapshot_type {
+            Timeframe::Daily => self
+                .usage_metrics_store
+                .get_last(StoreKey::deposit_daily_count_key(&time_frame_id))
+                .unwrap_or_default(),
+            Timeframe::Hourly => self
+                .usage_metrics_store
+                .get_last(StoreKey::deposit_hourly_count_key(&time_frame_id))
+                .unwrap_or_default(),
+        };
+
+        let timeframe_withdraw_count = match snapshot_type {
+            Timeframe::Daily => self
+                .usage_metrics_store
+                .get_last(StoreKey::withdraw_daily_count_key(&time_frame_id))
+                .unwrap_or_default(),
+            Timeframe::Hourly => self
+                .usage_metrics_store
+                .get_last(StoreKey::withdraw_hourly_count_key(&time_frame_id))
+                .unwrap_or_default(),
+        };
+
+        let pool_count = self
+            .pool_count_store
+            .get_last(StoreKey::protocol_pool_count_key())
+            .unwrap_or_default();
+
+        match snapshot_type {
+            Timeframe::Daily => Self::create_usage_metrics_daily_snapshot(
+                self.tables,
+                self.clock,
+                time_frame_id,
+                timeframe_active_users,
+                cumulative_active_users,
+                timeframe_tx_count,
+                timeframe_swap_count,
+                timeframe_deposit_count,
+                timeframe_withdraw_count,
+                pool_count,
+            ),
+            Timeframe::Hourly => Self::create_usage_metrics_hourly_snapshot(
+                self.tables,
+                self.clock,
+                time_frame_id,
+                timeframe_active_users,
+                cumulative_active_users,
+                timeframe_tx_count,
+                timeframe_swap_count,
+                timeframe_deposit_count,
+                timeframe_withdraw_count,
+                pool_count,
+            ),
+        }
+    }
+
+    fn create_usage_metrics_daily_snapshot(
+        tables: &mut Tables,
+        clock: &Clock,
+        day_id: &i64,
+        active_users: i64,
+        cumulative_users: i64,
+        tx_count: i64,
+        swap_count: i64,
+        deposit_count: i64,
+        withdraw_count: i64,
+        pool_count: i64,
+    ) {
+        tables
+            .create_row("UsageMetricsDailySnapshot", day_id.to_string())
+            .set("protocol", EntityKey::protocol_key())
+            .set("dailyActiveUsers", active_users)
+            .set("cumulativeUniqueUsers", cumulative_users)
+            .set("dailyTransactionCount", tx_count)
+            .set("dailyDepositCount", deposit_count)
+            .set("dailyWithdrawCount", withdraw_count)
+            .set("dailySwapCount", swap_count)
+            .set("totalPoolCount", pool_count)
+            .set("blockNumber", BigInt::from(clock.number))
+            .set(
+                "timestamp",
+                BigInt::from(clock.timestamp.clone().unwrap().seconds),
+            );
+    }
+
+    fn create_usage_metrics_hourly_snapshot(
+        tables: &mut Tables,
+        clock: &Clock,
+        hour_id: &i64,
+        active_users: i64,
+        cumulative_users: i64,
+        tx_count: i64,
+        swap_count: i64,
+        deposit_count: i64,
+        withdraw_count: i64,
+        pool_count: i64,
+    ) {
+        tables
+            .create_row("UsageMetricsHourlySnapshot", hour_id.to_string())
+            .set("protocol", EntityKey::protocol_key())
+            .set("hourlyActiveUsers", active_users)
+            .set("cumulativeUniqueUsers", cumulative_users)
+            .set("hourlyTransactionCount", tx_count)
+            .set("hourlyDepositCount", deposit_count)
+            .set("hourlyWithdrawCount", withdraw_count)
+            .set("hourlySwapCount", swap_count)
+            .set("totalPoolCount", pool_count)
+            .set("blockNumber", BigInt::from(clock.number))
+            .set(
+                "timestamp",
+                BigInt::from(clock.timestamp.clone().unwrap().seconds),
+            );
     }
 
     pub fn create_protocol_financials_daily_snapshot(&mut self, day_id: &i64) {
