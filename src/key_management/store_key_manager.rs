@@ -4,12 +4,18 @@ pub enum StoreKey {
     PoolAddress(i64),
     PoolFees(String),
     PoolVolumeUsd(String),
-    PoolDailyVolumeUsd(String, i64),
-    PoolHourlyVolumeUsd(String, i64),
-    PoolTokenDailyVolumeNative(String, String, i64),
-    PoolTokenHourlyVolumeNative(String, String, i64),
-    PoolTokenDailyVolumeUsd(String, String, i64),
-    PoolTokenHourlyVolumeUsd(String, String, i64),
+    PoolDailyVolumeUsd(i64, String),
+    PoolDailyVolumeUsdPrune(i64),
+    PoolHourlyVolumeUsd(i64, String),
+    PoolHourlyVolumeUsdPrune(i64),
+    PoolTokenDailyVolumeNative(i64, String, String),
+    PoolTokenDailyVolumeNativePrune(i64),
+    PoolTokenHourlyVolumeNative(i64, String, String),
+    PoolTokenHourlyVolumeNativePrune(i64),
+    PoolTokenDailyVolumeUsd(i64, String, String),
+    PoolTokenDailyVolumeUsdPrune(i64),
+    PoolTokenHourlyVolumeUsd(i64, String, String),
+    PoolTokenHourlyVolumeUsdPrune(i64),
     PoolTvl(String),
     PoolTokenTvl(String, String),
     ProtocolPoolCount,
@@ -60,64 +66,88 @@ impl StoreKey {
         StoreKey::PoolVolumeUsd(pool_address.to_string()).to_key_string()
     }
 
-    pub fn pool_volume_usd_daily_key(pool_address: &str, day_id: &i64) -> String {
-        StoreKey::PoolDailyVolumeUsd(pool_address.to_string(), *day_id).to_key_string()
+    pub fn pool_volume_usd_daily_key(day_id: &i64, pool_address: &str) -> String {
+        StoreKey::PoolDailyVolumeUsd(*day_id, pool_address.to_string()).to_key_string()
     }
 
-    pub fn pool_volume_usd_hourly_key(pool_address: &str, hour_id: &i64) -> String {
-        StoreKey::PoolHourlyVolumeUsd(pool_address.to_string(), *hour_id).to_key_string()
+    pub fn pool_volume_usd_daily_prune_key(day_id: &i64) -> String {
+        StoreKey::PoolDailyVolumeUsdPrune(*day_id).to_key_string()
+    }
+
+    pub fn pool_volume_usd_hourly_key(hour_id: &i64, pool_address: &str) -> String {
+        StoreKey::PoolHourlyVolumeUsd(*hour_id, pool_address.to_string()).to_key_string()
+    }
+
+    pub fn pool_volume_usd_hourly_prune_key(hour_id: &i64) -> String {
+        StoreKey::PoolHourlyVolumeUsdPrune(*hour_id).to_key_string()
     }
 
     pub fn pool_token_volume_native_daily_key(
+        day_id: &i64,
         pool_address: &str,
         token_address: &str,
-        day_id: &i64,
     ) -> String {
         StoreKey::PoolTokenDailyVolumeNative(
+            *day_id,
             pool_address.to_string(),
             token_address.to_string(),
-            *day_id,
         )
         .to_key_string()
+    }
+
+    pub fn pool_token_volume_native_daily_prune_key(day_id: &i64) -> String {
+        StoreKey::PoolTokenDailyVolumeNativePrune(*day_id).to_key_string()
     }
 
     pub fn pool_token_volume_native_hourly_key(
+        hour_id: &i64,
         pool_address: &str,
         token_address: &str,
-        hour_id: &i64,
     ) -> String {
         StoreKey::PoolTokenHourlyVolumeNative(
+            *hour_id,
             pool_address.to_string(),
             token_address.to_string(),
-            *hour_id,
         )
         .to_key_string()
+    }
+
+    pub fn pool_token_volume_native_hourly_prune_key(hour_id: &i64) -> String {
+        StoreKey::PoolTokenHourlyVolumeNativePrune(*hour_id).to_key_string()
     }
 
     pub fn pool_token_volume_usd_daily_key(
+        day_id: &i64,
         pool_address: &str,
         token_address: &str,
-        day_id: &i64,
     ) -> String {
         StoreKey::PoolTokenDailyVolumeUsd(
+            *day_id,
             pool_address.to_string(),
             token_address.to_string(),
-            *day_id,
         )
         .to_key_string()
     }
 
+    pub fn pool_token_volume_usd_daily_prune_key(day_id: &i64) -> String {
+        StoreKey::PoolTokenDailyVolumeUsdPrune(*day_id).to_key_string()
+    }
+
     pub fn pool_token_volume_usd_hourly_key(
+        hour_id: &i64,
         pool_address: &str,
         token_address: &str,
-        hour_id: &i64,
     ) -> String {
         StoreKey::PoolTokenHourlyVolumeUsd(
+            *hour_id,
             pool_address.to_string(),
             token_address.to_string(),
-            *hour_id,
         )
         .to_key_string()
+    }
+
+    pub fn pool_token_volume_usd_hourly_prune_key(hour_id: &i64) -> String {
+        StoreKey::PoolTokenHourlyVolumeUsdPrune(*hour_id).to_key_string()
     }
 
     pub fn protocol_pool_count_key() -> String {
@@ -241,106 +271,67 @@ impl StoreKey {
         StoreKey::ChainlinkPriceBySymbol(symbol.to_string()).to_key_string()
     }
 
-    // TODO: Consider removing this and just using `key::try_first_segment` etc...
-    pub fn extract_parts_from_key(key: &str) -> Option<(String, Option<String>, Option<i64>)> {
-        let parts: Vec<&str> = key.split(':').collect();
-        match parts.get(0).map(|s| *s) {
-            Some("PoolAddress") => parts.get(1).map(|&id| (id.to_string(), None, None)),
-
-            Some("Pool")
-            | Some("PoolFees")
-            | Some("PoolVolumeUsd")
-            | Some("PoolTvl")
-            | Some("Token")
-            | Some("OutputTokenSupply")
-            | Some("ProtocolPoolCount")
-            | Some("ProtocolVolumeUsd")
-            | Some("ProtocolTvl") => parts.get(1).map(|&addr| (addr.to_string(), None, None)),
-
-            Some("PoolDailyVolumeUsd")
-            | Some("PoolHourlyVolumeUsd")
-            | Some("ProtocolDailyVolumeUsd") => match (parts.get(1), parts.get(2)) {
-                (Some(&addr), Some(&time_id)) => {
-                    Some((addr.to_string(), None, time_id.parse::<i64>().ok()))
-                }
-                _ => None,
-            },
-
-            Some("PoolTokenDailyVolumeNative")
-            | Some("PoolTokenHourlyVolumeNative")
-            | Some("PoolTokenDailyVolumeUsd")
-            | Some("PoolTokenHourlyVolumeUsd") => {
-                match (parts.get(1), parts.get(2), parts.get(3)) {
-                    (Some(&pool_addr), Some(&token_addr), Some(&day_id)) => Some((
-                        pool_addr.to_string(),
-                        Some(token_addr.to_string()),
-                        day_id.parse::<i64>().ok(),
-                    )),
-                    _ => None,
-                }
-            }
-
-            Some("InputTokenBalance") | Some("PoolTokenTvl") => {
-                match (parts.get(1), parts.get(2)) {
-                    (Some(&pool_addr), Some(&token_addr)) => {
-                        Some((pool_addr.to_string(), Some(token_addr.to_string()), None))
-                    }
-                    _ => None,
-                }
-            }
-
-            Some("UsdPriceByTokenAddress")
-            | Some("UsdPriceByTokenSymbol")
-            | Some("price_by_symbol") => {
-                parts.get(1).map(|&symbol| (symbol.to_string(), None, None))
-            }
-            _ => None,
-        }
-    }
-
     fn to_key_string(&self) -> String {
         match self {
             StoreKey::Pool(addr) => format!("Pool:{}", addr),
             StoreKey::PoolAddress(count) => format!("PoolAddress:{}", count.to_string()),
             StoreKey::PoolFees(addr) => format!("PoolFees:{}", addr),
             StoreKey::PoolVolumeUsd(addr) => format!("PoolVolumeUsd:{}", addr),
-            StoreKey::PoolDailyVolumeUsd(addr, day_id) => {
-                format!("PoolDailyVolumeUsd:{}:{}", addr, day_id.to_string())
+            StoreKey::PoolDailyVolumeUsd(day_id, addr) => {
+                format!("PoolDailyVolumeUsd:{}:{}", day_id.to_string(), addr)
             }
-            StoreKey::PoolHourlyVolumeUsd(addr, hour_id) => {
-                format!("PoolHourlyVolumeUsd:{}:{}", addr, hour_id.to_string())
+            StoreKey::PoolDailyVolumeUsdPrune(day_id) => {
+                format!("PoolDailyVolumeUsd:{}", day_id.to_string())
             }
-            StoreKey::PoolTokenDailyVolumeNative(pool_addr, token_addr, day_id) => {
+            StoreKey::PoolHourlyVolumeUsd(hour_id, addr) => {
+                format!("PoolHourlyVolumeUsd:{}:{}", hour_id.to_string(), addr)
+            }
+            StoreKey::PoolHourlyVolumeUsdPrune(hour_id) => {
+                format!("PoolHourlyVolumeUsd:{}", hour_id.to_string())
+            }
+            StoreKey::PoolTokenDailyVolumeNative(day_id, pool_addr, token_addr) => {
                 format!(
                     "PoolTokenDailyVolumeNative:{}:{}:{}",
+                    day_id.to_string(),
                     pool_addr,
-                    token_addr,
-                    day_id.to_string()
+                    token_addr
                 )
             }
-            StoreKey::PoolTokenHourlyVolumeNative(pool_addr, token_addr, hour_id) => {
+            StoreKey::PoolTokenDailyVolumeNativePrune(day_id) => {
+                format!("PoolTokenDailyVolumeNative:{}", day_id.to_string(),)
+            }
+            StoreKey::PoolTokenHourlyVolumeNative(hour_id, pool_addr, token_addr) => {
                 format!(
                     "PoolTokenHourlyVolumeNative:{}:{}:{}",
+                    hour_id.to_string(),
                     pool_addr,
-                    token_addr,
-                    hour_id.to_string()
+                    token_addr
                 )
             }
-            StoreKey::PoolTokenDailyVolumeUsd(pool_addr, token_addr, day_id) => {
+            StoreKey::PoolTokenHourlyVolumeNativePrune(hour_id) => {
+                format!("PoolTokenHourlyVolumeNative:{}", hour_id.to_string(),)
+            }
+            StoreKey::PoolTokenDailyVolumeUsd(day_id, pool_addr, token_addr) => {
                 format!(
                     "PoolTokenDailyVolumeUsd:{}:{}:{}",
+                    day_id.to_string(),
                     pool_addr,
-                    token_addr,
-                    day_id.to_string()
+                    token_addr
                 )
             }
-            StoreKey::PoolTokenHourlyVolumeUsd(pool_addr, token_addr, hour_id) => {
+            StoreKey::PoolTokenDailyVolumeUsdPrune(day_id) => {
+                format!("PoolTokenDailyVolumeUsd:{}", day_id.to_string(),)
+            }
+            StoreKey::PoolTokenHourlyVolumeUsd(hour_id, pool_addr, token_addr) => {
                 format!(
                     "PoolTokenHourlyVolumeUsd:{}:{}:{}",
+                    hour_id.to_string(),
                     pool_addr,
-                    token_addr,
-                    hour_id.to_string()
+                    token_addr
                 )
+            }
+            StoreKey::PoolTokenHourlyVolumeUsdPrune(hour_id) => {
+                format!("PoolTokenHourlyVolumeUsd:{}", hour_id.to_string(),)
             }
             StoreKey::PoolTvl(addr) => format!("PoolTvl:{}", addr),
             StoreKey::PoolTokenTvl(pool, token) => format!("PoolTokenTvl:{}:{}", pool, token),

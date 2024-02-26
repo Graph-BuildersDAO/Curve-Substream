@@ -290,15 +290,15 @@ impl<'a> SnapshotCreator<'a> {
                 Timeframe::Daily => self
                     .pool_volume_usd_store
                     .get_last(StoreKey::pool_volume_usd_daily_key(
-                        &pool.address,
                         &time_frame_id,
+                        &pool.address,
                     ))
                     .unwrap_or_else(|| BigDecimal::zero()),
                 Timeframe::Hourly => self
                     .pool_volume_usd_store
                     .get_last(StoreKey::pool_volume_usd_hourly_key(
-                        &pool.address,
                         &time_frame_id,
+                        &pool.address,
                     ))
                     .unwrap_or_else(|| BigDecimal::zero()),
             };
@@ -462,26 +462,26 @@ fn get_pool_token_volumes_in_timeframe(
     for token in &pool.input_tokens {
         let native_volume_key = match snapshot_type {
             Timeframe::Daily => StoreKey::pool_token_volume_native_daily_key(
+                &time_frame_id,
                 &pool.address,
                 &token.address,
-                &time_frame_id,
             ),
             Timeframe::Hourly => StoreKey::pool_token_volume_native_hourly_key(
+                &time_frame_id,
                 &pool.address,
                 &token.address,
-                &time_frame_id,
             ),
         };
         let usd_volume_key = match snapshot_type {
             Timeframe::Daily => StoreKey::pool_token_volume_usd_daily_key(
+                &time_frame_id,
                 &pool.address,
                 &token.address,
-                &time_frame_id,
             ),
             Timeframe::Hourly => StoreKey::pool_token_volume_usd_hourly_key(
+                &time_frame_id,
                 &pool.address,
                 &token.address,
-                &time_frame_id,
             ),
         };
 

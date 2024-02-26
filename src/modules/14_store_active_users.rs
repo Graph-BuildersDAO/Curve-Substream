@@ -9,7 +9,7 @@ use crate::{
     timeframe_management::{
         pruning::{
             pruners::protocol_active_user_pruner::ProtocolActiveUserPruneAction,
-            pruning_utils::setup_timeframe_pruning,
+            setup_timeframe_pruning,
         },
         utils::calculate_day_hour_id,
     },
@@ -40,14 +40,5 @@ pub fn store_active_users(
         store: &output_store,
     };
 
-    // Add setup timeframe pruning
-    setup_timeframe_pruning(
-        None,
-        None,
-        None,
-        &current_time_deltas,
-        Some(&protocol_active_user_pruner),
-        None,
-        None,
-    )
+    setup_timeframe_pruning(&current_time_deltas, &[&protocol_active_user_pruner]);
 }

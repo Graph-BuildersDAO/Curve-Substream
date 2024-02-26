@@ -50,7 +50,6 @@ pub fn get_lp_token_address_from_registry(
     Ok(address)
 }
 
-// TODO: Figure out whether we should use Vec<u8> or &[u8] repo wide.
 pub fn get_pool_underlying_coins_from_registry(
     pool_address: &Vec<u8>,
     registry_address: &Vec<u8>,

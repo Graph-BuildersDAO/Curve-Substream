@@ -4,7 +4,7 @@ use substreams::{
     pb::substreams::Clock,
     store::{
         DeltaInt64, Deltas, StoreAdd, StoreAddBigDecimal, StoreGet, StoreGetBigDecimal,
-        StoreGetInt64, StoreGetProto, StoreGetString, StoreNew,
+        StoreGetProto, StoreNew,
     },
 };
 
@@ -21,8 +21,7 @@ use crate::{
                 pool_volume_usd_pruner::PoolVolumeUsdPruner,
                 token_volume_usd_pruner::TokenVolumeUsdPruner,
             },
-            pruning_utils::setup_timeframe_pruning,
-            traits::ProtocolPruneAction,
+            setup_timeframe_pruning,
         },
         utils::calculate_day_hour_id,
     },
@@ -33,8 +32,6 @@ pub fn store_pool_volume_usd(
     clock: Clock,
     events: Events,
     pools_store: StoreGetProto<Pool>,
-    pool_count_store: StoreGetInt64,
-    pool_addresses_store: StoreGetString,
     current_time_deltas: Deltas<DeltaInt64>,
     chainlink_prices: StoreGetBigDecimal,
     uniswap_prices: StoreGetProto<Erc20Price>,
@@ -83,8 +80,8 @@ pub fn store_pool_volume_usd(
                         event.log_ordinal,
                         &vec![
                             StoreKey::pool_volume_usd_key(&event.pool_address),
-                            StoreKey::pool_volume_usd_daily_key(&event.pool_address, &day_id),
-                            StoreKey::pool_volume_usd_hourly_key(&event.pool_address, &hour_id),
+                            StoreKey::pool_volume_usd_daily_key(&day_id, &event.pool_address),
+                            StoreKey::pool_volume_usd_hourly_key(&hour_id, &event.pool_address),
                         ],
                         &volume_usd,
                     );
@@ -92,14 +89,14 @@ pub fn store_pool_volume_usd(
                         event.log_ordinal,
                         &vec![
                             StoreKey::pool_token_volume_usd_daily_key(
+                                &day_id,
                                 &event.pool_address,
                                 &swap.token_in_ref().token_address,
-                                &day_id,
                             ),
                             StoreKey::pool_token_volume_usd_hourly_key(
+                                &hour_id,
                                 &event.pool_address,
                                 &swap.token_in_ref().token_address,
-                                &hour_id,
                             ),
                         ],
                         token_in_amount_usd,
@@ -108,14 +105,14 @@ pub fn store_pool_volume_usd(
                         event.log_ordinal,
                         &vec![
                             StoreKey::pool_token_volume_usd_daily_key(
+                                &day_id,
                                 &event.pool_address,
                                 &swap.token_out_ref().token_address,
-                                &day_id,
                             ),
                             StoreKey::pool_token_volume_usd_hourly_key(
+                                &hour_id,
                                 &event.pool_address,
                                 &swap.token_out_ref().token_address,
-                                &hour_id,
                             ),
                         ],
                         token_out_amount_usd,
@@ -163,8 +160,8 @@ pub fn store_pool_volume_usd(
                         event.log_ordinal,
                         &vec![
                             StoreKey::pool_volume_usd_key(&event.pool_address),
-                            StoreKey::pool_volume_usd_daily_key(&event.pool_address, &day_id),
-                            StoreKey::pool_volume_usd_hourly_key(&event.pool_address, &hour_id),
+                            StoreKey::pool_volume_usd_daily_key(&day_id, &event.pool_address),
+                            StoreKey::pool_volume_usd_hourly_key(&hour_id, &event.pool_address),
                         ],
                         &volume_usd,
                     );
@@ -175,14 +172,14 @@ pub fn store_pool_volume_usd(
                         event.log_ordinal,
                         &vec![
                             StoreKey::pool_token_volume_usd_daily_key(
+                                &day_id,
                                 &event.pool_address,
                                 &swap_underlying.token_in_ref().token_address,
-                                &day_id,
                             ),
                             StoreKey::pool_token_volume_usd_hourly_key(
+                                &hour_id,
                                 &event.pool_address,
                                 &swap_underlying.token_in_ref().token_address,
-                                &hour_id,
                             ),
                         ],
                         token_in_amount_usd,
@@ -195,8 +192,7 @@ pub fn store_pool_volume_usd(
 
     // Initialise pruning for pool/token volume usd data using `PoolVolumeUsdPruner`/`TokenVolumeUsdPruner`.
     // This setup registers the pruners to execute when new timeframes (day/hour) are detected,
-    // ensuring outdated data is removed to maintain store efficiency. Protocol level pruning
-    // are not required for this module, hence passed as `None`.
+    // ensuring outdated data is removed to maintain store efficiency.
     let pool_volume_usd_pruner = PoolVolumeUsdPruner {
         store: &output_store,
     };
@@ -204,12 +200,7 @@ pub fn store_pool_volume_usd(
         store: &output_store,
     };
     setup_timeframe_pruning(
-        Some(&pools_store),
-        Some(&pool_count_store),
-        Some(&pool_addresses_store),
         &current_time_deltas,
-        None as Option<&dyn ProtocolPruneAction>,
-        Some(&pool_volume_usd_pruner),
-        Some(&token_volume_usd_pruner),
+        &[&pool_volume_usd_pruner, &token_volume_usd_pruner],
     );
 }

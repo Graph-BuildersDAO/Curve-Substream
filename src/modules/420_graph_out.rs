@@ -3,6 +3,7 @@ use std::{cell::RefCell, collections::HashSet, rc::Rc};
 use anyhow::anyhow;
 use substreams::{
     errors::Error,
+    key::{self, segment_at},
     pb::substreams::{store_delta::Operation, Clock},
     scalar::{BigDecimal, BigInt},
     store::{
@@ -91,20 +92,23 @@ pub fn graph_out(
 
     for delta in pool_volume_usd_deltas.deltas.iter() {
         // Attempt to extract the pool address from the store key
-        if let Some((pool_address, _, _)) = StoreKey::extract_parts_from_key(&delta.key) {
-            if let Some(volume) =
-                // If volume is found, update the corresponding row in the "LiquidityPool" table
-                // with the cumulative volume in USD
-                pool_volume_usd_store.get_last(StoreKey::pool_volume_usd_key(&pool_address))
-            {
-                tables
-                    .update_row(
-                        "LiquidityPool",
-                        EntityKey::liquidity_pool_key(&pool_address),
-                    )
-                    .set("cumulativeVolumeUSD", volume);
-            } else {
-                substreams::log::info!("No volume data found for pool: {}", pool_address);
+        if key::first_segment(&delta.key) == "PoolVolumeUsd" {
+            // Try to extract the `pool_address` from the delta key
+            if let Some(pool_address) = key::try_last_segment(&delta.key) {
+                if let Some(volume) =
+                    pool_volume_usd_store.get_last(StoreKey::pool_volume_usd_key(&pool_address))
+                {
+                    // If volume is found, update the corresponding row in the "LiquidityPool" table
+                    // with the cumulative volume in USD
+                    tables
+                        .update_row(
+                            "LiquidityPool",
+                            EntityKey::liquidity_pool_key(&pool_address),
+                        )
+                        .set("cumulativeVolumeUSD", volume);
+                } else {
+                    substreams::log::info!("No volume data found for pool: {}", pool_address);
+                }
             }
         }
     }
@@ -124,10 +128,10 @@ pub fn graph_out(
 
         // Filter and extract unique pool addresses
         for delta in pool_tvl_deltas.deltas {
-            if delta.key.starts_with("PoolTvl:") {
+            if key::first_segment(&delta.key) == "PoolTvl" {
                 // Extract the pool address from the key
-                if let Some((pool_address, _, _)) = StoreKey::extract_parts_from_key(&delta.key) {
-                    unique_pool_addresses.insert(pool_address);
+                if let Some(pool_address) = key::try_last_segment(&delta.key) {
+                    unique_pool_addresses.insert(pool_address.to_string());
                 }
             }
         }

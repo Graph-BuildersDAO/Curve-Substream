@@ -97,9 +97,7 @@ modules:
       - source: sf.substreams.v1.Clock
       - map: map_extract_pool_events
       - store: store_pools_created
-      - store: store_pool_count
-      - store: store_pool_addresses
-      - store: store_current_time_snapshots
+      - store: store_current_time
         mode: deltas
 
   - name: store_pool_volume_usd
@@ -110,9 +108,7 @@ modules:
       - source: sf.substreams.v1.Clock
       - map: map_extract_pool_events
       - store: store_pools_created
-      - store: store_pool_count
-      - store: store_pool_addresses
-      - store: store_current_time_snapshots
+      - store: store_current_time
         mode: deltas
       - store: chainlink_prices:chainlink_price_store
       - store: uniswap_prices:store_uniswap_prices
@@ -125,10 +121,7 @@ modules:
       - source: sf.substreams.v1.Clock
       - store: store_pool_volume_usd
         mode: deltas
-      - store: store_pools_created
-      - store: store_pool_count
-      - store: store_pool_addresses
-      - store: store_current_time_snapshots
+      - store: store_current_time
         mode: deltas
 
   - name: store_pool_tvl
@@ -158,7 +151,7 @@ modules:
     inputs:
       - source: sf.substreams.v1.Clock
       - map: map_extract_pool_events
-      - store: store_current_time_snapshots
+      - store: store_current_time
         mode: deltas
 
   - name: store_usage_metrics
@@ -170,8 +163,10 @@ modules:
       - map: map_extract_pool_events
       - store: store_active_users
         mode: deltas
+      - store: store_current_time
+        mode: deltas
 
-  - name: store_current_time_snapshots
+  - name: store_current_time
     kind: store
     initialBlock: 13987012
     updatePolicy: set
@@ -209,11 +204,10 @@ modules:
         mode: deltas
       - store: store_protocol_tvl
       - store: store_usage_metrics
-      - store: store_current_time_snapshots
+      - store: store_current_time
         mode: deltas
       - store: chainlink_prices:chainlink_price_store
       - store: uniswap_prices:store_uniswap_prices
-      - store: prune
     output:
       type: proto:sf.substreams.sink.entity.v1.EntityChanges
 
