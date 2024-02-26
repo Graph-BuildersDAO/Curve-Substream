@@ -8,7 +8,13 @@ use substreams::{
 use crate::{
     key_management::store_key_manager::StoreKey,
     pb::curve::types::v1::{events::pool_event::Type, Events},
-    timeframe_management::utils::calculate_day_hour_id,
+    timeframe_management::{
+        pruning::{
+            pruners::protocol_usage_metrics_pruner::ProtocolUsageMetricsPruneAction,
+            setup_timeframe_pruning,
+        },
+        utils::calculate_day_hour_id,
+    },
 };
 
 #[substreams::handlers::store]
@@ -16,10 +22,9 @@ pub fn store_usage_metrics(
     clock: Clock,
     events: Events,
     active_users_deltas: Deltas<DeltaInt64>,
-    // current_time_deltas: Deltas<DeltaInt64>,
+    current_time_deltas: Deltas<DeltaInt64>,
     output_store: StoreAddInt64,
 ) {
-    // TODO we need to use the time store as the source of truth I think.
     let (day_id, hour_id) = calculate_day_hour_id(clock.timestamp.unwrap().seconds);
 
     let (general, daily, hourly) = separate_active_users_deltas(&active_users_deltas);
@@ -105,6 +110,12 @@ pub fn store_usage_metrics(
             withdraw_events_count,
         );
     }
+
+    let protocol_usage_metrics_pruner = ProtocolUsageMetricsPruneAction {
+        store: &output_store,
+    };
+
+    setup_timeframe_pruning(&current_time_deltas, &[&protocol_usage_metrics_pruner]);
 }
 
 fn separate_active_users_deltas(
@@ -114,6 +125,8 @@ fn separate_active_users_deltas(
 
     for delta in deltas.iter() {
         match key::first_segment(&delta.key) {
+            // TODO: Can we remove the reliance on these magic strings?
+            //       Add these to the store key manager?
             "ActiveUser" => general.push(delta.clone()),
             "ActiveUserDaily" => daily.push(delta.clone()),
             "ActiveUserHourly" => hourly.push(delta.clone()),

@@ -1,10 +1,7 @@
 use substreams::{
     pb::substreams::Clock,
     scalar::BigInt,
-    store::{
-        DeltaInt64, Deltas, StoreAdd, StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetProto,
-        StoreGetString, StoreNew,
-    },
+    store::{DeltaInt64, Deltas, StoreAdd, StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetProto, StoreNew},
 };
 
 use crate::{
@@ -15,9 +12,7 @@ use crate::{
     },
     timeframe_management::{
         pruning::{
-            pruners::token_volume_native_pruner::TokenVolumeNativePruner,
-            pruning_utils::setup_timeframe_pruning,
-            traits::{PoolPruneAction, ProtocolPruneAction},
+            pruners::token_volume_native_pruner::TokenVolumeNativePruner, setup_timeframe_pruning,
         },
         utils::calculate_day_hour_id,
     },
@@ -28,8 +23,6 @@ pub fn store_pool_volume_native(
     clock: Clock,
     events: Events,
     pools_store: StoreGetProto<Pool>,
-    pool_count_store: StoreGetInt64,
-    pool_addresses_store: StoreGetString,
     current_time_deltas: Deltas<DeltaInt64>,
     output_store: StoreAddBigInt,
 ) {
@@ -75,20 +68,11 @@ pub fn store_pool_volume_native(
 
     // Initialise pruning for token volume native data using `TokenVolumeNativePruner`.
     // This setup registers the pruner to execute when new timeframes (day/hour) are detected,
-    // ensuring outdated data is removed to maintain store efficiency. Protocol and pool level pruning
-    // are not required for this module, hence passed as `None`.
+    // ensuring outdated data is removed to maintain store efficiency.
     let token_volume_native_pruner = TokenVolumeNativePruner {
         store: &output_store,
     };
-    setup_timeframe_pruning(
-        Some(&pools_store),
-        Some(&pool_count_store),
-        Some(&pool_addresses_store),
-        &current_time_deltas,
-        None as Option<&dyn ProtocolPruneAction>,
-        None as Option<&dyn PoolPruneAction>,
-        Some(&token_volume_native_pruner),
-    );
+    setup_timeframe_pruning(&current_time_deltas, &[&token_volume_native_pruner]);
 }
 
 fn update_pool_volume(
@@ -103,14 +87,14 @@ fn update_pool_volume(
         event.log_ordinal,
         &vec![
             StoreKey::pool_token_volume_native_daily_key(
+                &day_id,
                 &event.pool_address,
                 &token_address,
-                &day_id,
             ),
             StoreKey::pool_token_volume_native_hourly_key(
+                &hour_id,
                 &event.pool_address,
                 &token_address,
-                &hour_id,
             ),
         ],
         amount,

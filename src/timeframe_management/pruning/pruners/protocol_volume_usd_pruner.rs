@@ -1,17 +1,17 @@
 use substreams::store::{StoreAddBigDecimal, StoreDelete};
 
 use crate::{
-    key_management::store_key_manager::StoreKey,
-    timeframe_management::pruning::traits::ProtocolPruneAction, types::timeframe::Timeframe,
+    key_management::store_key_manager::StoreKey, timeframe_management::pruning::Pruner,
+    types::timeframe::Timeframe,
 };
 
 pub struct ProtocolVolumeUsdPruneAction<'a> {
     pub store: &'a StoreAddBigDecimal,
 }
 
-impl<'a> ProtocolPruneAction for ProtocolVolumeUsdPruneAction<'a> {
+impl<'a> Pruner for ProtocolVolumeUsdPruneAction<'a> {
     // Prunes volume usd data for a specific token within a pool.
-    fn prune_protocol(&self, prune_time_frame_id: &i64, timeframe: &Timeframe) {
+    fn prune(&self, prune_time_frame_id: i64, timeframe: Timeframe) {
         match timeframe {
             Timeframe::Daily => {
                 let key = StoreKey::protocol_daily_volume_usd_key(&prune_time_frame_id);

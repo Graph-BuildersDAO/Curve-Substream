@@ -46,8 +46,8 @@ mod store_active_users;
 #[path = "15_store_usage_metrics.rs"]
 mod store_usage_metrics;
 
-#[path = "16_store_current_time_snapshots.rs"]
-mod store_current_time_snapshots;
+#[path = "16_store_current_time.rs"]
+mod store_current_time;
 
 // TODO: Will decrement once we have added and finalised all the other modules.
 #[path = "420_graph_out.rs"]
@@ -57,7 +57,7 @@ pub use graph_out::graph_out;
 pub use map_extract_pool_events::map_extract_pool_events;
 pub use map_pools_created::map_pools_created;
 pub use store_active_users::store_active_users;
-pub use store_current_time_snapshots::store_current_time_snapshots;
+pub use store_current_time::store_current_time;
 pub use store_input_token_balances::store_input_token_balances;
 pub use store_output_token_supply::store_output_token_supply;
 pub use store_pool_addresses::store_pool_addresses;
