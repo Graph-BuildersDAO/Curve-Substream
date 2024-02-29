@@ -1,5 +1,5 @@
-#[path = "1_map_pools_created.rs"]
-mod map_pools_created;
+#[path = "1_map_curve_events.rs"]
+mod map_curve_events;
 
 #[path = "2_store_pools_created.rs"]
 mod store_pools_created;
@@ -49,15 +49,30 @@ mod store_usage_metrics;
 #[path = "16_store_current_time.rs"]
 mod store_current_time;
 
+#[path = "17_store_gauges.rs"]
+mod store_gauges;
+
+#[path = "18_store_controller_gauges.rs"]
+mod store_controller_gauges;
+
+#[path = "19_map_gauge_events.rs"]
+mod map_gauge_events;
+
+#[path = "20_store_crv_inflation.rs"]
+mod store_crv_inflation;
+
 // TODO: Will decrement once we have added and finalised all the other modules.
 #[path = "420_graph_out.rs"]
 mod graph_out;
 
 pub use graph_out::graph_out;
+pub use map_curve_events::map_curve_events;
 pub use map_extract_pool_events::map_extract_pool_events;
-pub use map_pools_created::map_pools_created;
+pub use map_gauge_events::map_gauge_events;
 pub use store_active_users::store_active_users;
+pub use store_controller_gauges::store_controller_gauges;
 pub use store_current_time::store_current_time;
+pub use store_gauges::store_gauges;
 pub use store_input_token_balances::store_input_token_balances;
 pub use store_output_token_supply::store_output_token_supply;
 pub use store_pool_addresses::store_pool_addresses;
@@ -70,4 +85,5 @@ pub use store_pools_created::store_pools_created;
 pub use store_protocol_tvl::store_protocol_tvl;
 pub use store_protocol_volume_usd::store_protocol_volume_usd;
 pub use store_tokens::store_tokens;
+pub use store_crv_inflation::store_crv_inflation;
 pub use store_usage_metrics::store_usage_metrics;

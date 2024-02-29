@@ -32,8 +32,86 @@ message Pool {
   bool is_metapool = 12;
 }
 
-message Pools {
+message LiquidityGauge {
+  string pool = 1;
+  string gauge = 2;
+  optional string token = 3; 
+  uint64 created_at_timestamp = 4;
+  uint64 created_at_block_number = 5;
+  uint64 log_ordinal = 6;
+}
+
+message LiquidityGauges {
+  repeated LiquidityGauge liquidity_gauges = 1;
+}
+
+message LiquidityGaugeEvents {
+  repeated LiquidityGaugeEvent events = 1;
+}
+
+message LiquidityGaugeEvent {
+  string gauge = 1;
+  string pool = 2;
+  string provider = 3;
+  string value = 4;
+  LiquidityGaugeEventType type = 5;
+  string working_supply = 6;
+  string transaction_hash = 7;
+  uint32 tx_index = 8;
+  uint32 log_index = 9;
+  uint64 log_ordinal = 10;
+  uint64 timestamp = 11;
+  uint64 block_number = 12;
+}
+
+enum LiquidityGaugeEventType {
+  DEPOSIT = 0;
+  WITHDRAW = 1;
+}
+
+message ControllerNewGauge {
+  string gauge = 1;
+  GaugeType type = 2;
+  string weight = 3; // String representation of BigInt
+  uint64 created_at_timestamp = 4;
+  uint64 created_at_block_number = 5;
+  uint64 log_ordinal = 6;
+}
+
+enum GaugeType {
+  ETHEREUM_STABLE = 0;
+  FANTOM = 1;
+  POLYGON = 2;
+  DEPRECATED_1 = 3;
+  GNOSIS = 4;
+  ETHEREUM_CRYPTO = 5;
+  DEPRECATED_2 = 6;
+  ARBITRUM = 7;
+  AVALANCHE = 8;
+  HARMONY = 9;
+  FUNDRAISING = 10;
+  OPTIMISM = 11;
+  BINANCE_SMART_CHAIN = 12;
+}
+
+// This event is emitted from the CRV token, and allows us to keep track of in the inflation rate
+message UpdateMiningParametersEvent {
+  string time = 1;
+  string rate = 2;
+  string supply = 3;
+  uint64 created_at_timestamp = 4;
+  uint64 created_at_block_number = 5;
+  uint64 log_ordinal = 6;
+}
+
+// This includes pool and gauge deployments, and GaugeController add events.
+// When already deployed gauges are added to the controller, they become eligible for CRV rewards.
+// We also track UpdateMiningParametersEvent from the CRV contract, to keep track of inflation.
+message CurveEvents {
   repeated Pool pools = 1;
+  repeated LiquidityGauge gauges = 2;
+  repeated ControllerNewGauge controller_gauges = 3;
+  optional UpdateMiningParametersEvent update_mining_parameters_event = 4;
 }
 
 enum LiquidityPoolFeeType {

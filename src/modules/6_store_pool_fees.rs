@@ -2,18 +2,22 @@ use substreams::store::{StoreNew, StoreSet, StoreSetProto};
 
 use crate::{
     key_management::store_key_manager::StoreKey,
-    pb::curve::types::v1::{Events, Pool, PoolFees, Pools},
+    pb::curve::types::v1::{Events, Pool, PoolFees, CurveEvents},
     rpc::pool::{calculate_pool_fees, get_pool_fee_and_admin_fee},
 };
 
 #[substreams::handlers::store]
-pub fn store_pool_fees(pools: Pools, events: Events, store: StoreSetProto<PoolFees>) {
+pub fn store_pool_fees(
+    events: CurveEvents,
+    pool_events: Events,
+    store: StoreSetProto<PoolFees>,
+) {
     // If is a newly created pool, get the pools fees from the pool contract.
-    for pool in pools.pools {
+    for pool in events.pools {
         process_pool_fee(&pool, &store)
     }
     // If there is an updated pool fee, update the store.
-    for event in events.fee_changes_events {
+    for event in pool_events.fee_changes_events {
         let pool_fees = calculate_pool_fees(
             event.fee_big(),
             event.admin_fee_big(),

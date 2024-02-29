@@ -21,34 +21,34 @@ binaries:
     file: ./target/wasm32-unknown-unknown/release/substreams.wasm
 
 modules:
-  - name: map_pools_created
+  - name: map_curve_events
     kind: map
-    initialBlock: 13987012
+    initialBlock: 19162490
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:
-      type: proto:curve.types.v1.Pools
+      type: proto:curve.types.v1.CurveEvents
 
   - name: store_pools_created
     kind: store
     updatePolicy: set
     valueType: proto:curve.types.v1.Pools
     inputs:
-      - map: map_pools_created
+      - map: map_curve_events
 
   - name: store_pool_count
     kind: store
     updatePolicy: add
     valueType: int64
     inputs:
-      - map: map_pools_created
+      - map: map_curve_events
 
   - name: store_pool_addresses
     kind: store
     updatePolicy: set_if_not_exists
     valueType: string
     inputs:
-      - map: map_pools_created
+      - map: map_curve_events
       - store: store_pool_count
         mode: deltas
 
@@ -57,7 +57,7 @@ modules:
     updatePolicy: add
     valueType: int64
     inputs:
-      - map: map_pools_created
+      - map: map_curve_events
 
   - name: map_extract_pool_events
     kind: map
@@ -72,7 +72,7 @@ modules:
     updatePolicy: set
     valueType: proto:curve.types.v1.PoolFees
     inputs:
-      - map: map_pools_created
+      - map: map_curve_events
       - map: map_extract_pool_events
 
   - name: store_output_token_supply
@@ -168,7 +168,7 @@ modules:
 
   - name: store_current_time
     kind: store
-    initialBlock: 13987012
+    initialBlock: 19162490
     updatePolicy: set
     valueType: int64
     inputs:
@@ -176,10 +176,10 @@ modules:
 
   - name: graph_out
     kind: map
-    initialBlock: 13987012
+    initialBlock: 19162490
     inputs:
       - source: sf.substreams.v1.Clock
-      - map: map_pools_created
+      - map: map_curve_events
       - map: map_extract_pool_events
       - store: store_pools_created
       - store: store_pool_count
@@ -216,18 +216,18 @@ network: mainnet
 networks:
   mainnet:
     initialBlock:
-      chainlink_prices:store_confirmed_feeds: 13987012
-      chainlink_prices:get_chainlink_answers: 13987012
-      chainlink_prices:chainlink_price_store: 13987012
-      chainlink_prices:graph_out: 13987012
-      uniswap_prices:map_pair_created_events: 13987012
-      uniswap_prices:store_pair_created_events: 13987012
-      uniswap_prices:map_weth_prices: 13987012
-      uniswap_prices:store_weth_prices: 13987012
-      uniswap_prices:map_uniswap_prices: 13987012
-      uniswap_prices:store_uniswap_prices: 13987012
-      uniswap_prices:warmup: 13987012
-      uniswap_prices:chainlink_prices:chainlink_price_store: 13987012
-      uniswap_prices:chainlink_prices:graph_out: 13987012
-      uniswap_prices:chainlink_prices:get_chainlink_answers: 13987012
-      uniswap_prices:chainlink_prices:store_confirmed_feeds: 13987012
+      chainlink_prices:store_confirmed_feeds: 19162490
+      chainlink_prices:get_chainlink_answers: 19162490
+      chainlink_prices:chainlink_price_store: 19162490
+      chainlink_prices:graph_out: 19162490
+      uniswap_prices:map_pair_created_events: 19162490
+      uniswap_prices:store_pair_created_events: 19162490
+      uniswap_prices:map_weth_prices: 19162490
+      uniswap_prices:store_weth_prices: 19162490
+      uniswap_prices:map_uniswap_prices: 19162490
+      uniswap_prices:store_uniswap_prices: 19162490
+      uniswap_prices:warmup: 19162490
+      uniswap_prices:chainlink_prices:chainlink_price_store: 19162490
+      uniswap_prices:chainlink_prices:graph_out: 19162490
+      uniswap_prices:chainlink_prices:get_chainlink_answers: 19162490
+      uniswap_prices:chainlink_prices:store_confirmed_feeds: 19162490

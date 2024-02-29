@@ -1,9 +1,9 @@
-use std::{cell::RefCell, collections::HashSet, rc::Rc};
+use std::collections::HashSet;
 
 use anyhow::anyhow;
 use substreams::{
     errors::Error,
-    key::{self, segment_at},
+    key,
     pb::substreams::{store_delta::Operation, Clock},
     scalar::{BigDecimal, BigInt},
     store::{
@@ -28,7 +28,7 @@ use crate::{
                 pool_event::{DepositEvent, SwapEvent, SwapUnderlyingEvent, Type, WithdrawEvent},
                 PoolEvent,
             },
-            Events, Pool, PoolFee, PoolFees, Pools, Token,
+            Events, Pool, PoolFee, PoolFees, CurveEvents, Token,
         },
         uniswap_pricing::v1::Erc20Price,
     },
@@ -40,8 +40,8 @@ use crate::{
 #[substreams::handlers::map]
 pub fn graph_out(
     clock: Clock,
-    pools: Pools,
-    events: Events,
+    events: CurveEvents,
+    pool_events: Events,
     pools_store: StoreGetProto<Pool>,
     pool_count_store: StoreGetInt64,
     pool_count_deltas: Deltas<DeltaInt64>,
@@ -69,7 +69,7 @@ pub fn graph_out(
     create_protocol_entity(&mut tables, &clock);
 
     // Create entities related to Pool contract deployments
-    for pool in pools.pools {
+    for pool in events.pools {
         // TODO: Should we move the getting of pool fees to the functions that use them?
         // Pools must have related fees for the output data to be accurate and useful.
         let pool_fees = pool_fees_store.must_get_last(StoreKey::pool_fees_key(&pool.address));
@@ -147,7 +147,7 @@ pub fn graph_out(
     // Create entities related to Pool events
     create_pool_events_entities(
         &mut tables,
-        events.pool_events,
+        pool_events.pool_events,
         &pools_store,
         &output_token_supply_store,
         &input_token_balances_store,
