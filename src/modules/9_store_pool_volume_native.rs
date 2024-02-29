@@ -1,7 +1,7 @@
 use substreams::{
     pb::substreams::Clock,
     scalar::BigInt,
-    store::{DeltaInt64, Deltas, StoreAdd, StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetProto, StoreNew},
+    store::{DeltaInt64, Deltas, StoreAdd, StoreAddBigInt, StoreGet, StoreGetProto, StoreNew},
 };
 
 use crate::{
