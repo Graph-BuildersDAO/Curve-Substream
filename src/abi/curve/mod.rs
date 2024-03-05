@@ -1,3 +1,4 @@
+pub mod ownership_proxies;
 pub mod gauges;
 pub mod child_registries;
 pub mod address_provider;
