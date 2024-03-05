@@ -1,8 +1,12 @@
+use std::collections::HashSet;
+
 use crate::{
+    abi::curve::{gauges, ownership_proxies},
     common::event_extraction::extract_update_liquidity_limit_event,
     key_management::store_key_manager::StoreKey,
     pb::curve::types::v1::{
-        LiquidityGauge, LiquidityGaugeEvent, LiquidityGaugeEventType, LiquidityGaugeEvents,
+        AddRewardEvent, GaugeLiquidityEventType, LiquidityEvent, LiquidityGauge,
+        LiquidityGaugeEvents,
     },
 };
 use substreams::{
@@ -13,10 +17,8 @@ use substreams::{
 };
 use substreams_ethereum::{
     pb::eth::v2::{self as eth, Log, TransactionTrace},
-    Event,
+    Event, Function,
 };
-
-use crate::abi::curve::gauges;
 
 #[substreams::handlers::map]
 pub fn map_gauge_events(
@@ -24,10 +26,13 @@ pub fn map_gauge_events(
     gauge_store: StoreGetProto<LiquidityGauge>,
 ) -> Result<LiquidityGaugeEvents, Error> {
     let mut gauge_events = LiquidityGaugeEvents::default();
-    let mut events: Vec<LiquidityGaugeEvent> = Vec::new();
+    let mut liquidity_events: Vec<LiquidityEvent> = Vec::new();
+    let mut unique_add_reward_events: Vec<AddRewardEvent> = Vec::new();
+    let mut seen_tx_hashes = HashSet::new();
 
     for trx in blk.transactions() {
-        for (log, _call) in trx.logs_with_calls() {
+        // Handle liquidity events (`Deposit`, `Withdraw`) by digging into the logs.
+        for (log, _) in trx.logs_with_calls() {
             let gauge_address = Hex::encode(&log.address);
             let gauge_opt = gauge_store.get_last(StoreKey::liquidity_gauge_key(&gauge_address));
 
@@ -35,51 +40,92 @@ pub fn map_gauge_events(
                 if let Some(deposit) =
                     gauges::liquidity_gauge_v1::events::Deposit::match_and_decode(&log)
                 {
-                    if let Some(event) = handle_event(
+                    handle_liquidity_event(
                         &deposit.provider,
                         &deposit.value,
-                        LiquidityGaugeEventType::Deposit,
+                        GaugeLiquidityEventType::Deposit,
                         &trx,
                         &gauge,
                         &blk,
                         &log,
-                    ) {
-                        events.push(event);
-                    }
+                        &mut liquidity_events,
+                    )
                 }
                 if let Some(withdraw) =
                     gauges::liquidity_gauge_v1::events::Withdraw::match_and_decode(&log)
                 {
-                    if let Some(event) = handle_event(
+                    handle_liquidity_event(
                         &withdraw.provider,
                         &withdraw.value,
-                        LiquidityGaugeEventType::Withdraw,
+                        GaugeLiquidityEventType::Withdraw,
                         &trx,
                         &gauge,
                         &blk,
                         &log,
-                    ) {
-                        events.push(event);
-                    }
+                        &mut liquidity_events,
+                    );
                 }
             }
         }
+        // Handle AddReward function calls as these do not emit events and need to be captured by examining function calls.
+        for call_view in trx.calls().filter(|call| !call.call.state_reverted) {
+            if let Some(add_reward_call) =
+                // Although there are multiple ABIs for proxies, the `add_reward` function remains the same.
+                // Therefore we only need to match for one of these and it will catch all with the same function ABI.
+                ownership_proxies::factory_owner::functions::AddReward::match_and_decode(
+                        &call_view.call,
+                    )
+            {
+                handle_add_reward_event(
+                    trx,
+                    &blk,
+                    &add_reward_call.u_gauge,
+                    &add_reward_call.u_reward_token,
+                    &add_reward_call.u_distributor,
+                    &mut seen_tx_hashes,
+                    &mut unique_add_reward_events,
+                    &gauge_store,
+                );
+            }
+            if let Some(add_reward_call) =
+                // Although there are multiple ABIs for different version of `LiquidityGauge`, the `add_reward` function remains the same.
+                // Therefore we only need to match for one of these and it will catch all with the same function ABI.
+                gauges::liquidity_gauge_v6::functions::AddReward::match_and_decode(
+                        &call_view.call,
+                    )
+            {
+                handle_add_reward_event(
+                    trx,
+                    &blk,
+                    &call_view.call.address,
+                    &add_reward_call.u_reward_token,
+                    &add_reward_call.u_distributor,
+                    &mut seen_tx_hashes,
+                    &mut unique_add_reward_events,
+                    &gauge_store,
+                );
+            }
+        }
     }
-    gauge_events.events = events;
+
+    gauge_events.liquidity_events = liquidity_events;
+    gauge_events.add_reward_events = unique_add_reward_events;
+
     Ok(gauge_events)
 }
 
-fn handle_event(
+fn handle_liquidity_event(
     event_provider: &Vec<u8>,
     event_value: &BigInt,
-    event_type: LiquidityGaugeEventType,
+    event_type: GaugeLiquidityEventType,
     trx: &TransactionTrace,
     gauge: &LiquidityGauge,
     blk: &eth::Block,
     log: &Log,
-) -> Option<LiquidityGaugeEvent> {
+    liquidity_events: &mut Vec<LiquidityEvent>,
+) {
     if let Ok(update_event) = extract_update_liquidity_limit_event(trx, &gauge.address_vec()) {
-        return Some(LiquidityGaugeEvent {
+        liquidity_events.push(LiquidityEvent {
             gauge: gauge.gauge.clone(),
             pool: gauge.pool.clone(),
             provider: Hex::encode(event_provider),
@@ -94,5 +140,35 @@ fn handle_event(
             block_number: blk.number,
         });
     }
-    None
+}
+
+fn handle_add_reward_event(
+    trx: &TransactionTrace,
+    blk: &eth::Block,
+    gauge: &Vec<u8>,
+    reward_token: &Vec<u8>,
+    distributor: &Vec<u8>,
+    seen_tx_hashes: &mut HashSet<String>,
+    unique_add_reward_events: &mut Vec<AddRewardEvent>,
+    gauge_store: &StoreGetProto<LiquidityGauge>,
+) {
+    let gauge_address = StoreKey::liquidity_gauge_key(&Hex::encode(gauge));
+
+    // Check if the gauge related to the add_reward call exists in the gauge store
+    if gauge_store.get_last(gauge_address).is_some() {
+        let tx_hash_str = Hex::encode(&trx.hash);
+
+        if seen_tx_hashes.insert(tx_hash_str.clone()) {
+            // If the transaction hash was successfully inserted (i.e., it's a new unique hash), add the event.
+            unique_add_reward_events.push(AddRewardEvent {
+                gauge: Hex::encode(&gauge),
+                reward_token: Hex::encode(&reward_token),
+                distributor: Hex::encode(&distributor),
+                transaction_hash: tx_hash_str,
+                tx_index: trx.index,
+                timestamp: blk.timestamp_seconds(),
+                block_number: blk.number,
+            })
+        }
+    }
 }

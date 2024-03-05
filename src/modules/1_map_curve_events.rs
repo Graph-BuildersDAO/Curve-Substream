@@ -378,7 +378,9 @@ fn map_liquidity_gauge_deployed_events(
 ) -> Result<(), Error> {
     gauges.append(
         &mut blk
-            .events::<crypto_pool_factory_v2::events::LiquidityGaugeDeployed>(&[&address])
+            // Although there are multiple ABIs for `LiquidityGaugeDeployed` events across different registries/factories,
+            // the ABI is the same. Therefore we only need to use one of them.
+            .events::<crv_usd_pool_factory::events::LiquidityGaugeDeployed>(&[&address])
             .filter_map(|(event, log)| {
                 Some(LiquidityGauge {
                     gauge: Hex::encode(event.gauge),
@@ -401,6 +403,8 @@ fn map_liquidity_gauge_deployed_with_token_events(
 ) -> Result<(), Error> {
     gauges.append(
         &mut blk
+            // Although there are multiple ABIs for `LiquidityGaugeDeployed` events across different registries/factories,
+            // the ABI is the same. Therefore we only need to use one of them.
             .events::<crypto_pool_factory_v2::events::LiquidityGaugeDeployed>(&[&address])
             .filter_map(|(event, log)| {
                 Some(LiquidityGauge {

@@ -75,11 +75,13 @@ pub struct LiquidityGauges {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct LiquidityGaugeEvents {
     #[prost(message, repeated, tag="1")]
-    pub events: ::prost::alloc::vec::Vec<LiquidityGaugeEvent>,
+    pub liquidity_events: ::prost::alloc::vec::Vec<LiquidityEvent>,
+    #[prost(message, repeated, tag="2")]
+    pub add_reward_events: ::prost::alloc::vec::Vec<AddRewardEvent>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct LiquidityGaugeEvent {
+pub struct LiquidityEvent {
     #[prost(string, tag="1")]
     pub gauge: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
@@ -88,7 +90,7 @@ pub struct LiquidityGaugeEvent {
     pub provider: ::prost::alloc::string::String,
     #[prost(string, tag="4")]
     pub value: ::prost::alloc::string::String,
-    #[prost(enumeration="LiquidityGaugeEventType", tag="5")]
+    #[prost(enumeration="GaugeLiquidityEventType", tag="5")]
     pub r#type: i32,
     #[prost(string, tag="6")]
     pub working_supply: ::prost::alloc::string::String,
@@ -103,6 +105,24 @@ pub struct LiquidityGaugeEvent {
     #[prost(uint64, tag="11")]
     pub timestamp: u64,
     #[prost(uint64, tag="12")]
+    pub block_number: u64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AddRewardEvent {
+    #[prost(string, tag="1")]
+    pub gauge: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub reward_token: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub distributor: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub transaction_hash: ::prost::alloc::string::String,
+    #[prost(uint32, tag="5")]
+    pub tx_index: u32,
+    #[prost(uint64, tag="6")]
+    pub timestamp: u64,
+    #[prost(uint64, tag="7")]
     pub block_number: u64,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -300,19 +320,19 @@ pub mod events {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
-pub enum LiquidityGaugeEventType {
+pub enum GaugeLiquidityEventType {
     Deposit = 0,
     Withdraw = 1,
 }
-impl LiquidityGaugeEventType {
+impl GaugeLiquidityEventType {
     /// String value of the enum field names used in the ProtoBuf definition.
     ///
     /// The values are not transformed in any way and thus are considered stable
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            LiquidityGaugeEventType::Deposit => "DEPOSIT",
-            LiquidityGaugeEventType::Withdraw => "WITHDRAW",
+            GaugeLiquidityEventType::Deposit => "DEPOSIT",
+            GaugeLiquidityEventType::Withdraw => "WITHDRAW",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.

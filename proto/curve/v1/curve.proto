@@ -46,15 +46,16 @@ message LiquidityGauges {
 }
 
 message LiquidityGaugeEvents {
-  repeated LiquidityGaugeEvent events = 1;
+  repeated LiquidityEvent liquidity_events = 1;
+  repeated AddRewardEvent add_reward_events = 2;
 }
 
-message LiquidityGaugeEvent {
+message LiquidityEvent {
   string gauge = 1;
   string pool = 2;
   string provider = 3;
   string value = 4;
-  LiquidityGaugeEventType type = 5;
+  GaugeLiquidityEventType type = 5;
   string working_supply = 6;
   string transaction_hash = 7;
   uint32 tx_index = 8;
@@ -64,7 +65,17 @@ message LiquidityGaugeEvent {
   uint64 block_number = 12;
 }
 
-enum LiquidityGaugeEventType {
+message AddRewardEvent {
+  string gauge = 1;
+  string reward_token = 2;
+  string distributor = 3;
+  string transaction_hash = 4;
+  uint32 tx_index = 5;
+  uint64 timestamp = 6;
+  uint64 block_number = 7;
+}
+
+enum GaugeLiquidityEventType {
   DEPOSIT = 0;
   WITHDRAW = 1;
 }
