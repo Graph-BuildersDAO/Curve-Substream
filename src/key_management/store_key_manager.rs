@@ -18,6 +18,8 @@ pub enum StoreKey {
     PoolTokenHourlyVolumeUsdPrune(i64),
     PoolTvl(String),
     PoolTokenTvl(String, String),
+    LiquidityGauge(String),
+    ControllerGaugeAdded(String),
     ProtocolPoolCount,
     ProtocolVolumeUsd,
     ProtocolDailyVolumeUsd(i64),
@@ -43,6 +45,7 @@ pub enum StoreKey {
     WithdrawHourlyCount(i64),
     CurrentDayId,
     CurrentHourId,
+    CRVInflationRate,
     // External packages store key variants
     UniswapPriceByTokenAddress(String),
     UniswapPriceByTokenSymbol(String),
@@ -162,6 +165,14 @@ impl StoreKey {
         StoreKey::PoolTokenTvl(pool_address.to_string(), token_address.to_string()).to_key_string()
     }
 
+    pub fn liquidity_gauge_key(gauge_address: &str) -> String {
+        StoreKey::LiquidityGauge(gauge_address.to_string()).to_key_string()
+    }
+
+    pub fn controller_gauge_added_key(gauge_address: &str) -> String {
+        StoreKey::ControllerGaugeAdded(gauge_address.to_string()).to_key_string()
+    }
+
     pub fn protocol_volume_usd_key() -> String {
         StoreKey::ProtocolVolumeUsd.to_key_string()
     }
@@ -259,6 +270,10 @@ impl StoreKey {
         StoreKey::CurrentHourId.to_key_string()
     }
 
+    pub fn crv_inflation_rate_key() -> String {
+        StoreKey::CRVInflationRate.to_key_string()
+    }
+
     pub fn uniswap_price_by_token_address_key(token_address: &str) -> String {
         StoreKey::UniswapPriceByTokenAddress(token_address.to_string()).to_key_string()
     }
@@ -335,6 +350,10 @@ impl StoreKey {
             }
             StoreKey::PoolTvl(addr) => format!("PoolTvl:{}", addr),
             StoreKey::PoolTokenTvl(pool, token) => format!("PoolTokenTvl:{}:{}", pool, token),
+            StoreKey::LiquidityGauge(gauge_address) => {
+                format!("LiquidityGauge:{}", gauge_address)
+            }
+            StoreKey::ControllerGaugeAdded(gauge) => format!("ControllerGaugeAdded:{}", gauge),
             StoreKey::ProtocolPoolCount => "ProtocolPoolCount".to_string(),
             StoreKey::ProtocolVolumeUsd => "ProtocolVolumeUsd".to_string(),
             StoreKey::ProtocolDailyVolumeUsd(day_id) => {
@@ -392,6 +411,7 @@ impl StoreKey {
             }
             StoreKey::CurrentDayId => "CurrentDayId".to_string(),
             StoreKey::CurrentHourId => "CurrentHourId".to_string(),
+            StoreKey::CRVInflationRate => "CRVInflationRate".to_string(),
             StoreKey::UniswapPriceByTokenAddress(addr) => {
                 format!("UsdPriceByTokenAddress:{}", addr)
             }
