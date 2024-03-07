@@ -20,6 +20,9 @@ pub struct Token {
     pub total_supply: ::prost::alloc::string::String,
     #[prost(bool, tag="6")]
     pub is_base_pool_lp_token: bool,
+    /// Optional field to track the gauge for reward tokens
+    #[prost(string, optional, tag="7")]
+    pub gauge: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -113,16 +116,18 @@ pub struct AddRewardEvent {
     #[prost(string, tag="1")]
     pub gauge: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
-    pub reward_token: ::prost::alloc::string::String,
+    pub pool: ::prost::alloc::string::String,
     #[prost(string, tag="3")]
-    pub distributor: ::prost::alloc::string::String,
+    pub reward_token: ::prost::alloc::string::String,
     #[prost(string, tag="4")]
+    pub distributor: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
     pub transaction_hash: ::prost::alloc::string::String,
-    #[prost(uint32, tag="5")]
+    #[prost(uint32, tag="6")]
     pub tx_index: u32,
-    #[prost(uint64, tag="6")]
-    pub timestamp: u64,
     #[prost(uint64, tag="7")]
+    pub timestamp: u64,
+    #[prost(uint64, tag="8")]
     pub block_number: u64,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]

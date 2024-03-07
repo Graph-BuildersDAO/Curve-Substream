@@ -19,6 +19,8 @@ pub enum StoreKey {
     PoolTvl(String),
     PoolTokenTvl(String, String),
     LiquidityGauge(String),
+    LiquidityGaugeRewardToken(String, i64),
+    LiquidityGaugeRewardTokenCount(String),
     ControllerGaugeAdded(String),
     ProtocolPoolCount,
     ProtocolVolumeUsd,
@@ -167,6 +169,14 @@ impl StoreKey {
 
     pub fn liquidity_gauge_key(gauge_address: &str) -> String {
         StoreKey::LiquidityGauge(gauge_address.to_string()).to_key_string()
+    }
+
+    pub fn liquidity_gauge_reward_token_key(gauge_address: &str, token_index: &i64) -> String {
+        StoreKey::LiquidityGaugeRewardToken(gauge_address.to_string(), *token_index).to_key_string()
+    }
+
+    pub fn liquidity_gauge_reward_token_count_key(gauge_address: &str) -> String {
+        StoreKey::LiquidityGaugeRewardTokenCount(gauge_address.to_string()).to_key_string()
     }
 
     pub fn controller_gauge_added_key(gauge_address: &str) -> String {
@@ -352,6 +362,16 @@ impl StoreKey {
             StoreKey::PoolTokenTvl(pool, token) => format!("PoolTokenTvl:{}:{}", pool, token),
             StoreKey::LiquidityGauge(gauge_address) => {
                 format!("LiquidityGauge:{}", gauge_address)
+            }
+            StoreKey::LiquidityGaugeRewardToken(gauge_address, token_index) => {
+                format!(
+                    "LiquidityGaugeRewardToken:{}:{}",
+                    gauge_address,
+                    token_index.to_string()
+                )
+            }
+            StoreKey::LiquidityGaugeRewardTokenCount(gauge_address) => {
+                format!("LiquidityGaugeRewardTokenCount:{}", gauge_address)
             }
             StoreKey::ControllerGaugeAdded(gauge) => format!("ControllerGaugeAdded:{}", gauge),
             StoreKey::ProtocolPoolCount => "ProtocolPoolCount".to_string(),

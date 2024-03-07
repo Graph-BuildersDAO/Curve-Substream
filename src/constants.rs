@@ -1,9 +1,15 @@
 use hex_literal::hex;
 use lazy_static::lazy_static;
 use std::{collections::HashMap, ops::Div};
-use substreams::scalar::{BigDecimal, BigInt};
+use substreams::{
+    scalar::{BigDecimal, BigInt},
+    Hex,
+};
 
-use crate::network_config::{PoolDetails, MISSING_OLD_POOLS_DATA};
+use crate::{
+    network_config::{PoolDetails, CRV_TOKEN_ADDRESS, MISSING_OLD_POOLS_DATA},
+    pb::curve::types::v1::Token,
+};
 
 // Chain Specific Contracts:
 // ________________________
@@ -123,6 +129,7 @@ pub fn one_usd_value() -> BigDecimal {
 
 pub const FEE_DENOMINATOR: u64 = 10000000000;
 pub const FEE_DECIMALS: u64 = 10;
+pub const SECONDS_PER_DAY: u64 = 86400;
 
 pub fn default_pool_fee() -> BigInt {
     BigInt::from(4000000)
@@ -130,4 +137,16 @@ pub fn default_pool_fee() -> BigInt {
 
 pub fn default_admin_fee() -> BigInt {
     BigInt::from(5000000000 as i64)
+}
+
+pub fn curve_token() -> Token {
+    Token {
+        address: Hex::encode(CRV_TOKEN_ADDRESS),
+        name: "Curve DAO Token".to_string(),
+        symbol: "CRV".to_string(),
+        decimals: 18,
+        total_supply: "0".to_string(),
+        is_base_pool_lp_token: false,
+        gauge: None,
+    }
 }

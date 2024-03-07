@@ -61,6 +61,12 @@ mod map_gauge_events;
 #[path = "20_store_crv_inflation.rs"]
 mod store_crv_inflation;
 
+#[path = "21_store_reward_token_count.rs"]
+mod store_reward_token_count;
+
+#[path = "22_store_reward_tokens.rs"]
+mod store_reward_tokens;
+
 // TODO: Will decrement once we have added and finalised all the other modules.
 #[path = "420_graph_out.rs"]
 mod graph_out;
@@ -71,6 +77,7 @@ pub use map_extract_pool_events::map_extract_pool_events;
 pub use map_gauge_events::map_gauge_events;
 pub use store_active_users::store_active_users;
 pub use store_controller_gauges::store_controller_gauges;
+pub use store_crv_inflation::store_crv_inflation;
 pub use store_current_time::store_current_time;
 pub use store_gauges::store_gauges;
 pub use store_input_token_balances::store_input_token_balances;
@@ -84,6 +91,7 @@ pub use store_pool_volume_usd::store_pool_volume_usd;
 pub use store_pools_created::store_pools_created;
 pub use store_protocol_tvl::store_protocol_tvl;
 pub use store_protocol_volume_usd::store_protocol_volume_usd;
+pub use store_reward_token_count::store_reward_token_count;
+pub use store_reward_tokens::store_reward_tokens;
 pub use store_tokens::store_tokens;
-pub use store_crv_inflation::store_crv_inflation;
 pub use store_usage_metrics::store_usage_metrics;

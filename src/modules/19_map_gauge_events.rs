@@ -145,23 +145,25 @@ fn handle_liquidity_event(
 fn handle_add_reward_event(
     trx: &TransactionTrace,
     blk: &eth::Block,
-    gauge: &Vec<u8>,
+    gauge_address: &Vec<u8>,
     reward_token: &Vec<u8>,
     distributor: &Vec<u8>,
     seen_tx_hashes: &mut HashSet<String>,
     unique_add_reward_events: &mut Vec<AddRewardEvent>,
     gauge_store: &StoreGetProto<LiquidityGauge>,
 ) {
-    let gauge_address = StoreKey::liquidity_gauge_key(&Hex::encode(gauge));
+    // Shadowing as don't need the raw address after this call
+    let gauge_address = StoreKey::liquidity_gauge_key(&Hex::encode(gauge_address));
 
     // Check if the gauge related to the add_reward call exists in the gauge store
-    if gauge_store.get_last(gauge_address).is_some() {
+    if let Some(gauge) = gauge_store.get_last(&gauge_address) {
         let tx_hash_str = Hex::encode(&trx.hash);
 
         if seen_tx_hashes.insert(tx_hash_str.clone()) {
             // If the transaction hash was successfully inserted (i.e., it's a new unique hash), add the event.
             unique_add_reward_events.push(AddRewardEvent {
-                gauge: Hex::encode(&gauge),
+                gauge: Hex::encode(&gauge_address),
+                pool: gauge.pool,
                 reward_token: Hex::encode(&reward_token),
                 distributor: Hex::encode(&distributor),
                 transaction_hash: tx_hash_str,

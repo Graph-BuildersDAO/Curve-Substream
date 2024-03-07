@@ -23,7 +23,7 @@ binaries:
 modules:
   - name: map_curve_events
     kind: map
-    initialBlock: 19162490
+    initialBlock: 10647875
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:
@@ -168,15 +168,63 @@ modules:
 
   - name: store_current_time
     kind: store
-    initialBlock: 19162490
+    initialBlock: 10647875
     updatePolicy: set
     valueType: int64
     inputs:
       - source: sf.substreams.v1.Clock
 
+  - name: store_gauges
+    kind: store
+    updatePolicy: set
+    valueType: proto:curve.types.v1.LiquidityGauge
+    inputs:
+      - map: map_curve_events
+
+  - name: store_controller_gauges
+    kind: store
+    updatePolicy: set_if_not_exists
+    valueType: int64
+    inputs:
+      - map: map_curve_events
+
+  - name: map_gauge_events
+    kind: map
+    initialBlock: 10647875
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - store: store_gauges
+    output:
+      type: proto:curve.types.v1.LiquidityGaugeEvents
+
+  - name: store_crv_inflation
+    kind: store
+    updatePolicy: set
+    valueType: string
+    inputs:
+      - map: map_curve_events
+
+  - name: store_reward_token_count
+    kind: store
+    updatePolicy: add
+    valueType: int64
+    inputs:
+      - map: map_gauge_events
+
+  - name: store_reward_tokens
+    kind: store
+    updatePolicy: set
+    valueType: proto:curve.types.v1.RewardToken
+    inputs:
+      - map: map_gauge_events
+      - store: store_gauges
+      - store: store_reward_token_count
+        mode: deltas
+      - store: store_pools_created
+
   - name: graph_out
     kind: map
-    initialBlock: 19162490
+    initialBlock: 10647875
     inputs:
       - source: sf.substreams.v1.Clock
       - map: map_curve_events
@@ -206,8 +254,14 @@ modules:
       - store: store_usage_metrics
       - store: store_current_time
         mode: deltas
-      - store: chainlink_prices:chainlink_price_store
+      - store: store_gauges
+      - store: store_controller_gauges
+      - map: map_gauge_events
+      - store: store_crv_inflation
+      - store: store_reward_token_count
+      - store: store_reward_tokens
       - store: uniswap_prices:store_uniswap_prices
+      - store: chainlink_prices:chainlink_price_store
     output:
       type: proto:sf.substreams.sink.entity.v1.EntityChanges
 
@@ -216,18 +270,18 @@ network: mainnet
 networks:
   mainnet:
     initialBlock:
-      chainlink_prices:store_confirmed_feeds: 19162490
-      chainlink_prices:get_chainlink_answers: 19162490
-      chainlink_prices:chainlink_price_store: 19162490
-      chainlink_prices:graph_out: 19162490
-      uniswap_prices:map_pair_created_events: 19162490
-      uniswap_prices:store_pair_created_events: 19162490
-      uniswap_prices:map_weth_prices: 19162490
-      uniswap_prices:store_weth_prices: 19162490
-      uniswap_prices:map_uniswap_prices: 19162490
-      uniswap_prices:store_uniswap_prices: 19162490
-      uniswap_prices:warmup: 19162490
-      uniswap_prices:chainlink_prices:chainlink_price_store: 19162490
-      uniswap_prices:chainlink_prices:graph_out: 19162490
-      uniswap_prices:chainlink_prices:get_chainlink_answers: 19162490
-      uniswap_prices:chainlink_prices:store_confirmed_feeds: 19162490
+      chainlink_prices:store_confirmed_feeds: 10647875
+      chainlink_prices:get_chainlink_answers: 10647875
+      chainlink_prices:chainlink_price_store: 10647875
+      chainlink_prices:graph_out: 10647875
+      uniswap_prices:map_pair_created_events: 10647875
+      uniswap_prices:store_pair_created_events: 10647875
+      uniswap_prices:map_weth_prices: 10647875
+      uniswap_prices:store_weth_prices: 10647875
+      uniswap_prices:map_uniswap_prices: 10647875
+      uniswap_prices:store_uniswap_prices: 10647875
+      uniswap_prices:warmup: 10647875
+      uniswap_prices:chainlink_prices:chainlink_price_store: 10647875
+      uniswap_prices:chainlink_prices:graph_out: 10647875
+      uniswap_prices:chainlink_prices:get_chainlink_answers: 10647875
+      uniswap_prices:chainlink_prices:store_confirmed_feeds: 10647875
