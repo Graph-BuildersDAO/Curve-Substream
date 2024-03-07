@@ -10,6 +10,9 @@ pub enum EntityKey {
     LiquidityPoolDailySnapshot(String, i64),
     LiquidityPoolHourlySnapshot(String, i64),
     ProtocolDailyFinancialsSnapshot(i64),
+    Token(String),
+    RewardToken(String),
+    PoolRewardToken(String, String),
     Deposit(String, String),
     Swap(String, String),
     Withdraw(String, String),
@@ -46,6 +49,19 @@ impl EntityKey {
         EntityKey::ProtocolDailyFinancialsSnapshot(*day_id).to_key_string()
     }
 
+    pub fn token_key(token_address: &str) -> String {
+        EntityKey::Token(token_address.to_string()).to_key_string()
+    }
+
+    pub fn reward_token_key(reward_token_address: &str) -> String {
+        EntityKey::RewardToken(reward_token_address.to_string()).to_key_string()
+    }
+
+    pub fn pool_reward_token_key(pool_address: &str, reward_token_address: &str) -> String {
+        EntityKey::PoolRewardToken(pool_address.to_string(), reward_token_address.to_string())
+            .to_key_string()
+    }
+
     pub fn deposit_key(transaction_hash: &str, log_index: &u32) -> String {
         EntityKey::Deposit(transaction_hash.to_string(), log_index.to_string()).to_key_string()
     }
@@ -80,6 +96,17 @@ impl EntityKey {
                 )
             }
             EntityKey::ProtocolDailyFinancialsSnapshot(day_id) => day_id.to_string(),
+            EntityKey::Token(token_address) => format_address_string(token_address),
+            EntityKey::RewardToken(reward_token_address) => {
+                format_address_string(reward_token_address)
+            }
+            EntityKey::PoolRewardToken(pool_address, reward_token_address) => {
+                format!(
+                    "{}-{}",
+                    format_address_string(pool_address),
+                    format_address_string(reward_token_address)
+                )
+            }
             EntityKey::Deposit(tx_hash, log_index) => {
                 format!("deposit-0x{}-{}", tx_hash, log_index)
             }

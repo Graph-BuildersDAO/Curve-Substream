@@ -1,5 +1,10 @@
-use crate::abi::curve::child_registries::{
-    crv_usd_pool_factory, pool_registry_v1, stable_swap_factory_ng,
+use substreams::Hex;
+
+use crate::{
+    abi::curve::child_registries::{
+        crv_usd_pool_factory, pool_registry_v1, stable_swap_factory_ng,
+    },
+    pb::curve::types::v1::AddRewardEvent,
 };
 
 mod sealed {
@@ -26,3 +31,9 @@ impl PlainPoolDeployedEvent for stable_swap_factory_ng::events::PlainPoolDeploye
 
 impl sealed::PlainPoolDeployedEventSealed for pool_registry_v1::events::PlainPoolDeployed {}
 impl PlainPoolDeployedEvent for pool_registry_v1::events::PlainPoolDeployed {}
+
+impl AddRewardEvent {
+    pub fn reward_token_vec(&self) -> Vec<u8> {
+        Hex::decode(&self.reward_token).unwrap()
+    }
+}

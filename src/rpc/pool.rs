@@ -72,7 +72,7 @@ pub fn get_pool_coins(pool_address: &Vec<u8>) -> Result<Vec<Token>, Error> {
             break;
         }
 
-        match create_token(&input_token, &pool_address) {
+        match create_token(&input_token, &pool_address, None) {
             Ok(token) => {
                 tokens.push(token);
             }
@@ -134,7 +134,7 @@ pub fn get_pool_underlying_coins(pool_address: &Vec<u8>) -> Result<[Vec<u8>; 8],
 }
 
 pub fn get_pool_fee_and_admin_fee(pool_address: &Vec<u8>) -> Result<(BigInt, BigInt), Error> {
-    let batch: RpcBatch = RpcBatch::new();
+    let batch = RpcBatch::new();
     let responses = batch
         .add(functions::Fee {}, pool_address.clone())
         .add(functions::AdminFee {}, pool_address.clone())

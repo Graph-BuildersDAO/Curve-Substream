@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, str::FromStr};
 
 use anyhow::anyhow;
 use substreams::{
@@ -10,6 +10,7 @@ use substreams::{
         DeltaBigDecimal, DeltaInt64, DeltaProto, Deltas, StoreGet, StoreGetBigDecimal,
         StoreGetBigInt, StoreGetInt64, StoreGetProto, StoreGetString,
     },
+    Hex,
 };
 use substreams_entity_change::{pb::entity::EntityChanges, tables::Tables};
 
@@ -17,21 +18,23 @@ use crate::{
     common::{
         format::{self, format_address_string},
         pool_utils::{get_input_token_balances, get_input_token_weights},
-        utils,
+        prices, utils,
     },
-    constants,
+    constants::{self, curve_token, default_decimals, SECONDS_PER_DAY},
     key_management::{entity_key_manager::EntityKey, store_key_manager::StoreKey},
-    network_config::DEFAULT_NETWORK,
+    network_config::{CRV_TOKEN_ADDRESS, DEFAULT_NETWORK},
     pb::{
         curve::types::v1::{
             events::{
                 pool_event::{DepositEvent, SwapEvent, SwapUnderlyingEvent, Type, WithdrawEvent},
                 PoolEvent,
             },
-            Events, Pool, PoolFee, PoolFees, CurveEvents, Token,
+            CurveEvents, Events, LiquidityGauge, LiquidityGaugeEvents, Pool, PoolFee, PoolFees,
+            Token,
         },
         uniswap_pricing::v1::Erc20Price,
     },
+    rpc,
     timeframe_management::snapshot::snapshot_utils::manage_timeframe_snapshots,
 };
 
@@ -61,6 +64,13 @@ pub fn graph_out(
     protocol_tvl_store: StoreGetBigDecimal,
     usage_metrics_store: StoreGetInt64,
     current_time_deltas: Deltas<DeltaInt64>,
+    gauge_store: StoreGetProto<LiquidityGauge>,
+    gauge_controller_store: StoreGetInt64,
+    gauge_events: LiquidityGaugeEvents,
+    crv_inflation_store: StoreGetString,
+    reward_token_count_store: StoreGetInt64,
+    reward_token_count_deltas: Deltas<DeltaInt64>,
+    reward_tokens_store: StoreGetProto<Token>,
     uniswap_prices: StoreGetProto<Erc20Price>,
     chainlink_prices: StoreGetBigDecimal,
 ) -> Result<EntityChanges, Error> {
@@ -76,6 +86,186 @@ pub fn graph_out(
         create_pool_entity(&mut tables, &pool, &pool_fees);
         create_pool_fee_entities(&mut tables, &pool_fees);
         create_pool_token_entities(&mut tables, &pool, &tokens_store)?;
+    }
+
+    for event in gauge_events.add_reward_events {
+        if let Some(delta) = reward_token_count_deltas
+            .deltas
+            .iter()
+            .find(|d| d.key == StoreKey::liquidity_gauge_reward_token_count_key(&event.gauge))
+        {
+            let start_index = delta.old_value;
+            let end_index = delta.new_value;
+
+            for index in start_index..end_index {
+                if let Some(reward_token) = reward_tokens_store.get_last(
+                    StoreKey::liquidity_gauge_reward_token_key(&event.gauge, &(index + 1)),
+                ) {
+                    let price_usd = prices::get_token_usd_price(
+                        &reward_token,
+                        &uniswap_prices,
+                        &chainlink_prices,
+                    );
+                    // Check if Token has already been created during a pool deployment
+                    match tokens_store.get_last(StoreKey::token_key(&reward_token.address)) {
+                        // If already exists, just update the lastPriceUSD
+                        Some(_) => {
+                            tables
+                                .update_row("Token", EntityKey::token_key(&event.reward_token))
+                                .set("lastPriceUSD", price_usd);
+                        }
+                        // If does not exist, go ahead and create the Token entity
+                        None => {
+                            tables
+                                .create_row("Token", EntityKey::token_key(&event.reward_token))
+                                .set("name", reward_token.name)
+                                .set("symbol", reward_token.symbol)
+                                .set("decimals", reward_token.decimals as i32)
+                                .set("isBasePoolLpToken", reward_token.is_base_pool_lp_token)
+                                .set("lastPriceUSD", price_usd)
+                                .set(
+                                    "_totalSupply",
+                                    BigInt::from_str(&reward_token.total_supply)
+                                        .unwrap_or_else(|_| BigInt::zero()),
+                                )
+                                .set("_totalValueLockedUSD", BigDecimal::zero())
+                                .set("_largePriceChangeBuffer", 0)
+                                .set("_largeTVLImpactBuffer", 0);
+                        }
+                    }
+                    // Create the new entities representing the added gauge reward token
+                    tables
+                        .create_row(
+                            "RewardToken",
+                            EntityKey::reward_token_key(&event.reward_token),
+                        )
+                        .set("token", EntityKey::token_key(&event.reward_token))
+                        .set("type", "DEPOSIT");
+
+                    tables
+                        .create_row(
+                            "PoolRewardToken",
+                            EntityKey::pool_reward_token_key(&event.pool, &event.reward_token),
+                        )
+                        .set("pool", EntityKey::liquidity_pool_key(&event.pool))
+                        .set(
+                            "rewardToken",
+                            EntityKey::reward_token_key(&event.reward_token),
+                        );
+                }
+            }
+        }
+    }
+
+    // When a Gauge is added to the GaugeController, it is now eligible for CRV rewards
+    for event in events.controller_gauges {
+        if let Some(gauge) = gauge_store.get_last(StoreKey::liquidity_gauge_key(&event.gauge)) {
+            let crv_address = Hex::encode(CRV_TOKEN_ADDRESS);
+
+            tables
+                .create_row("RewardToken", EntityKey::reward_token_key(&crv_address))
+                .set("token", EntityKey::token_key(&crv_address))
+                .set("type", "DEPOSIT");
+
+            tables
+                .create_row(
+                    "PoolRewardToken",
+                    EntityKey::pool_reward_token_key(&gauge.pool, &crv_address),
+                )
+                .set("pool", EntityKey::liquidity_pool_key(&gauge.pool))
+                .set("rewardToken", EntityKey::reward_token_key(&crv_address));
+        }
+    }
+
+    for event in gauge_events.liquidity_events {
+        let mut reward_token_emissions_native: Vec<BigInt> = Vec::new();
+        let mut reward_token_emissions_usd: Vec<BigDecimal> = Vec::new();
+
+        if let Some(gauge) = gauge_store.get_last(StoreKey::liquidity_gauge_key(&event.gauge)) {
+            // Handle CRV Rewards - if it has been added to the `GaugeController`, it is eligible for CRV rewards
+            if let Some(_) =
+                gauge_controller_store.get_last(StoreKey::controller_gauge_added_key(&gauge.gauge))
+            {
+                if let Some(crv_inflation) =
+                    crv_inflation_store.get_last(StoreKey::crv_inflation_rate_key())
+                {
+                    let gauge_rel_weight =
+                        rpc::gauge::get_gauge_relative_weight(&gauge.address_vec());
+
+                    let crv_emissions_native = (BigDecimal::from_str(&crv_inflation)
+                        .unwrap_or_else(|_| BigDecimal::zero())
+                        * gauge_rel_weight
+                        * SECONDS_PER_DAY)
+                        .to_bigint();
+                    reward_token_emissions_native.push(crv_emissions_native.clone());
+
+                    let price_usd = prices::get_token_usd_price(
+                        &curve_token(),
+                        &uniswap_prices,
+                        &chainlink_prices,
+                    );
+                    let crv_emissions_usd =
+                        crv_emissions_native.to_decimal(default_decimals()) * price_usd;
+                    reward_token_emissions_usd.push(crv_emissions_usd);
+                }
+            }
+
+            // Handle Permissionless Rewards
+            if let Some(count) = reward_token_count_store.get_last(
+                StoreKey::liquidity_gauge_reward_token_count_key(&gauge.gauge),
+            ) {
+                for index in 0..count {
+                    if let Some(reward_token) = reward_tokens_store.get_last(
+                        StoreKey::liquidity_gauge_reward_token_key(&gauge.gauge, &(index + 1)),
+                    ) {
+                        match rpc::gauge::get_reward_token_data(
+                            &gauge.address_vec(),
+                            &reward_token.address_vec(),
+                        ) {
+                            Some(reward_data) => {
+                                if reward_data.period_finish.to_u64() as i64
+                                    > clock.clone().timestamp.unwrap().seconds
+                                {
+                                    // Calculate native token emissions
+                                    let token_emissions_native = reward_data.rate * SECONDS_PER_DAY;
+                                    reward_token_emissions_native
+                                        .push(token_emissions_native.clone());
+
+                                    let price_usd = prices::get_token_usd_price(
+                                        &reward_token,
+                                        &uniswap_prices,
+                                        &chainlink_prices,
+                                    );
+
+                                    let token_emissions_usd = token_emissions_native
+                                        .to_decimal(default_decimals())
+                                        * price_usd;
+
+                                    // Calculate USD emissions
+                                    reward_token_emissions_usd.push(token_emissions_usd);
+                                } else {
+                                    reward_token_emissions_native.push(BigInt::zero());
+                                    reward_token_emissions_usd.push(BigDecimal::zero());
+                                }
+                            }
+                            None => {
+                                reward_token_emissions_native.push(BigInt::zero());
+                                reward_token_emissions_usd.push(BigDecimal::zero());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        tables
+            .update_row("LiquidityPool", EntityKey::liquidity_pool_key(&event.pool))
+            .set(
+                "stakedOutputTokenAmount",
+                BigInt::from_str(&event.working_supply).unwrap_or_else(|_| BigInt::zero()),
+            )
+            .set("rewardTokenEmissionsAmount", reward_token_emissions_native)
+            .set("rewardTokenEmissionsUSD", reward_token_emissions_usd);
     }
 
     for delta in pool_count_deltas.deltas.iter().last() {

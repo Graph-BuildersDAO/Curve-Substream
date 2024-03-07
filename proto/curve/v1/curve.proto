@@ -15,6 +15,7 @@ message Token {
   uint64 decimals = 4;
   string total_supply = 5;
   bool is_base_pool_lp_token = 6;
+  optional string gauge = 7;  // Optional field to track the gauge for reward tokens
 }
 
 message Pool {
@@ -67,12 +68,13 @@ message LiquidityEvent {
 
 message AddRewardEvent {
   string gauge = 1;
-  string reward_token = 2;
-  string distributor = 3;
-  string transaction_hash = 4;
-  uint32 tx_index = 5;
-  uint64 timestamp = 6;
-  uint64 block_number = 7;
+  string pool = 2;
+  string reward_token = 3;
+  string distributor = 4;
+  string transaction_hash = 5;
+  uint32 tx_index = 6;
+  uint64 timestamp = 7;
+  uint64 block_number = 8;
 }
 
 enum GaugeLiquidityEventType {

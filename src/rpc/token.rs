@@ -10,7 +10,15 @@ use crate::{
     rpc::{common::decode_rpc_response, registry::is_main_registry_pool},
 };
 
-pub fn create_token(token_address: &Vec<u8>, pool_address: &Vec<u8>) -> Result<Token, Error> {
+pub fn create_token(
+    token_address: &Vec<u8>,
+    pool_address: &Vec<u8>,
+    gauge_address: Option<&String>,
+) -> Result<Token, Error> {
+    // Clones the string if gauge_address is Some
+    // This indicates the creation of a reward token
+    let gauge = gauge_address.map(|g| g.clone());
+
     if token_address == constants::ETH_ADDRESS.as_ref() {
         let total_supply = match get_token_supply(&token_address) {
             Ok(total_supply) => total_supply,
@@ -26,6 +34,7 @@ pub fn create_token(token_address: &Vec<u8>, pool_address: &Vec<u8>) -> Result<T
             decimals: constants::default_decimals(),
             total_supply: total_supply.to_string(),
             is_base_pool_lp_token: false,
+            gauge,
         });
     }
 
@@ -84,6 +93,7 @@ pub fn create_token(token_address: &Vec<u8>, pool_address: &Vec<u8>) -> Result<T
         total_supply: total_supply.to_string(),
         is_base_pool_lp_token: utils::is_base_pool_lp_token(&token_address)
             || is_main_registry_pool(&pool_address),
+        gauge,
     });
 }
 
