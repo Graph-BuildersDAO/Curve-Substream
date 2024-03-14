@@ -98,6 +98,17 @@ pub fn map_curve_events(blk: eth::Block) -> Result<CurveEvents, Vec<Error>> {
     curve_events.gauges = gauges;
     curve_events.controller_gauges = controller_gauges;
 
+    // Sort by log ordinal to maintain determinism when handling these messages downstream
+    curve_events
+        .pools
+        .sort_by(|a, b| a.log_ordinal.cmp(&b.log_ordinal));
+    curve_events
+        .gauges
+        .sort_by(|a, b| a.log_ordinal.cmp(&b.log_ordinal));
+    curve_events
+        .controller_gauges
+        .sort_by(|a, b| a.log_ordinal.cmp(&b.log_ordinal));
+
     if errors.is_empty() {
         return Ok(curve_events);
     }
@@ -184,7 +195,7 @@ fn map_crypto_pool_deployed_events(
                             return None;
                         }
                     };
-                substreams::log::debug!("CryptoPoolDeployed Event");
+                substreams::log::debug!("Adding a CryptoPool");
 
                 Some(create_pool(
                     Hex::encode(&pool_address),
@@ -237,13 +248,13 @@ fn map_plain_pool_deployed_events<E: PlainPoolDeployedEvent + substreams_ethereu
                         Ok(result) => result,
                         Err(e) => {
                             substreams::log::debug!(
-                                "Error in `map_crypto_pool_deployed_events`: {:?}",
+                                "Error in `map_plain_pool_deployed_events`: {:?}",
                                 e
                             );
                             return None;
                         }
                     };
-                substreams::log::debug!("PlainPoolDeployed Event");
+                substreams::log::debug!("Adding a PlainPool");
 
                 Some(create_pool(
                     Hex::encode(&transfer.receiver),
@@ -285,16 +296,17 @@ fn map_meta_pool_deployed_events(
                         return None;
                     }
                 };
-                let lp_token = match token::create_token(&transfer.receiver, &transfer.receiver, None) {
-                    Ok(token) => token,
-                    Err(e) => {
-                        substreams::log::debug!(
-                            "Error in `map_meta_pool_deployed_events`: {:?}",
-                            e
-                        );
-                        return None;
-                    }
-                };
+                let lp_token =
+                    match token::create_token(&transfer.receiver, &transfer.receiver, None) {
+                        Ok(token) => token,
+                        Err(e) => {
+                            substreams::log::debug!(
+                                "Error in `map_meta_pool_deployed_events`: {:?}",
+                                e
+                            );
+                            return None;
+                        }
+                    };
                 let (input_tokens, input_tokens_ordered) =
                     match get_and_sort_input_tokens(&transfer.receiver) {
                         Ok(result) => result,
@@ -306,7 +318,7 @@ fn map_meta_pool_deployed_events(
                             return None;
                         }
                     };
-                substreams::log::debug!("MetaPoolDeployed Event");
+                substreams::log::debug!("Adding MetaPool");
 
                 Some(create_pool(
                     Hex::encode(&transfer.receiver),
@@ -337,7 +349,7 @@ fn map_tricrypto_pool_deployed_events(
                     Ok(token) => token,
                     Err(e) => {
                         substreams::log::debug!(
-                            "Error in `map_meta_pool_deployed_events`: {:?}",
+                            "Error in `map_tricrypto_pool_deployed_events`: {:?}",
                             e
                         );
                         return None;
@@ -354,7 +366,7 @@ fn map_tricrypto_pool_deployed_events(
                             return None;
                         }
                     };
-                substreams::log::debug!("TricryptoPoolDeployed Event");
+                substreams::log::debug!("Added TricryptoPool");
 
                 Some(create_pool(
                     Hex::encode(&event.pool),
