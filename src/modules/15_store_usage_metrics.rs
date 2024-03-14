@@ -25,6 +25,15 @@ pub fn store_usage_metrics(
     current_time_deltas: Deltas<DeltaInt64>,
     output_store: StoreAddInt64,
 ) {
+    // Initialise pruning for usage metrics data using `ProtocolUsageMetricsPruneAction`.
+    // This setup registers the pruner to execute when new timeframes (day/hour) are detected,
+    // ensuring outdated data is removed to maintain store efficiency.
+    let protocol_usage_metrics_pruner = ProtocolUsageMetricsPruneAction {
+        store: &output_store,
+    };
+
+    setup_timeframe_pruning(&current_time_deltas, &[&protocol_usage_metrics_pruner]);
+
     let (day_id, hour_id) = calculate_day_hour_id(clock.timestamp.unwrap().seconds);
 
     let (general, daily, hourly) = separate_active_users_deltas(&active_users_deltas);
@@ -110,12 +119,6 @@ pub fn store_usage_metrics(
             withdraw_events_count,
         );
     }
-
-    let protocol_usage_metrics_pruner = ProtocolUsageMetricsPruneAction {
-        store: &output_store,
-    };
-
-    setup_timeframe_pruning(&current_time_deltas, &[&protocol_usage_metrics_pruner]);
 }
 
 fn separate_active_users_deltas(

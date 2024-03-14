@@ -37,6 +37,20 @@ pub fn store_pool_volume_usd(
     uniswap_prices: StoreGetProto<Erc20Price>,
     output_store: StoreAddBigDecimal,
 ) {
+    // Initialise pruning for pool/token volume usd data using `PoolVolumeUsdPruner`/`TokenVolumeUsdPruner`.
+    // This setup registers the pruners to execute when new timeframes (day/hour) are detected,
+    // ensuring outdated data is removed to maintain store efficiency.
+    let pool_volume_usd_pruner = PoolVolumeUsdPruner {
+        store: &output_store,
+    };
+    let token_volume_usd_pruner = TokenVolumeUsdPruner {
+        store: &output_store,
+    };
+    setup_timeframe_pruning(
+        &current_time_deltas,
+        &[&pool_volume_usd_pruner, &token_volume_usd_pruner],
+    );
+
     let (day_id, hour_id) = calculate_day_hour_id(clock.timestamp.unwrap().seconds);
 
     for event in events.pool_events {
@@ -189,18 +203,4 @@ pub fn store_pool_volume_usd(
             }
         }
     }
-
-    // Initialise pruning for pool/token volume usd data using `PoolVolumeUsdPruner`/`TokenVolumeUsdPruner`.
-    // This setup registers the pruners to execute when new timeframes (day/hour) are detected,
-    // ensuring outdated data is removed to maintain store efficiency.
-    let pool_volume_usd_pruner = PoolVolumeUsdPruner {
-        store: &output_store,
-    };
-    let token_volume_usd_pruner = TokenVolumeUsdPruner {
-        store: &output_store,
-    };
-    setup_timeframe_pruning(
-        &current_time_deltas,
-        &[&pool_volume_usd_pruner, &token_volume_usd_pruner],
-    );
 }
