@@ -38,6 +38,8 @@ fn main() -> Result<(), anyhow::Error> {
         "abi/curve/GaugeController.abi.json",
         "abi/curve/Pool.abi.json",
         "abi/curve/Registry.abi.json",
+        "abi/oracle/CurveCalculations.abi.json",
+        "abi/oracle/Inch.abi.json",
         "abi/oracle/SushiSwap.abi.json",
         "abi/oracle/YearnLens.abi.json",
     ];
@@ -68,6 +70,8 @@ fn main() -> Result<(), anyhow::Error> {
         "src/abi/curve/gauge_controller.rs",
         "src/abi/curve/pool.rs",
         "src/abi/curve/registry.rs",
+        "src/abi/oracle/curve_calculations.rs",
+        "src/abi/oracle/inch.rs",
         "src/abi/oracle/sushiswap.rs",
         "src/abi/oracle/yearn_lens.rs",
     ];
@@ -287,6 +291,28 @@ fn generate_network_config_from_json(path: &str, output_path: &str) -> Result<()
         output.push_str("];\n");
     }
 
+    if let Some(curve_calcs) = json["curveCalculations"].as_object() {
+        let address = curve_calcs["address"]
+            .as_str()
+            .unwrap_or_default()
+            .trim_start_matches("0x");
+        output.push_str(&format!(
+            "\npub static CURVE_CALCULATIONS: [u8; 20] = hex!(\"{}\");\n",
+            address
+        ));
+    }
+
+    if let Some(inch) = json["inch"].as_object() {
+        let address = inch["address"]
+            .as_str()
+            .unwrap_or_default()
+            .trim_start_matches("0x");
+        output.push_str(&format!(
+            "\npub static INCH_ORACLE: [u8; 20] = hex!(\"{}\");\n",
+            address
+        ));
+    }
+
     if let Some(yearn_lens) = json["yearnLens"].as_object() {
         let address = yearn_lens["address"]
             .as_str()
@@ -307,6 +333,48 @@ fn generate_network_config_from_json(path: &str, output_path: &str) -> Result<()
             "\npub static SUSHISWAP: [u8; 20] = hex!(\"{}\");\n",
             address
         ));
+    }
+
+    if let Some(curve_calcs_blacklist) = json["curveCalculationsBlacklist"].as_array() {
+        output.push_str(
+            format!(
+                "\npub static CURVE_CALCULATIONS_BLACKLIST: [[u8; 20]; {}] = [\n",
+                curve_calcs_blacklist.len()
+            )
+            .as_str(),
+        );
+        for token in curve_calcs_blacklist {
+            let name = token["name"].as_str().unwrap_or_default();
+            let address = token["address"]
+                .as_str()
+                .unwrap_or_default()
+                .trim_start_matches("0x");
+            output.push_str(&format!("hex!(\"{}\"), // {}\n", address, name));
+        }
+        output.push_str("];\n");
+    } else {
+        output.push_str("\npub static CURVE_CALCULATIONS_BLACKLIST: [[u8; 20]; 0] = [];\n");
+    }
+
+    if let Some(inch_blacklist) = json["inchBlacklist"].as_array() {
+        output.push_str(
+            format!(
+                "\npub static INCH_BLACKLIST: [[u8; 20]; {}] = [\n",
+                inch_blacklist.len()
+            )
+            .as_str(),
+        );
+        for token in inch_blacklist {
+            let name = token["name"].as_str().unwrap_or_default();
+            let address = token["address"]
+                .as_str()
+                .unwrap_or_default()
+                .trim_start_matches("0x");
+            output.push_str(&format!("hex!(\"{}\"), // {}\n", address, name));
+        }
+        output.push_str("];\n");
+    } else {
+        output.push_str("\npub static INCH_BLACKLIST: [[u8; 20]; 0] = [];\n");
     }
 
     if let Some(yearn_blacklist) = json["yearnLensBlacklist"].as_array() {
