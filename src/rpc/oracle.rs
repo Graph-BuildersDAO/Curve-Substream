@@ -1,9 +1,12 @@
 use substreams::scalar::BigDecimal;
 
 use crate::{
-    abi::oracle::{sushiswap, yearn_lens},
+    abi::oracle::{curve_calculations, sushiswap, yearn_lens},
     constants::default_usdc_decimals,
-    network_config::{SUSHISWAP, SUSHI_BLACKLIST, YEARN_LENS, YEARN_LENS_BLACKLIST},
+    network_config::{
+        CURVE_CALCULATIONS, CURVE_CALCULATIONS_BLACKLIST, SUSHISWAP, SUSHI_BLACKLIST, YEARN_LENS,
+        YEARN_LENS_BLACKLIST,
+    },
 };
 
 // TODO: Implement oracle type logic
@@ -36,6 +39,25 @@ pub fn get_usd_price_from_sushi(token_address: Vec<u8>) -> Option<BigDecimal> {
         return None;
     }
     let price_opt = sushiswap::functions::GetPriceUsdc { token_address }.call(SUSHISWAP.to_vec());
+
+    if let Some(price) = price_opt {
+        return Some(price.to_decimal(default_usdc_decimals()));
+    }
+    None
+}
+
+pub fn get_usd_price_from_curve_calc(token_address: Vec<u8>) -> Option<BigDecimal> {
+    if CURVE_CALCULATIONS_BLACKLIST
+        .iter()
+        .any(|&addr| addr.as_ref() == token_address.as_slice())
+    {
+        return None;
+    }
+
+    let price_opt = curve_calculations::functions::GetPriceUsdc {
+        asset_address: token_address.to_vec(),
+    }
+    .call(CURVE_CALCULATIONS.to_vec());
 
     if let Some(price) = price_opt {
         return Some(price.to_decimal(default_usdc_decimals()));

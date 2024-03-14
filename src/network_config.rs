@@ -143,9 +143,21 @@ hex!("056fd409e1d7a124bd7017459dfea2f387b6d5cd"), // gUSD
 hex!("5f98805a4e8be255a32880fdec7f6728c6568ba0"), // lUSD
 ];
 
+pub static CURVE_CALCULATIONS: [u8; 20] = hex!("25bf7b72815476dd515044f9650bf79bad0df655");
+
+pub static INCH_ORACLE: [u8; 20] = hex!("07d91f5fb9bf7798734c3f606db065549f6893bb");
+
 pub static YEARN_LENS: [u8; 20] = hex!("83d95e0d5f402511db06817aff3f9ea88224b030");
 
 pub static SUSHISWAP: [u8; 20] = hex!("5ea7e501c9a23f4a76dc7d33a11d995b13a1dd25");
+
+pub static CURVE_CALCULATIONS_BLACKLIST: [[u8; 20]; 2] = [
+hex!("ca3d75ac011bf5ad07a98d02f18225f9bd9a6bdf"), // crvTriCrypto
+hex!("c4ad29ba4b3c580e6d59105fff484999997675ff"), // crv3Crypto
+];
+
+pub static INCH_BLACKLIST: [[u8; 20]; 0] = [
+];
 
 pub static YEARN_LENS_BLACKLIST: [[u8; 20]; 7] = [
 hex!("5f98805a4e8be255a32880fdec7f6728c6568ba0"), // LUSD
