@@ -13,6 +13,7 @@ use substreams::{
     Hex,
 };
 use substreams_entity_change::{pb::entity::EntityChanges, tables::Tables};
+use substreams_ethereum::NULL_ADDRESS;
 
 use crate::{
     common::{
@@ -69,7 +70,6 @@ pub fn graph_out(
     gauge_events: LiquidityGaugeEvents,
     crv_inflation_store: StoreGetString,
     reward_token_count_store: StoreGetInt64,
-    reward_token_count_deltas: Deltas<DeltaInt64>,
     reward_tokens_store: StoreGetProto<Token>,
     uniswap_prices: StoreGetProto<Erc20Price>,
     chainlink_prices: StoreGetBigDecimal,
@@ -88,16 +88,17 @@ pub fn graph_out(
         create_pool_token_entities(&mut tables, &pool, &tokens_store)?;
     }
 
-    for event in gauge_events.add_reward_events {
-        if let Some(delta) = reward_token_count_deltas
-            .deltas
-            .iter()
-            .find(|d| d.key == StoreKey::liquidity_gauge_reward_token_count_key(&event.gauge))
-        {
-            let start_index = delta.old_value;
-            let end_index = delta.new_value;
+    for event in events.gauges {
+        tables
+            .update_row("LiquidityPool", EntityKey::liquidity_pool_key(&event.pool))
+            .set("_gaugeAddress", format_address_string(&event.gauge));
+    }
 
-            for index in start_index..end_index {
+    for event in gauge_events.add_reward_events {
+        if let Some(count) = reward_token_count_store.get_last(
+            StoreKey::liquidity_gauge_reward_token_count_key(&event.gauge),
+        ) {
+            for index in 0..count {
                 if let Some(reward_token) = reward_tokens_store.get_last(
                     StoreKey::liquidity_gauge_reward_token_key(&event.gauge, &(index + 1)),
                 ) {
@@ -128,9 +129,7 @@ pub fn graph_out(
                                     BigInt::from_str(&reward_token.total_supply)
                                         .unwrap_or_else(|_| BigInt::zero()),
                                 )
-                                .set("_totalValueLockedUSD", BigDecimal::zero())
-                                .set("_largePriceChangeBuffer", 0)
-                                .set("_largeTVLImpactBuffer", 0);
+                                .set("_totalValueLockedUSD", BigDecimal::zero());
                         }
                     }
                     // Create the new entities representing the added gauge reward token
@@ -174,6 +173,10 @@ pub fn graph_out(
                 )
                 .set("pool", EntityKey::liquidity_pool_key(&gauge.pool))
                 .set("rewardToken", EntityKey::reward_token_key(&crv_address));
+
+            tables
+                .update_row("LiquidityPool", EntityKey::liquidity_pool_key(&gauge.pool))
+                .set("_gaugeAddress", format_address_string(&event.gauge));
         }
     }
 
@@ -271,7 +274,7 @@ pub fn graph_out(
     for delta in pool_count_deltas.deltas.iter().last() {
         tables
             .update_row("DexAmmProtocol", EntityKey::protocol_key())
-            .set("totalPoolCount", delta.new_value);
+            .set("totalPoolCount", delta.new_value as i32);
     }
 
     for delta in pool_fees_deltas.iter() {
@@ -388,9 +391,8 @@ fn create_protocol_entity(tables: &mut Tables, clock: &Clock) {
             .set("cumulativeSupplySideRevenueUSD", BigDecimal::zero())
             .set("cumulativeProtocolSideRevenueUSD", BigDecimal::zero())
             .set("cumulativeTotalRevenueUSD", BigDecimal::zero())
-            .set("cumulativeUniqueUsers", 0)
-            .set("totalPoolCount", 0)
-            .set("_poolIds", Vec::<String>::new());
+            .set("cumulativeUniqueUsers", 0 as i32)
+            .set("totalPoolCount", 0 as i32);
     }
 }
 
@@ -445,6 +447,10 @@ fn create_pool_entity(tables: &mut Tables, pool: &Pool, pool_fees: &PoolFees) {
             "_registryAddress",
             format::format_address_string(&pool.registry_address),
         )
+        .set(
+            "_gaugeAddress",
+            format::format_address_vec(&NULL_ADDRESS.to_vec()),
+        )
         .set("_isMetapool", &pool.is_metapool);
 }
 
@@ -497,9 +503,7 @@ fn create_pool_token_entities(
                         .set("isBasePoolLpToken", token.is_base_pool_lp_token)
                         .set("lastPriceUSD", BigDecimal::zero())
                         .set("_totalSupply", BigInt::zero())
-                        .set("_totalValueLockedUSD", BigDecimal::zero())
-                        .set("_largePriceChangeBuffer", 0)
-                        .set("_largeTVLImpactBuffer", 0);
+                        .set("_totalValueLockedUSD", BigDecimal::zero());
                 }
             }
             None => {
