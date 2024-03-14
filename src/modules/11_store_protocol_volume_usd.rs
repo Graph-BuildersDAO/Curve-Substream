@@ -23,6 +23,14 @@ pub fn store_protocol_volume_usd(
     current_time_deltas: Deltas<DeltaInt64>,
     output_store: StoreAddBigDecimal,
 ) {
+    // Initialise pruning for protocol volume usd data using `ProtocolVolumeUsdPruneAction`.
+    // This setup registers the pruner to execute when new timeframes (day/hour) are detected,
+    // ensuring outdated data is removed to maintain store efficiency.
+    let protocol_volume_usd_pruner = ProtocolVolumeUsdPruneAction {
+        store: &output_store,
+    };
+    setup_timeframe_pruning(&current_time_deltas, &[&protocol_volume_usd_pruner]);
+
     let (day_id, _) = calculate_day_hour_id(clock.timestamp.unwrap().seconds);
 
     for delta in pool_volume_deltas.iter() {
@@ -36,12 +44,4 @@ pub fn store_protocol_volume_usd(
             tvl_diff,
         );
     }
-
-    // Initialise pruning for protocol volume usd data using `ProtocolVolumeUsdPruneAction`.
-    // This setup registers the pruner to execute when new timeframes (day/hour) are detected,
-    // ensuring outdated data is removed to maintain store efficiency.
-    let protocol_volume_usd_pruner = ProtocolVolumeUsdPruneAction {
-        store: &output_store,
-    };
-    setup_timeframe_pruning(&current_time_deltas, &[&protocol_volume_usd_pruner]);
 }

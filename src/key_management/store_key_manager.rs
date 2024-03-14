@@ -306,13 +306,13 @@ impl StoreKey {
                 format!("PoolDailyVolumeUsd:{}:{}", day_id.to_string(), addr)
             }
             StoreKey::PoolDailyVolumeUsdPrune(day_id) => {
-                format!("PoolDailyVolumeUsd:{}", day_id.to_string())
+                format!("PoolDailyVolumeUsd:{}:", day_id.to_string())
             }
             StoreKey::PoolHourlyVolumeUsd(hour_id, addr) => {
                 format!("PoolHourlyVolumeUsd:{}:{}", hour_id.to_string(), addr)
             }
             StoreKey::PoolHourlyVolumeUsdPrune(hour_id) => {
-                format!("PoolHourlyVolumeUsd:{}", hour_id.to_string())
+                format!("PoolHourlyVolumeUsd:{}:", hour_id.to_string())
             }
             StoreKey::PoolTokenDailyVolumeNative(day_id, pool_addr, token_addr) => {
                 format!(
@@ -323,7 +323,7 @@ impl StoreKey {
                 )
             }
             StoreKey::PoolTokenDailyVolumeNativePrune(day_id) => {
-                format!("PoolTokenDailyVolumeNative:{}", day_id.to_string(),)
+                format!("PoolTokenDailyVolumeNative:{}:", day_id.to_string(),)
             }
             StoreKey::PoolTokenHourlyVolumeNative(hour_id, pool_addr, token_addr) => {
                 format!(
@@ -334,7 +334,7 @@ impl StoreKey {
                 )
             }
             StoreKey::PoolTokenHourlyVolumeNativePrune(hour_id) => {
-                format!("PoolTokenHourlyVolumeNative:{}", hour_id.to_string(),)
+                format!("PoolTokenHourlyVolumeNative:{}:", hour_id.to_string(),)
             }
             StoreKey::PoolTokenDailyVolumeUsd(day_id, pool_addr, token_addr) => {
                 format!(
@@ -345,7 +345,7 @@ impl StoreKey {
                 )
             }
             StoreKey::PoolTokenDailyVolumeUsdPrune(day_id) => {
-                format!("PoolTokenDailyVolumeUsd:{}", day_id.to_string(),)
+                format!("PoolTokenDailyVolumeUsd:{}:", day_id.to_string(),)
             }
             StoreKey::PoolTokenHourlyVolumeUsd(hour_id, pool_addr, token_addr) => {
                 format!(
@@ -356,7 +356,7 @@ impl StoreKey {
                 )
             }
             StoreKey::PoolTokenHourlyVolumeUsdPrune(hour_id) => {
-                format!("PoolTokenHourlyVolumeUsd:{}", hour_id.to_string(),)
+                format!("PoolTokenHourlyVolumeUsd:{}:", hour_id.to_string(),)
             }
             StoreKey::PoolTvl(addr) => format!("PoolTvl:{}", addr),
             StoreKey::PoolTokenTvl(pool, token) => format!("PoolTokenTvl:{}:{}", pool, token),
@@ -390,13 +390,13 @@ impl StoreKey {
                 format!("ActiveUserDaily:{}:{}", day_id.to_string(), user_addr)
             }
             StoreKey::ActiveUserDailyPrune(day_id) => {
-                format!("ActiveUserDaily:{}", day_id.to_string())
+                format!("ActiveUserDaily:{}:", day_id.to_string())
             }
             StoreKey::ActiveUserHourly(hour_id, user_addr) => {
                 format!("ActiveUserHourly:{}:{}", hour_id.to_string(), user_addr)
             }
             StoreKey::ActiveUserHourlyPrune(hour_id) => {
-                format!("ActiveUserHourly:{}", hour_id.to_string())
+                format!("ActiveUserHourly:{}:", hour_id.to_string())
             }
             StoreKey::ActiveUserCount => "ActiveUserCount".to_string(),
             StoreKey::ActiveUserDailyCount(day_id) => {

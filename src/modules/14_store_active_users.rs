@@ -22,6 +22,15 @@ pub fn store_active_users(
     current_time_deltas: Deltas<DeltaInt64>,
     output_store: StoreSetIfNotExistsInt64,
 ) {
+    // Initialise pruning for active users data using `ProtocolActiveUserPruneAction`.
+    // This setup registers the pruner to execute when new timeframes (day/hour) are detected,
+    // ensuring outdated data is removed to maintain store efficiency.
+    let protocol_active_user_pruner = ProtocolActiveUserPruneAction {
+        store: &output_store,
+    };
+
+    setup_timeframe_pruning(&current_time_deltas, &[&protocol_active_user_pruner]);
+
     let (day_id, hour_id) = calculate_day_hour_id(clock.timestamp.unwrap().seconds);
 
     for event in events.pool_events {
@@ -35,10 +44,4 @@ pub fn store_active_users(
             &1,
         );
     }
-
-    let protocol_active_user_pruner = ProtocolActiveUserPruneAction {
-        store: &output_store,
-    };
-
-    setup_timeframe_pruning(&current_time_deltas, &[&protocol_active_user_pruner]);
 }

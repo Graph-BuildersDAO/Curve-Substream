@@ -26,6 +26,14 @@ pub fn store_pool_volume_native(
     current_time_deltas: Deltas<DeltaInt64>,
     output_store: StoreAddBigInt,
 ) {
+    // Initialise pruning for token volume native data using `TokenVolumeNativePruner`.
+    // This setup registers the pruner to execute when new timeframes (day/hour) are detected,
+    // ensuring outdated data is removed to maintain store efficiency.
+    let token_volume_native_pruner = TokenVolumeNativePruner {
+        store: &output_store,
+    };
+    setup_timeframe_pruning(&current_time_deltas, &[&token_volume_native_pruner]);
+
     let (day_id, hour_id) = calculate_day_hour_id(clock.timestamp.unwrap().seconds);
 
     for event in events.pool_events {
@@ -65,14 +73,6 @@ pub fn store_pool_volume_native(
             }
         }
     }
-
-    // Initialise pruning for token volume native data using `TokenVolumeNativePruner`.
-    // This setup registers the pruner to execute when new timeframes (day/hour) are detected,
-    // ensuring outdated data is removed to maintain store efficiency.
-    let token_volume_native_pruner = TokenVolumeNativePruner {
-        store: &output_store,
-    };
-    setup_timeframe_pruning(&current_time_deltas, &[&token_volume_native_pruner]);
 }
 
 fn update_pool_volume(
