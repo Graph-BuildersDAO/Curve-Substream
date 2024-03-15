@@ -348,24 +348,24 @@ pub fn graph_out(
         &protocol_tvl_store,
     );
 
-    manage_timeframe_snapshots(
-        &clock,
-        &current_time_deltas,
-        &mut tables,
-        &usage_metrics_store,
-        &pool_count_store,
-        &pool_addresses_store,
-        &pools_store,
-        &pool_tvl_store,
-        &pool_volume_usd_store,
-        &pool_volume_native_store,
-        &protocol_tvl_store,
-        &protocol_volume_store,
-        &input_token_balances_store,
-        &output_token_supply_store,
-        &uniswap_prices,
-        &chainlink_prices,
-    );
+    // manage_timeframe_snapshots(
+    //     &clock,
+    //     &current_time_deltas,
+    //     &mut tables,
+    //     &usage_metrics_store,
+    //     &pool_count_store,
+    //     &pool_addresses_store,
+    //     &pools_store,
+    //     &pool_tvl_store,
+    //     &pool_volume_usd_store,
+    //     &pool_volume_native_store,
+    //     &protocol_tvl_store,
+    //     &protocol_volume_store,
+    //     &input_token_balances_store,
+    //     &output_token_supply_store,
+    //     &uniswap_prices,
+    //     &chainlink_prices,
+    // );
 
     Ok(tables.to_entity_changes())
 }
