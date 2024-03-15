@@ -1,7 +1,7 @@
 specVersion: v0.1.0
 package:
   name: curve_sps
-  version: v0.1.0
+  version: v0.1.5-alpha
 
 imports:
   graph: https://github.com/streamingfast/substreams-sink-subgraph/releases/download/v0.1.0/substreams-sink-subgraph-protodefs-v0.1.0.spkg
@@ -23,7 +23,7 @@ binaries:
 modules:
   - name: map_curve_events
     kind: map
-    initialBlock: 10647875
+    initialBlock: 9456293
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:
@@ -168,7 +168,7 @@ modules:
 
   - name: store_current_time
     kind: store
-    initialBlock: 10647875
+    initialBlock: 9456293
     updatePolicy: set
     valueType: int64
     inputs:
@@ -190,7 +190,7 @@ modules:
 
   - name: map_gauge_events
     kind: map
-    initialBlock: 10647875
+    initialBlock: 9456293
     inputs:
       - source: sf.ethereum.type.v2.Block
       - store: store_gauges
@@ -224,7 +224,7 @@ modules:
 
   - name: graph_out
     kind: map
-    initialBlock: 10647875
+    initialBlock: 9456293
     inputs:
       - source: sf.substreams.v1.Clock
       - map: map_curve_events
@@ -270,18 +270,18 @@ network: mainnet
 networks:
   mainnet:
     initialBlock:
-      chainlink_prices:store_confirmed_feeds: 10647875
-      chainlink_prices:get_chainlink_answers: 10647875
-      chainlink_prices:chainlink_price_store: 10647875
-      chainlink_prices:graph_out: 10647875
-      uniswap_prices:map_pair_created_events: 10647875
-      uniswap_prices:store_pair_created_events: 10647875
-      uniswap_prices:map_weth_prices: 10647875
-      uniswap_prices:store_weth_prices: 10647875
-      uniswap_prices:map_uniswap_prices: 10647875
-      uniswap_prices:store_uniswap_prices: 10647875
-      uniswap_prices:warmup: 10647875
-      uniswap_prices:chainlink_prices:chainlink_price_store: 10647875
-      uniswap_prices:chainlink_prices:graph_out: 10647875
-      uniswap_prices:chainlink_prices:get_chainlink_answers: 10647875
-      uniswap_prices:chainlink_prices:store_confirmed_feeds: 10647875
+      chainlink_prices:store_confirmed_feeds: 9456293
+      chainlink_prices:get_chainlink_answers: 9456293
+      chainlink_prices:chainlink_price_store: 9456293
+      chainlink_prices:graph_out: 9456293
+      uniswap_prices:map_pair_created_events: 9456293
+      uniswap_prices:store_pair_created_events: 9456293
+      uniswap_prices:map_weth_prices: 9456293
+      uniswap_prices:store_weth_prices: 9456293
+      uniswap_prices:map_uniswap_prices: 9456293
+      uniswap_prices:store_uniswap_prices: 9456293
+      uniswap_prices:warmup: 9456293
+      uniswap_prices:chainlink_prices:chainlink_price_store: 9456293
+      uniswap_prices:chainlink_prices:graph_out: 9456293
+      uniswap_prices:chainlink_prices:get_chainlink_answers: 9456293
+      uniswap_prices:chainlink_prices:store_confirmed_feeds: 9456293
