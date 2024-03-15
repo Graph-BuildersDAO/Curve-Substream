@@ -49,6 +49,11 @@
             "startBlock": "11154794"
         },
         {
+            "name": "MetaPoolFactoryOld",
+            "address": "0x0959158b6040d32d04c301a72cbfd6b39e21c9ae",
+            "startBlock": "11942404"
+        },
+        {
             "name": "StableSwapFactoryNG",
             "address": "0x6A8cbed756804B16E05E741eDaBd5cB544AE21bf",
             "startBlock": "18427841"
