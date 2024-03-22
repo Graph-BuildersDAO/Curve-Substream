@@ -7,7 +7,7 @@ use substreams::{
 use substreams_ethereum::{rpc::RpcBatch, NULL_ADDRESS};
 
 use crate::{
-    abi::curve::pool::functions,
+    abi::curve::{pool::functions, pools::metapool_old},
     common::{
         conversion::{convert_bigint_to_decimal, convert_enum_to_snake_case_prefix},
         format::format_address_vec,
@@ -131,6 +131,40 @@ pub fn get_pool_underlying_coins(pool_address: &Vec<u8>) -> Result<[Vec<u8>; 8],
             errors
         ))
     }
+}
+
+pub fn get_old_metapool_base_pool(pool_address: &Vec<u8>) -> Option<Vec<u8>> {
+    metapool_old::functions::BasePool {}.call(pool_address.clone())
+}
+
+pub fn get_old_metapool_underlying_coins(pool_address: &Vec<u8>) -> Result<Vec<Token>, Error> {
+    let mut tokens: Vec<Token> = Vec::new();
+    let mut idx = 0;
+
+    while idx >= 0 {
+        let input_token_option = metapool_old::functions::BaseCoins {
+            arg0: BigInt::from(idx),
+        }
+        .call(pool_address.clone());
+
+        let input_token = match input_token_option {
+            Some(token) => token,
+            None => {
+                break;
+            }
+        };
+
+        match create_token(&input_token, &pool_address, None) {
+            Ok(token) => {
+                tokens.push(token);
+            }
+            Err(e) => {
+                return Err(anyhow!("Error in `get_old_metapool_base_pool`: {:?}", e));
+            }
+        }
+        idx += 1;
+    }
+    Ok(tokens)
 }
 
 pub fn get_pool_fee_and_admin_fee(pool_address: &Vec<u8>) -> Result<(BigInt, BigInt), Error> {

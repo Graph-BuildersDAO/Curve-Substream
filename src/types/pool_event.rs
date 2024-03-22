@@ -5,7 +5,7 @@ use substreams::{scalar::BigInt, Hex};
 use crate::{
     constants::default_admin_fee,
     pb::curve::types::v1::events::{
-        pool_event::{DepositEvent, SwapEvent, SwapUnderlyingEvent, TokenAmount, WithdrawEvent},
+        pool_event::{DepositEvent, LpTokenChange, SwapEvent, SwapUnderlyingEvent, TokenAmount, WithdrawEvent},
         FeeChangeEvent,
     },
 };
@@ -65,12 +65,12 @@ impl SwapUnderlyingEvent {
         BigInt::from_str(self.token_out_ref().amount.as_str()).unwrap()
     }
 
-    pub fn lp_token_burnt_ref(&self) -> &TokenAmount {
-        self.lp_token_burnt.as_ref().unwrap()
+    pub fn lp_token_change_ref(&self) -> &LpTokenChange {
+        self.lp_token_change.as_ref().unwrap()
     }
 
-    pub fn lp_token_burnt_amount_big(&self) -> BigInt {
-        BigInt::from_str(self.lp_token_burnt_ref().amount.as_str()).unwrap()
+    pub fn lp_token_change_amount_big(&self) -> BigInt {
+        BigInt::from_str(self.lp_token_change_ref().amount.as_str()).unwrap()
     }
 }
 

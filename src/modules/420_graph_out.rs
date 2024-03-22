@@ -18,7 +18,7 @@ use substreams_ethereum::NULL_ADDRESS;
 use crate::{
     common::{
         format::{self, format_address_string},
-        pool_utils::{get_input_token_balances, get_input_token_weights},
+        pool_utils::{self, get_input_token_balances, get_input_token_weights},
         prices, utils,
     },
     constants::{self, curve_token, default_decimals, SECONDS_PER_DAY},
@@ -451,7 +451,7 @@ fn create_pool_entity(tables: &mut Tables, pool: &Pool, pool_fees: &PoolFees) {
             "_gaugeAddress",
             format::format_address_vec(&NULL_ADDRESS.to_vec()),
         )
-        .set("_isMetapool", &pool.is_metapool);
+        .set("_isMetapool", pool_utils::is_metapool(&pool));
 }
 
 fn create_pool_fee_entities(tables: &mut Tables, pool_fees: &PoolFees) {

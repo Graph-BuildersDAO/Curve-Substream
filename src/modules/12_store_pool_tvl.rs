@@ -26,9 +26,7 @@ pub fn store_pool_tvl(
 ) {
     for delta in balances_deltas.deltas {
         let pool_address = key::segment_at(&delta.key, 1);
-        substreams::log::debug!("Extracted pool_address is {:?}", pool_address);
         let token_address = key::segment_at(&delta.key, 2);
-        substreams::log::debug!("Extracted token_address is {:?}", token_address);
 
         let pool = pools_store.must_get_last(StoreKey::pool_key(&pool_address));
         let mut tvl = BigDecimal::zero();
@@ -50,6 +48,9 @@ pub fn store_pool_tvl(
             };
 
             if let Some(balance) = store_balance {
+                // TODO: We may be able to optimise here by getting the token price upstream when the balances change.
+                //       Check if we get the price in any other modules that use the balances store, and if so, we can
+                //       minimise the amount of store calls by getting it once and setting it alongside the balance changes.
                 let price_usd = get_token_usd_price(&token, &uniswap_prices, &chainlink_prices);
                 let token_tvl = balance.to_decimal(token.decimals) * price_usd;
 

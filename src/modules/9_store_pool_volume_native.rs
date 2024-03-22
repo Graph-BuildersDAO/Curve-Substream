@@ -5,6 +5,7 @@ use substreams::{
 };
 
 use crate::{
+    common::pool_utils::{is_base_to_meta_exchange, is_meta_to_base_exchange},
     key_management::store_key_manager::StoreKey,
     pb::curve::types::v1::{
         events::{pool_event::Type, PoolEvent},
@@ -60,14 +61,29 @@ pub fn store_pool_volume_native(
                     );
                 }
                 Type::SwapUnderlyingEvent(swap_underlying) => {
-                    update_pool_volume(
-                        &output_store,
-                        &event,
-                        &swap_underlying.token_in_ref().token_address,
-                        swap_underlying.token_in_amount_big(),
-                        &day_id,
-                        &hour_id,
-                    );
+                    if is_meta_to_base_exchange(swap_underlying) {
+                        // We only need to track the volume for the Metapools asset.
+                        update_pool_volume(
+                            &output_store,
+                            &event,
+                            &swap_underlying.token_in_ref().token_address,
+                            swap_underlying.token_in_amount_big(),
+                            &day_id,
+                            &hour_id,
+                        );
+                    } else if is_base_to_meta_exchange(swap_underlying) {
+                        // We only need to track the volume for the Metapools asset.
+                        update_pool_volume(
+                            &output_store,
+                            &event,
+                            &swap_underlying.token_out_ref().token_address,
+                            swap_underlying.token_out_amount_big(),
+                            &day_id,
+                            &hour_id,
+                        );
+                    }
+                    // If the exchange is a Base pool asset for another Base pool asset, the exchange
+                    // occurs on the base pool, and the volume is tracked there.
                 }
                 _ => {}
             }

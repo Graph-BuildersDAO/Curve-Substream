@@ -7,7 +7,11 @@ use substreams::{
 
 use crate::{
     key_management::store_key_manager::StoreKey,
-    pb::curve::types::v1::{Pool, Token},
+    pb::curve::types::v1::{
+        events::pool_event::{SwapUnderlyingEvent, TokenSource},
+        pool::PoolType,
+        Pool, Token,
+    },
 };
 
 pub fn get_input_token_balances(
@@ -56,4 +60,20 @@ pub fn get_input_token_weights(
     } else {
         vec![BigDecimal::zero(); pool.input_tokens.len()]
     }
+}
+
+pub fn is_metapool(pool: &Pool) -> bool {
+    matches!(pool.pool_type, Some(PoolType::MetaPool(_)))
+}
+
+// Checks whether a TokenExchangeUnderlying event is a Metapool Asset -> Base Pool Asset exchange
+pub fn is_meta_to_base_exchange(swap_underlying: &SwapUnderlyingEvent) -> bool {
+    swap_underlying.token_in_ref().source() == TokenSource::MetaPool
+        && swap_underlying.token_out_ref().source() == TokenSource::BasePool
+}
+
+// Checks whether a TokenExchangeUnderlying event is a Base Pool Asset -> Metapool Asset exchange
+pub fn is_base_to_meta_exchange(swap_underlying: &SwapUnderlyingEvent) -> bool {
+    swap_underlying.token_in_ref().source() == TokenSource::BasePool
+        && swap_underlying.token_out_ref().source() == TokenSource::MetaPool
 }
