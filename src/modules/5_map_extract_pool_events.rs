@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use num_traits::ToPrimitive;
 use substreams::{
     errors::Error,
@@ -24,22 +23,19 @@ use crate::{
         },
     },
     common::event_extraction,
-    constants::network,
     key_management::store_key_manager::StoreKey,
-    network_config,
     pb::curve::types::v1::{
         events::{
             pool_event::{
-                DepositEvent, SwapEvent, SwapUnderlyingEvent, TokenAmount, Type, WithdrawEvent,
+                DepositEvent, LpTokenChange, LpTokenChangeType, SwapEvent, SwapUnderlyingEvent,
+                TokenAmount, TokenSource, Type, WithdrawEvent,
             },
             FeeChangeEvent, PoolEvent,
         },
+        pool::PoolType,
         Events, Pool,
     },
-    rpc::{
-        pool::{get_pool_fee_and_admin_fee, get_pool_underlying_coins},
-        registry::get_pool_underlying_coins_from_registry,
-    },
+    rpc::pool::get_pool_fee_and_admin_fee,
 };
 
 #[substreams::handlers::map]
@@ -397,11 +393,13 @@ fn extract_swap_event(
     let token_in = TokenAmount {
         token_address: pool.input_tokens_ordered[in_address_index].clone(),
         amount: tokens_sold.into(),
+        source: TokenSource::Default as i32,
     };
 
     let token_out = TokenAmount {
         token_address: pool.input_tokens_ordered[out_address_index].clone(),
         amount: tokens_bought.into(),
+        source: TokenSource::Default as i32,
     };
 
     let swap_event = SwapEvent {
@@ -435,68 +433,58 @@ fn extract_swap_underlying_event(
     tokens_bought: &BigInt,
     buyer: &Vec<u8>,
 ) {
-    let pool_address = &pool.address;
-    substreams::log::info!(format!(
+    // Check if the pool is a metapool and retrieve the base pool's address.
+    let base_pool_address = match &pool.pool_type {
+        Some(PoolType::MetaPool(meta)) => meta.base_pool_address.clone(),
+        _ => {
+            substreams::log::debug!(
+                "Pool is not a metapool, skipping `TokenExchangeUnderlying` event processing."
+            );
+            return;
+        }
+    };
+
+    if base_pool_address.is_empty() {
+        substreams::log::debug!("Base pool address not found for metapool.");
+        return;
+    }
+
+    substreams::log::info!(
         "Extracting Swap Underlying from transaction {} and pool {}",
         Hex::encode(&trx.hash),
-        &pool_address
-    ));
-    let in_address_index = sold_id.to_i32().to_usize().unwrap();
-    let out_address_index = bought_id.to_i32().to_usize().unwrap();
+        &pool.address
+    );
 
-    let (token_in_address, token_out_address) =
-        match get_underlying_coin_addresses(pool, in_address_index, out_address_index, bought_id) {
-            Ok((in_addr, out_addr)) => (in_addr, out_addr),
-            Err(e) => {
-                substreams::log::debug!("Error in `extract_swap_event`: {:?}", e);
-                return;
-            }
-        };
+    // Determine the addresses and sources of the input and output tokens
+    // based on their indices and the type of the pool.
+    let (token_in, token_out) = determine_underlying_exchange_tokens(
+        &pool,
+        sold_id.to_i32(),
+        bought_id.to_i32(),
+        tokens_sold,
+        tokens_bought,
+    );
 
-    let token_in = TokenAmount {
-        token_address: token_in_address,
-        amount: tokens_sold.into(),
-    };
-
-    let token_out = TokenAmount {
-        token_address: token_out_address,
-        amount: tokens_bought.into(),
-    };
-
-    // Get burn transfer. During an ExchangeUnderlying, the metapool withdraws underlying coins from
-    // the base pool. To do this, the underlying pools LP tokens are burnt.
-    let token_burnt: TokenAmount = match event_extraction::extract_specific_transfer_event(
-        trx,
-        None,
-        Some(&pool.address_vec()),
-        Some(&NULL_ADDRESS.to_vec()),
-    ) {
-        Ok(burn_transfer) => TokenAmount {
-            token_address: Hex::encode(burn_transfer.token_address),
-            amount: burn_transfer.transfer.value.into(),
-        },
-        Err(e) => {
-            substreams::log::debug!("Error in `map_extract_pool_events`: {:?}", e);
-            return;
-        }
-    };
-
-    // As part of the tx logs, we can find the RemoveLiquidity event emitted from the base pool.
-    // This allows us to get the base pool's address.
-    let remove_liquidity_transfer = match event_extraction::extract_remove_liquidity_one_event(&trx)
+    // Determine if there's a change in the metapools base pool LP token balance. This could be a burn
+    // or mint operation depending on the swap direction (metapool to base pool or vice versa).
+    let base_pool_lp_token_address = pool.input_tokens.get(1).unwrap().address_vec();
+    let lp_token_change = if token_in.source() == TokenSource::MetaPool
+        && token_out.source() == TokenSource::BasePool
     {
-        Ok(remove_transfer) => remove_transfer,
-        Err(e) => {
-            substreams::log::debug!("Error in `map_extract_pool_events`: {:?}", e);
-            return;
-        }
+        extract_lp_token_change(trx, pool, &base_pool_lp_token_address, true)
+    } else if token_in.source() == TokenSource::BasePool
+        && token_out.source() == TokenSource::MetaPool
+    {
+        extract_lp_token_change(trx, pool, &base_pool_lp_token_address, false)
+    } else {
+        None
     };
 
     let swap_underlying_event = SwapUnderlyingEvent {
         token_in: Some(token_in),
         token_out: Some(token_out),
-        lp_token_burnt: Some(token_burnt),
-        base_pool_address: Hex::encode(remove_liquidity_transfer.pool_address),
+        lp_token_change: lp_token_change,
+        base_pool_address,
     };
 
     pool_events.push(PoolEvent {
@@ -504,13 +492,100 @@ fn extract_swap_underlying_event(
         tx_index: trx.index,
         log_index: log.index,
         log_ordinal: log.ordinal,
-        to_address: pool_address.to_string(),
+        to_address: pool.address.to_string(),
         from_address: Hex::encode(buyer),
         timestamp: blk.timestamp_seconds(),
         block_number: blk.number,
-        pool_address: pool_address.to_string(),
+        pool_address: pool.address.to_string(),
         r#type: Some(Type::SwapUnderlyingEvent(swap_underlying_event)),
     })
+}
+
+fn determine_underlying_exchange_tokens(
+    pool: &Pool,
+    sold_id: i32,
+    bought_id: i32,
+    tokens_sold: &BigInt,
+    tokens_bought: &BigInt,
+) -> (TokenAmount, TokenAmount) {
+    let get_token_info = |id, pool_type: &PoolType| -> (String, TokenSource) {
+        if id == 0 {
+            (pool.input_tokens[0].address.clone(), TokenSource::MetaPool)
+        } else {
+            let metapool = match pool_type {
+                PoolType::MetaPool(meta) => meta,
+                _ => panic!("Unsupported pool type or metapool information not available."),
+            };
+
+            let address = metapool.underlying_tokens
+                [(id - metapool.max_coin.to_i32().unwrap()) as usize]
+                .address
+                .clone();
+            (address, TokenSource::BasePool)
+        }
+    };
+
+    let pool_type = pool.pool_type.as_ref().expect("Pool type must be set.");
+    let (token_in_address, token_in_source) = get_token_info(sold_id, pool_type);
+    let (token_out_address, token_out_source) = get_token_info(bought_id, pool_type);
+
+    let token_in = TokenAmount {
+        token_address: token_in_address,
+        amount: tokens_sold.to_string(),
+        source: token_in_source as i32,
+    };
+
+    let token_out = TokenAmount {
+        token_address: token_out_address,
+        amount: tokens_bought.to_string(),
+        source: token_out_source as i32,
+    };
+
+    (token_in, token_out)
+}
+
+fn extract_lp_token_change(
+    trx: &TransactionTrace,
+    pool: &Pool,
+    lp_token_address: &Vec<u8>,
+    is_burn: bool,
+) -> Option<LpTokenChange> {
+    let pool_address = pool.address_vec();
+    let null_address = NULL_ADDRESS.to_vec();
+
+    let from: &Vec<u8>;
+    let to: &Vec<u8>;
+
+    // Determine the 'from' and 'to' addresses based on whether it's a burn or mint event.
+    if is_burn {
+        from = &pool_address;
+        to = &null_address;
+    } else {
+        from = &null_address;
+        to = &pool_address;
+    }
+
+    // Attempt to extract the specific transfer event for the LP token.
+    match event_extraction::extract_specific_transfer_event(
+        trx,
+        Some(lp_token_address),
+        Some(from),
+        Some(to),
+    ) {
+        Ok(transfer) => Some(LpTokenChange {
+            token_address: Hex::encode(transfer.token_address),
+            amount: transfer.transfer.value.into(),
+            change_type: if is_burn {
+                LpTokenChangeType::Burn
+            } else {
+                LpTokenChangeType::Mint
+            } as i32,
+        }),
+        Err(e) => {
+            substreams::log::debug!("Error extracting LP token change: {:?}", e);
+            None
+        }
+    }
 }
 
 fn extract_deposit_event(
@@ -541,6 +616,7 @@ fn extract_deposit_event(
         .map(|(i, amount)| TokenAmount {
             token_address: pool.input_tokens_ordered[i].clone(),
             amount: amount.into(),
+            source: TokenSource::Default as i32,
         })
         .collect();
 
@@ -572,6 +648,7 @@ fn extract_deposit_event(
         output_token: Some(TokenAmount {
             token_address: pool.output_token_ref().address.clone(),
             amount: output_token_amount.into(),
+            source: TokenSource::Default as i32,
         }),
         fees,
     };
@@ -618,6 +695,7 @@ fn extract_withdraw_event(
         .map(|(i, amount)| TokenAmount {
             token_address: pool.input_tokens_ordered[i].clone(),
             amount: amount.into(),
+            source: TokenSource::Default as i32,
         })
         .collect();
     let output_token_amount = match event_extraction::extract_specific_transfer_event(
@@ -637,6 +715,7 @@ fn extract_withdraw_event(
         output_token: Some(TokenAmount {
             token_address: pool.output_token_ref().address.clone(),
             amount: output_token_amount.into(),
+            source: TokenSource::Default as i32,
         }),
         fees,
     };
@@ -697,11 +776,13 @@ fn extract_withdraw_one_event(
                 TokenAmount {
                     token_address: address.clone(),
                     amount: coin_amount.clone().into(),
+                    source: TokenSource::Default as i32,
                 }
             } else {
                 TokenAmount {
                     token_address: address.clone(),
                     amount: BigInt::zero().into(),
+                    source: TokenSource::Default as i32,
                 }
             }
         })
@@ -712,6 +793,7 @@ fn extract_withdraw_one_event(
         output_token: Some(TokenAmount {
             token_address: pool.output_token_ref().address.clone(),
             amount: token_amount.into(),
+            source: TokenSource::Default as i32,
         }),
         fees: Vec::new(),
     };
@@ -728,45 +810,4 @@ fn extract_withdraw_one_event(
         pool_address: pool_address.to_string(),
         r#type: Some(Type::WithdrawEvent(withdraw_event)),
     })
-}
-
-fn get_underlying_coin_addresses(
-    pool: &Pool,
-    in_index: usize,
-    out_index: usize,
-    bought_id: &BigInt,
-) -> Result<(String, String), Error> {
-    let registry_address = pool.registry_address_vec();
-    let pool_address = pool.address_vec();
-    let underlying_coins = if registry_address == NULL_ADDRESS.to_vec() {
-        get_pool_underlying_coins(&pool_address)
-    } else {
-        get_pool_underlying_coins_from_registry(&pool_address, &registry_address)
-    };
-    match underlying_coins {
-        Ok(coins) => {
-            if !coins.is_empty() {
-                // Shadowing as we need to mutate the value if it meets below conditions
-                let mut in_index = in_index;
-                // Same logic as the original subgraph
-                if pool.is_metapool
-                    && bought_id.clone() == BigInt::zero()
-                    && (network_config::NETWORK.to_lowercase() == network::MAINNET.to_lowercase()
-                        || network_config::NETWORK.to_lowercase() == network::FANTOM.to_lowercase()
-                        || network_config::NETWORK.to_lowercase() == network::MATIC.to_lowercase()
-                        || network_config::NETWORK.to_lowercase()
-                            == network::ARBITRUM_ONE.to_lowercase())
-                {
-                    in_index = coins.len() - 1;
-                }
-                Ok((
-                    Hex::encode(&coins[in_index]),
-                    Hex::encode(&coins[out_index]),
-                ))
-            } else {
-                Err(anyhow!("Error in `get_underlying_coin_addresses`: No underlying coins found for pool {}.", pool.address))
-            }
-        }
-        Err(e) => Err(anyhow!("Error in `get_underlying_coin_addresses`: {:?}", e)),
-    }
 }

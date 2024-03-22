@@ -49,8 +49,58 @@ pub struct Pool {
     pub input_tokens_ordered: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="11")]
     pub input_tokens: ::prost::alloc::vec::Vec<Token>,
-    #[prost(bool, tag="12")]
-    pub is_metapool: bool,
+    #[prost(oneof="pool::PoolType", tags="12, 13, 14, 15, 16, 17")]
+    pub pool_type: ::core::option::Option<pool::PoolType>,
+}
+/// Nested message and enum types in `Pool`.
+pub mod pool {
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum PoolType {
+        #[prost(message, tag="12")]
+        PlainPool(super::PlainPool),
+        #[prost(message, tag="13")]
+        CryptoPool(super::CryptoPool),
+        #[prost(message, tag="14")]
+        TricryptoPool(super::TriCryptoPool),
+        #[prost(message, tag="15")]
+        MetaPool(super::MetaPool),
+        #[prost(message, tag="16")]
+        LendingPool(super::LendingPool),
+        #[prost(message, tag="17")]
+        WildcardPool(super::WildcardPool),
+    }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PlainPool {
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CryptoPool {
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TriCryptoPool {
+}
+/// Base Metapool structure
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MetaPool {
+    #[prost(string, tag="1")]
+    pub base_pool_address: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="2")]
+    pub underlying_tokens: ::prost::alloc::vec::Vec<Token>,
+    #[prost(uint64, tag="3")]
+    pub max_coin: u64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LendingPool {
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WildcardPool {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -256,7 +306,7 @@ pub mod events {
             #[prost(string, tag="3")]
             pub base_pool_address: ::prost::alloc::string::String,
             #[prost(message, optional, tag="4")]
-            pub lp_token_burnt: ::core::option::Option<TokenAmount>,
+            pub lp_token_change: ::core::option::Option<LpTokenChange>,
         }
         #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -286,6 +336,79 @@ pub mod events {
             /// BigInt in token's native amount
             #[prost(string, tag="2")]
             pub amount: ::prost::alloc::string::String,
+            #[prost(enumeration="TokenSource", tag="3")]
+            pub source: i32,
+        }
+        #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+        pub struct LpTokenChange {
+            #[prost(string, tag="1")]
+            pub token_address: ::prost::alloc::string::String,
+            #[prost(string, tag="2")]
+            pub amount: ::prost::alloc::string::String,
+            #[prost(enumeration="LpTokenChangeType", tag="3")]
+            pub change_type: i32,
+        }
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+        #[repr(i32)]
+        pub enum TokenSource {
+            /// Default value, used when not dealing with a metapool `TokenExchangeUnderlying` event
+            Default = 0,
+            /// Token is from the metapool
+            MetaPool = 1,
+            /// Token is from the base pool
+            BasePool = 2,
+        }
+        impl TokenSource {
+            /// String value of the enum field names used in the ProtoBuf definition.
+            ///
+            /// The values are not transformed in any way and thus are considered stable
+            /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+            pub fn as_str_name(&self) -> &'static str {
+                match self {
+                    TokenSource::Default => "DEFAULT",
+                    TokenSource::MetaPool => "META_POOL",
+                    TokenSource::BasePool => "BASE_POOL",
+                }
+            }
+            /// Creates an enum from field names used in the ProtoBuf definition.
+            pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+                match value {
+                    "DEFAULT" => Some(Self::Default),
+                    "META_POOL" => Some(Self::MetaPool),
+                    "BASE_POOL" => Some(Self::BasePool),
+                    _ => None,
+                }
+            }
+        }
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+        #[repr(i32)]
+        pub enum LpTokenChangeType {
+            None = 0,
+            Mint = 1,
+            Burn = 2,
+        }
+        impl LpTokenChangeType {
+            /// String value of the enum field names used in the ProtoBuf definition.
+            ///
+            /// The values are not transformed in any way and thus are considered stable
+            /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+            pub fn as_str_name(&self) -> &'static str {
+                match self {
+                    LpTokenChangeType::None => "NONE",
+                    LpTokenChangeType::Mint => "MINT",
+                    LpTokenChangeType::Burn => "BURN",
+                }
+            }
+            /// Creates an enum from field names used in the ProtoBuf definition.
+            pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+                match value {
+                    "NONE" => Some(Self::None),
+                    "MINT" => Some(Self::Mint),
+                    "BURN" => Some(Self::Burn),
+                    _ => None,
+                }
+            }
         }
         #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Oneof)]

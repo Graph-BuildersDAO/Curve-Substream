@@ -10,15 +10,16 @@ use crate::{
         },
         crv_token, gauge_controller,
     },
-    common::{event_extraction, utils},
+    common::event_extraction,
     network_config::{
-        PoolDetails, CRV_TOKEN_ADDRESS, GAUGE_CONTROLLER_ADDRESS, MISSING_OLD_POOLS_DATA,
-        POOL_REGISTRIES,
+        PoolDetails, PoolType as PoolTypeConfig, CRV_TOKEN_ADDRESS, GAUGE_CONTROLLER_ADDRESS,
+        MISSING_OLD_POOLS_DATA, POOL_REGISTRIES,
     },
     pb::curve::types::v1::{
-        ControllerNewGauge, CurveEvents, LiquidityGauge, Pool, Token, UpdateMiningParametersEvent,
+        pool::PoolType, ControllerNewGauge, CryptoPool, CurveEvents, LiquidityGauge, MetaPool,
+        PlainPool, Pool, Token, TriCryptoPool, UpdateMiningParametersEvent,
     },
-    rpc::{pool, token},
+    rpc::{self, pool, token},
     types::event_traits::PlainPoolDeployedEvent,
 };
 
@@ -94,6 +95,8 @@ pub fn map_curve_events(blk: eth::Block) -> Result<CurveEvents, Vec<Error>> {
         _ => {}
     }
 
+    // seed_pool_for_testing(&mut pools);
+
     curve_events.pools = pools;
     curve_events.gauges = gauges;
     curve_events.controller_gauges = controller_gauges;
@@ -139,18 +142,68 @@ fn add_missing_pool(
         .map(|tx| tx.hash.clone())
         .unwrap_or_else(|| NULL_ADDRESS.to_vec());
 
-    pools.push(create_missing_pool(
-        Hex::encode(pool_address),
-        Hex::encode(NULL_ADDRESS.to_vec()),
-        lp_token,
-        input_tokens_ordered,
-        input_tokens,
-        false,
-        blk,
-        hash,
-    ));
-
-    substreams::log::info!("Added missing pool: {:?}", pool);
+    match pool.pool_type {
+        PoolTypeConfig::Plain => {
+            pools.push(create_missing_pool(
+                Hex::encode(pool_address),
+                Hex::encode(NULL_ADDRESS.to_vec()),
+                lp_token,
+                input_tokens_ordered,
+                input_tokens,
+                blk,
+                hash,
+                PoolType::PlainPool(PlainPool {}),
+            ));
+        }
+        PoolTypeConfig::Crypto => {
+            pools.push(create_missing_pool(
+                Hex::encode(pool_address),
+                Hex::encode(NULL_ADDRESS.to_vec()),
+                lp_token,
+                input_tokens_ordered,
+                input_tokens,
+                blk,
+                hash,
+                PoolType::PlainPool(PlainPool {}),
+            ));
+        }
+        PoolTypeConfig::TriCrypto => {
+            pools.push(create_missing_pool(
+                Hex::encode(pool_address),
+                Hex::encode(NULL_ADDRESS.to_vec()),
+                lp_token,
+                input_tokens_ordered,
+                input_tokens,
+                blk,
+                hash,
+                PoolType::PlainPool(PlainPool {}),
+            ));
+        }
+        PoolTypeConfig::Lending => {}
+        PoolTypeConfig::Meta => {
+            if let Some(base_pool) = pool::get_old_metapool_base_pool(&pool.address.to_vec()) {
+                if let Ok(underlying_coins) =
+                    pool::get_old_metapool_underlying_coins(&pool.address.to_vec())
+                {
+                    pools.push(create_missing_pool(
+                        Hex::encode(pool_address),
+                        Hex::encode(NULL_ADDRESS.to_vec()),
+                        lp_token,
+                        input_tokens_ordered,
+                        input_tokens,
+                        blk,
+                        hash,
+                        PoolType::MetaPool(MetaPool {
+                            base_pool_address: Hex::encode(base_pool),
+                            underlying_tokens: underlying_coins,
+                            max_coin: 1,
+                        }),
+                    ));
+                }
+            }
+        }
+        _ => {}
+    }
     Ok(())
 }
 
@@ -203,9 +256,9 @@ fn map_crypto_pool_deployed_events(
                     lp_token,
                     input_tokens_ordered,
                     input_tokens,
-                    utils::is_metapool(&pool_address),
                     &log,
                     blk,
+                    PoolType::CryptoPool(CryptoPool {}),
                 ))
             })
             .collect(),
@@ -216,6 +269,7 @@ fn map_crypto_pool_deployed_events(
 fn map_plain_pool_deployed_events<E: PlainPoolDeployedEvent + substreams_ethereum::Event>(
     blk: &eth::Block,
     pools: &mut Vec<Pool>,
+    // todo this could be named more aptly as it is the registry/factory address
     address: [u8; 20],
 ) -> Result<(), Error> {
     pools.append(
@@ -232,8 +286,11 @@ fn map_plain_pool_deployed_events<E: PlainPoolDeployedEvent + substreams_ethereu
                         return None;
                     }
                 };
+
+                let plain_pool_address = &transfer.token_address;
+
                 let lp_token =
-                    match token::create_token(&transfer.receiver, &transfer.receiver, None) {
+                    match token::create_token(plain_pool_address, plain_pool_address, None) {
                         Ok(token) => token,
                         Err(e) => {
                             substreams::log::debug!(
@@ -244,7 +301,7 @@ fn map_plain_pool_deployed_events<E: PlainPoolDeployedEvent + substreams_ethereu
                         }
                     };
                 let (input_tokens, input_tokens_ordered) =
-                    match get_and_sort_input_tokens(&transfer.receiver) {
+                    match get_and_sort_input_tokens(plain_pool_address) {
                         Ok(result) => result,
                         Err(e) => {
                             substreams::log::debug!(
@@ -257,14 +314,14 @@ fn map_plain_pool_deployed_events<E: PlainPoolDeployedEvent + substreams_ethereu
                 substreams::log::debug!("Adding a PlainPool");
 
                 Some(create_pool(
-                    Hex::encode(&transfer.receiver),
+                    Hex::encode(plain_pool_address),
                     Hex::encode(address),
                     lp_token,
                     input_tokens_ordered,
                     input_tokens,
-                    utils::is_metapool(&transfer.receiver),
                     &log,
                     blk,
+                    PoolType::PlainPool(PlainPool {}),
                 ))
             })
             .collect(),
@@ -285,7 +342,7 @@ fn map_meta_pool_deployed_events(
             // since they share the same ABI structure for this event type. This ensures that all MetaPoolDeployed events,
             // regardless of the originating contract, are captured and processed here as long as they are emitted to the specified address.
             .events::<pool_registry_v1::events::MetaPoolDeployed>(&[&address])
-            .filter_map(|(_event, log)| {
+            .filter_map(|(event, log)| {
                 let transfer = match event_extraction::extract_transfer_event(&log) {
                     Ok(event) => event,
                     Err(e) => {
@@ -296,19 +353,23 @@ fn map_meta_pool_deployed_events(
                         return None;
                     }
                 };
-                let lp_token =
-                    match token::create_token(&transfer.receiver, &transfer.receiver, None) {
-                        Ok(token) => token,
-                        Err(e) => {
-                            substreams::log::debug!(
-                                "Error in `map_meta_pool_deployed_events`: {:?}",
-                                e
-                            );
-                            return None;
-                        }
-                    };
+                // The pool and LP token are the same for base pools
+                let metapool_address = &transfer.token_address;
+
+                substreams::log::debug!("Metapool address is: {}", Hex::encode(metapool_address));
+
+                let lp_token = match token::create_token(metapool_address, metapool_address, None) {
+                    Ok(token) => token,
+                    Err(e) => {
+                        substreams::log::debug!(
+                            "Error in `map_meta_pool_deployed_events`: {:?}",
+                            e
+                        );
+                        return None;
+                    }
+                };
                 let (input_tokens, input_tokens_ordered) =
-                    match get_and_sort_input_tokens(&transfer.receiver) {
+                    match get_and_sort_input_tokens(metapool_address) {
                         Ok(result) => result,
                         Err(e) => {
                             substreams::log::debug!(
@@ -318,18 +379,28 @@ fn map_meta_pool_deployed_events(
                             return None;
                         }
                     };
-                substreams::log::debug!("Adding MetaPool");
+                if let Ok(underlying_coins) = rpc::pool::get_pool_coins(&event.base_pool) {
+                    let pool_type = PoolType::MetaPool(MetaPool {
+                        base_pool_address: Hex::encode(event.base_pool),
+                        underlying_tokens: underlying_coins,
+                        max_coin: 1,
+                    });
 
-                Some(create_pool(
-                    Hex::encode(&transfer.receiver),
-                    Hex::encode(address),
-                    lp_token,
-                    input_tokens_ordered,
-                    input_tokens,
-                    utils::is_metapool(&transfer.receiver),
-                    &log,
-                    blk,
-                ))
+                    substreams::log::debug!("Adding MetaPool");
+
+                    Some(create_pool(
+                        Hex::encode(metapool_address),
+                        Hex::encode(address),
+                        lp_token,
+                        input_tokens_ordered,
+                        input_tokens,
+                        &log,
+                        blk,
+                        pool_type,
+                    ))
+                } else {
+                    None
+                }
             })
             .collect(),
     );
@@ -374,9 +445,9 @@ fn map_tricrypto_pool_deployed_events(
                     lp_token,
                     input_tokens_ordered,
                     input_tokens,
-                    false,
                     &log,
                     blk,
+                    PoolType::TricryptoPool(TriCryptoPool {}),
                 ))
             })
             .collect(),
@@ -482,9 +553,9 @@ fn create_pool(
     lp_token: Token,
     input_tokens_ordered: Vec<String>,
     input_tokens: Vec<Token>,
-    is_metapool: bool,
     log: &block_view::LogView,
     blk: &eth::Block,
+    pool_type: PoolType,
 ) -> Pool {
     Pool {
         address,
@@ -498,7 +569,7 @@ fn create_pool(
         output_token: Some(lp_token),
         input_tokens_ordered,
         input_tokens,
-        is_metapool,
+        pool_type: Some(pool_type),
     }
 }
 
@@ -508,9 +579,9 @@ fn create_missing_pool(
     lp_token: Token,
     input_tokens_ordered: Vec<String>,
     input_tokens: Vec<Token>,
-    is_metapool: bool,
     blk: &eth::Block,
     hash: Vec<u8>,
+    pool_type: PoolType,
 ) -> Pool {
     Pool {
         address,
@@ -524,7 +595,7 @@ fn create_missing_pool(
         output_token: Some(lp_token),
         input_tokens_ordered,
         input_tokens,
-        is_metapool,
+        pool_type: Some(pool_type),
     }
 }
 
@@ -540,4 +611,88 @@ fn get_and_sort_input_tokens(pool_address: &Vec<u8>) -> Result<(Vec<Token>, Vec<
     input_tokens.sort_by(|a, b| a.address.cmp(&b.address));
 
     Ok((input_tokens, input_tokens_ordered))
+}
+
+// TODO delete after testing
+fn seed_pool_for_testing(pools: &mut Vec<Pool>) {
+    pools.push(get_metapool());
+}
+fn get_metapool() -> Pool {
+    Pool {
+        name: "Curve.fi Factory USD Metapool: L3USD3CRV".to_string(),
+        symbol: "L3USD3CRV3CRV-f".to_string(),
+        address: "79ce6be6ae0995b1c8ed3e8ae54de0e437dec8c3".to_string(),
+        created_at_timestamp: 1701611519,
+        created_at_block_number: 18706277,
+        log_ordinal: 2844,
+        transaction_id: "3df74962bc58833ee086d4474b3dd5286801cc5d5f7c12be92626097fe3fe74c"
+            .to_string(),
+        registry_address: "b9fc157394af804a3578134a6585c0dc9cc990d4".to_string(),
+        output_token: Some(Token {
+            address: "79ce6be6ae0995b1c8ed3e8ae54de0e437dec8c3".to_string(),
+            name: "Curve.fi Factory USD Metapool: L3USD3CRV".to_string(),
+            symbol: "L3USD3CRV3CRV-f".to_string(),
+            decimals: 18,
+            total_supply: "0".to_string(),
+            is_base_pool_lp_token: false,
+            gauge: None,
+        }),
+        input_tokens_ordered: vec![
+            "2c2d8a078b33bf7782a16acce2c5ba6653a90d5f".to_string(),
+            "6c3f90f043a72fa612cbac8115ee7e52bde6e490".to_string(),
+        ],
+        input_tokens: vec![
+            Token {
+                address: "2c2d8a078b33bf7782a16acce2c5ba6653a90d5f".to_string(),
+                name: "L3USD".to_string(),
+                symbol: "L3USD".to_string(),
+                decimals: 18,
+                total_supply: "88888888000000000000000000".to_string(),
+                is_base_pool_lp_token: false,
+                gauge: None,
+            },
+            Token {
+                address: "6c3f90f043a72fa612cbac8115ee7e52bde6e490".to_string(),
+                name: "Curve.fi DAI/USDC/USDT".to_string(),
+                symbol: "3Crv".to_string(),
+                decimals: 18,
+                total_supply: "190535607806721468949805568".to_string(),
+                is_base_pool_lp_token: true,
+                gauge: None,
+            },
+        ],
+        pool_type: Some(PoolType::MetaPool(MetaPool {
+            base_pool_address: "bebc44782c7db0a1a60cb6fe97d0b483032ff1c7".to_string(),
+            underlying_tokens: vec![
+                Token {
+                    address: "6b175474e89094c44da98b954eedeac495271d0f".to_string(),
+                    name: "Dai Stablecoin".to_string(),
+                    symbol: "DAI".to_string(),
+                    decimals: 18,
+                    total_supply: "3674325983605876519355232114".to_string(),
+                    is_base_pool_lp_token: true,
+                    gauge: None,
+                },
+                Token {
+                    address: "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48".to_string(),
+                    name: "USD Coin".to_string(),
+                    symbol: "USDC".to_string(),
+                    decimals: 6,
+                    total_supply: "22508074118982608".to_string(),
+                    is_base_pool_lp_token: true,
+                    gauge: None,
+                },
+                Token {
+                    address: "dac17f958d2ee523a2206206994597c13d831ec7".to_string(),
+                    name: "Tether USD".to_string(),
+                    symbol: "USDT".to_string(),
+                    decimals: 6,
+                    total_supply: "41013387300953492".to_string(),
+                    is_base_pool_lp_token: true,
+                    gauge: None,
+                },
+            ],
+            max_coin: 1,
+        })),
+    }
 }

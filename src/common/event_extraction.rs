@@ -61,16 +61,29 @@ pub fn extract_specific_transfer_event(
 }
 
 // Only use for MetaPool and PlainPool deployments where we can ensure there is only one Transfer event.
-pub fn extract_transfer_event(log: &block_view::LogView) -> Result<Transfer, Error> {
+pub fn extract_transfer_event(log: &block_view::LogView) -> Result<TokenTransfer, Error> {
     log.receipt
         .transaction
         .calls
         .iter()
         .filter(|call| !call.state_reverted)
         .flat_map(|call| call.logs.iter())
-        .find(|log| Transfer::match_log(log))
+        .find_map(|log| {
+            if Transfer::match_log(log) {
+                // Attempt to decode the log and pair it with the log reference if successful
+                match Transfer::decode(log) {
+                    Ok(transfer) => Some((transfer, log)), // Pair the decoded transfer with the log
+                    Err(_) => None,                        // Ignore this log if decoding fails
+                }
+            } else {
+                None // Not a transfer log, so we skip it
+            }
+        })
         .ok_or_else(|| anyhow!("No transfer event found in the transaction"))
-        .and_then(|log| Transfer::decode(log).map_err(|e| anyhow!(e)))
+        // Here the log is the one associated with the found transfer event
+        .and_then(|(transfer, transfer_log)| {
+            Ok(TokenTransfer::new(transfer, transfer_log.address.to_vec()))
+        })
 }
 
 pub fn extract_update_liquidity_limit_event(
