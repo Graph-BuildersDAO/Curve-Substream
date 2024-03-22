@@ -1,3 +1,4 @@
+pub mod pools;
 pub mod ownership_proxies;
 pub mod gauges;
 pub mod child_registries;

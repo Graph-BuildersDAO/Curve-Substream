@@ -33,6 +33,7 @@ fn main() -> Result<(), anyhow::Error> {
         "abi/curve/ownership_proxies/GaugeManager.abi.json",
         "abi/curve/ownership_proxies/GaugeManagerOld.abi.json",
         "abi/curve/ownership_proxies/StableSwapOwner.abi.json",
+        "abi/curve/pools/MetaPoolOld.abi.json",
         "abi/curve/AddressProvider.abi.json",
         "abi/curve/CRVToken.abi.json",
         "abi/curve/GaugeController.abi.json",
@@ -65,6 +66,7 @@ fn main() -> Result<(), anyhow::Error> {
         "src/abi/curve/ownership_proxies/gauge_manager.rs",
         "src/abi/curve/ownership_proxies/gauge_manager_old.rs",
         "src/abi/curve/ownership_proxies/stableswap_owner.rs",
+        "src/abi/curve/pools/metapool_old.rs",
         "src/abi/curve/address_provider.rs",
         "src/abi/curve/crv_token.rs",
         "src/abi/curve/gauge_controller.rs",
@@ -208,23 +210,39 @@ fn generate_network_config_from_json(path: &str, output_path: &str) -> Result<()
     }
 
     // Generating structs for missingOldPools
-    output.push_str("\n#[derive(Debug, Clone)]\npub struct PoolDetails {\n    pub name: &'static str,\n    pub address: [u8; 20],\n    pub lp_token: [u8; 20],\n    pub start_block: u64,\n}\n");
+    output.push_str("\n#[derive(Debug, Clone)]\npub struct PoolDetails {\n    pub name: &'static str,\n    pub address: [u8; 20],\n    pub lp_token: [u8; 20],\n    pub pool_type: PoolType,\n    pub start_block: u64,\n}\n");
+    output.push_str("\n#[derive(Debug, Clone)]\npub enum PoolType {\n    Plain,\n    Crypto,\n    TriCrypto,\n    Lending,\n    Meta,\n    Wildcard,\n    Unknown,\n}\n");
 
     if let Some(missing_old_pools) = json["missingOldPools"].as_array() {
         output.push_str("\npub static MISSING_OLD_POOLS_DATA: &[(&str, PoolDetails)] = &[\n");
         for pool in missing_old_pools {
             let key = pool["address"].as_str().unwrap_or_default();
+
             let name = pool["name"].as_str().unwrap_or_default();
+
             let address = pool["address"]
                 .as_str()
                 .unwrap_or_default()
                 .trim_start_matches("0x");
+
             let lp_token = pool["lpToken"]
                 .as_str()
                 .unwrap_or_default()
                 .trim_start_matches("0x");
+
+            let pool_type_str = pool["type"].as_str().unwrap_or_default();
+            // Convert the pool type string to the corresponding enum variant
+            let pool_type = match pool_type_str {
+                "PLAIN" => "PoolType::Plain",
+                "CRYPTOSWAP" => "PoolType::Crypto",
+                "TRICRYPTO" => "PoolType::TriCrypto",
+                "LENDING" => "PoolType::Lending",
+                "META" => "PoolType::Meta",
+                "WILDCARD" => "PoolType::Wildcard",
+                _ => "PoolType::Unknown",
+            };
             let start_block = pool["startBlock"].as_str().unwrap_or_default();
-            output.push_str(&format!("(\"{}\", PoolDetails {{ name: \"{}\", address: hex!(\"{}\"), lp_token: hex!(\"{}\"), start_block: {} }}),\n", key, name, address, lp_token, start_block));
+            output.push_str(&format!("(\"{}\", PoolDetails {{ name: \"{}\", address: hex!(\"{}\"), lp_token: hex!(\"{}\"), pool_type: {}, start_block: {} }}),\n", key, name, address, lp_token, pool_type, start_block));
         }
         output.push_str("];\n");
     }
