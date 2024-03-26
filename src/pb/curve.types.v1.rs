@@ -97,6 +97,8 @@ pub struct MetaPool {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct LendingPool {
+    #[prost(message, repeated, tag="2")]
+    pub underlying_tokens: ::prost::alloc::vec::Vec<Token>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -283,7 +285,7 @@ pub mod events {
         /// TODO is there benefit in storing the total supply here or in the event types?
         #[prost(string, tag="14")]
         pub pool_address: ::prost::alloc::string::String,
-        #[prost(oneof="pool_event::Type", tags="1, 2, 3, 5")]
+        #[prost(oneof="pool_event::Type", tags="1, 2, 3, 4, 5")]
         pub r#type: ::core::option::Option<pool_event::Type>,
     }
     /// Nested message and enum types in `PoolEvent`.
@@ -298,7 +300,7 @@ pub mod events {
         }
         #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-        pub struct SwapUnderlyingEvent {
+        pub struct SwapUnderlyingMetaEvent {
             #[prost(message, optional, tag="1")]
             pub token_in: ::core::option::Option<TokenAmount>,
             #[prost(message, optional, tag="2")]
@@ -307,6 +309,30 @@ pub mod events {
             pub base_pool_address: ::prost::alloc::string::String,
             #[prost(message, optional, tag="4")]
             pub lp_token_change: ::core::option::Option<LpTokenChange>,
+        }
+        #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+        pub struct SwapUnderlyingLendingEvent {
+            /// The underlying token provided by the user.
+            #[prost(message, optional, tag="1")]
+            pub token_in: ::core::option::Option<TokenAmount>,
+            /// The underlying token received by the user.
+            #[prost(message, optional, tag="2")]
+            pub token_out: ::core::option::Option<TokenAmount>,
+            /// Details the action (mint/burn) on the interest-bearing token corresponding to `token_in`.
+            /// This reflects the change in the lending pool's liquidity for the `token_in` asset.
+            /// Example:
+            ///    - In an exchange of USDC for USDT within a lending-based Curve pool:
+            ///      1. USDC is deposited into the Curve lending pool.
+            ///      2. The deposited USDC is used to mint the interest-bearing token (e.g., aUSDC in Aave).
+            ///      3. The pool burns some of its interest-bearing token for USDT (e.g., aUSDT), unlocking USDT.
+            ///      4. The redeemed USDT is sent to the user initiating the exchange.
+            ///      5. As a result, the lending pool's balance of aUSDC increases, and its balance of aUSDT decreases.
+            #[prost(message, optional, tag="3")]
+            pub interest_bearing_token_in_action: ::core::option::Option<LpTokenChange>,
+            /// Similar to `interest_bearing_token_in_action`, but for the `token_out` asset.
+            #[prost(message, optional, tag="4")]
+            pub interest_bearing_token_out_action: ::core::option::Option<LpTokenChange>,
         }
         #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -354,10 +380,9 @@ pub mod events {
         pub enum TokenSource {
             /// Default value, used when not dealing with a metapool `TokenExchangeUnderlying` event
             Default = 0,
-            /// Token is from the metapool
             MetaPool = 1,
-            /// Token is from the base pool
             BasePool = 2,
+            LendingPool = 3,
         }
         impl TokenSource {
             /// String value of the enum field names used in the ProtoBuf definition.
@@ -369,6 +394,7 @@ pub mod events {
                     TokenSource::Default => "DEFAULT",
                     TokenSource::MetaPool => "META_POOL",
                     TokenSource::BasePool => "BASE_POOL",
+                    TokenSource::LendingPool => "LENDING_POOL",
                 }
             }
             /// Creates an enum from field names used in the ProtoBuf definition.
@@ -377,6 +403,7 @@ pub mod events {
                     "DEFAULT" => Some(Self::Default),
                     "META_POOL" => Some(Self::MetaPool),
                     "BASE_POOL" => Some(Self::BasePool),
+                    "LENDING_POOL" => Some(Self::LendingPool),
                     _ => None,
                 }
             }
@@ -416,8 +443,10 @@ pub mod events {
             #[prost(message, tag="1")]
             SwapEvent(SwapEvent),
             #[prost(message, tag="2")]
-            SwapUnderlyingEvent(SwapUnderlyingEvent),
+            SwapUnderlyingMetaEvent(SwapUnderlyingMetaEvent),
             #[prost(message, tag="3")]
+            SwapUnderlyingLendingEvent(SwapUnderlyingLendingEvent),
+            #[prost(message, tag="4")]
             DepositEvent(DepositEvent),
             #[prost(message, tag="5")]
             WithdrawEvent(WithdrawEvent),

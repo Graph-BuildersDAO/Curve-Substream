@@ -7,21 +7,17 @@ use substreams::{
 use substreams_ethereum::{rpc::RpcBatch, NULL_ADDRESS};
 
 use crate::{
-    abi::curve::{pool::functions, pools::metapool_old},
-    common::{
-        conversion::{convert_bigint_to_decimal, convert_enum_to_snake_case_prefix},
-        format::format_address_vec,
+    abi::curve::{
+        pool::functions,
+        pools::{lending_pool, metapool_old},
     },
-    constants::{self, FEE_DECIMALS, FEE_DENOMINATOR, MISSING_OLD_POOLS},
+    common::format::format_address_vec,
+    constants::{self, FEE_DECIMALS, MISSING_OLD_POOLS},
     key_management::entity_key_manager::EntityKey,
-    network_config::POOL_REGISTRIES,
     pb::curve::types::v1::{LiquidityPoolFeeType, PoolFee, PoolFees, Token},
 };
 
-use super::{
-    common::decode_rpc_response, registry::get_pool_underlying_coins_from_registry,
-    token::create_token,
-};
+use super::{common::decode_rpc_response, token::create_token};
 
 pub fn get_lp_token_address_from_pool(pool_address: &Vec<u8>) -> Result<Vec<u8>, Error> {
     // If the pool is in the missing old pools list, return the lp token address from there.
@@ -85,52 +81,32 @@ pub fn get_pool_coins(pool_address: &Vec<u8>) -> Result<Vec<Token>, Error> {
     Ok(tokens)
 }
 
-pub fn get_pool_underlying_coins(pool_address: &Vec<u8>) -> Result<[Vec<u8>; 8], Error> {
-    let mut errors: Vec<Error> = Vec::new();
-    for registry_address in POOL_REGISTRIES.iter().map(|&a| a.to_vec()) {
-        match get_pool_underlying_coins_from_registry(&pool_address, &registry_address) {
-            Ok(coins) => {
-                if coins.len() != 0 && coins[0] != NULL_ADDRESS.to_vec() {
-                    return Ok(coins);
-                }
-            }
-            Err(e) => {
-                errors.push(e);
-            }
-        }
-    }
-    // If we cannot get the coins from the registry, attempt to get them from the actual pool contract.
-    let mut coins_array: [Vec<u8>; 8] = Default::default(); // Initialize with default values
-    let mut index = 0;
-    loop {
-        let index_big_int = BigInt::from(index);
-        let coins_option = functions::UnderlyingCoins {
-            arg0: index_big_int,
+pub fn get_lending_pool_underlying_coins(pool_address: &Vec<u8>) -> Result<Vec<Token>, Error> {
+    let mut tokens: Vec<Token> = Vec::new();
+    let mut idx = 0;
+
+    while idx >= 0 {
+        let underlying_token_option = lending_pool::functions::UnderlyingCoins {
+            arg0: BigInt::from(idx),
         }
         .call(pool_address.clone());
 
-        match coins_option {
-            Some(coin) => coins_array[index] = coin.clone(),
+        let underlying_token = match underlying_token_option {
+            Some(token) => token,
             None => break,
-        }
-        index += 1;
-    }
-    if coins_array.iter().any(|coin| !coin.is_empty()) {
-        return Ok(coins_array);
-    }
+        };
 
-    if errors.is_empty() {
-        Err(anyhow!(
-            "Unable to get underlying coins for pool {:?} from registry contracts",
-            Hex::encode(&pool_address)
-        ))
-    } else {
-        Err(anyhow!(
-            "Unable to get underlying coins for pool {:?} from registry contracts. Errors: {:?}",
-            Hex::encode(&pool_address),
-            errors
-        ))
+        match create_token(&underlying_token, &pool_address, None) {
+            Ok(token) => {
+                tokens.push(token);
+            }
+            Err(e) => {
+                return Err(anyhow!("Error in `get_pool_underlying_coins`: {:?}", e));
+            }
+        }
+        idx += 1;
     }
+    Ok(tokens)
 }
 
 pub fn get_old_metapool_base_pool(pool_address: &Vec<u8>) -> Option<Vec<u8>> {

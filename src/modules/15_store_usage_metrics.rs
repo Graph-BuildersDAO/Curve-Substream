@@ -72,7 +72,10 @@ pub fn store_usage_metrics(
                     Type::SwapEvent(_) => {
                         swap_events_count += 1;
                     }
-                    Type::SwapUnderlyingEvent(_) => {
+                    Type::SwapUnderlyingMetaEvent(_) => {
+                        swap_events_count += 1;
+                    }
+                    Type::SwapUnderlyingLendingEvent(_) => {
                         swap_events_count += 1;
                     }
                     Type::DepositEvent(_) => {
