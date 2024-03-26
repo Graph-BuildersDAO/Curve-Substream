@@ -27,7 +27,10 @@ use crate::{
     pb::{
         curve::types::v1::{
             events::{
-                pool_event::{DepositEvent, SwapEvent, SwapUnderlyingEvent, Type, WithdrawEvent},
+                pool_event::{
+                    DepositEvent, SwapEvent, SwapUnderlyingMetaEvent, TokenAmount, Type,
+                    WithdrawEvent,
+                },
                 PoolEvent,
             },
             CurveEvents, Events, LiquidityGauge, LiquidityGaugeEvents, Pool, PoolFee, PoolFees,
@@ -573,11 +576,35 @@ fn create_pool_events_entities(
                         )
                     }
                 }
-                Type::SwapUnderlyingEvent(swap_underlying) => {
+                Type::SwapUnderlyingMetaEvent(swap_underlying) => {
                     if let Some(pool) =
                         pools_store.get_last(StoreKey::pool_key(&event.pool_address))
                     {
-                        create_swap_underlying_entity(tables, &event, swap_underlying);
+                        create_swap_underlying_entity(
+                            tables,
+                            &event,
+                            swap_underlying.token_in_ref(),
+                            swap_underlying.token_out_ref(),
+                        );
+                        update_input_token_balances(
+                            tables,
+                            &event,
+                            &pool.input_tokens,
+                            input_token_balances_store,
+                            pool_tvl_store,
+                        )
+                    }
+                }
+                Type::SwapUnderlyingLendingEvent(swap_underlying) => {
+                    if let Some(pool) =
+                        pools_store.get_last(StoreKey::pool_key(&event.pool_address))
+                    {
+                        create_swap_underlying_entity(
+                            tables,
+                            &event,
+                            swap_underlying.token_in_ref(),
+                            swap_underlying.token_out_ref(),
+                        );
                         update_input_token_balances(
                             tables,
                             &event,
@@ -789,7 +816,8 @@ fn create_swap_entity(tables: &mut Tables, event: &PoolEvent, swap: &SwapEvent) 
 fn create_swap_underlying_entity(
     tables: &mut Tables,
     event: &PoolEvent,
-    swap_underlying: &SwapUnderlyingEvent,
+    token_in: &TokenAmount,
+    token_out: &TokenAmount,
 ) {
     tables
         .create_row(
@@ -808,41 +836,15 @@ fn create_swap_underlying_entity(
         .set("timestamp", BigInt::from(event.timestamp))
         .set(
             "tokenIn",
-            format::format_address_string(
-                &swap_underlying.token_in.as_ref().unwrap().token_address,
-            ),
+            format::format_address_string(&token_in.token_address),
         )
-        .set(
-            "amountIn",
-            BigInt::from(
-                swap_underlying
-                    .token_in
-                    .as_ref()
-                    .unwrap()
-                    .amount
-                    .parse::<u64>()
-                    .unwrap_or_default(),
-            ),
-        )
-        .set("amountInUSD", BigDecimal::zero())
+        .set("amountIn", token_in.amount_big())
+        .set("amountInUSD", in_price_usd)
         .set(
             "tokenOut",
-            format::format_address_string(
-                &swap_underlying.token_out.as_ref().unwrap().token_address,
-            ),
+            format::format_address_string(&token_out.token_address),
         )
-        .set(
-            "amountOut",
-            BigInt::from(
-                swap_underlying
-                    .token_out
-                    .as_ref()
-                    .unwrap()
-                    .amount
-                    .parse::<u64>()
-                    .unwrap_or_default(),
-            ),
-        )
-        .set("amountOutUSD", BigDecimal::zero())
+        .set("amountOut", token_out.amount_big())
+        .set("amountOutUSD", out_price_usd)
         .set("pool", format::format_address_string(&event.pool_address));
 }

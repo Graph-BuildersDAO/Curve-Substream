@@ -2,7 +2,7 @@ use num_traits::ToPrimitive;
 use substreams::{
     errors::Error,
     scalar::BigInt,
-    store::{StoreGet, StoreGetProto},
+    store::{StoreGet, StoreGetBigDecimal, StoreGetProto},
     Hex,
 };
 use substreams_ethereum::{
@@ -13,27 +13,37 @@ use substreams_ethereum::{
 use crate::{
     abi::{
         common::erc20::events::Transfer,
-        curve::pool::events::{
-            AddLiquidity1, AddLiquidity2, AddLiquidity3, AddLiquidity4, AddLiquidity5,
-            ApplyNewFee1, ApplyNewFee2, NewFee1, NewFee2, NewParameters1, NewParameters2,
-            NewParameters3, RemoveLiquidity1, RemoveLiquidity2, RemoveLiquidity3, RemoveLiquidity4,
-            RemoveLiquidity5, RemoveLiquidityImbalance1, RemoveLiquidityImbalance2,
-            RemoveLiquidityImbalance3, RemoveLiquidityOne1, RemoveLiquidityOne2, TokenExchange1,
-            TokenExchange2, TokenExchangeUnderlying,
+        curve::{
+            pool::events::{
+                AddLiquidity1, AddLiquidity2, AddLiquidity3, AddLiquidity4, AddLiquidity5,
+                ApplyNewFee1, ApplyNewFee2, NewFee1, NewFee2, NewParameters1, NewParameters2,
+                NewParameters3, RemoveLiquidity1, RemoveLiquidity2, RemoveLiquidity3,
+                RemoveLiquidity4, RemoveLiquidity5, RemoveLiquidityImbalance1,
+                RemoveLiquidityImbalance2, RemoveLiquidityImbalance3, RemoveLiquidityOne1,
+                RemoveLiquidityOne2, TokenExchange1, TokenExchange2, TokenExchangeUnderlying,
+            },
+            pools::lending_pool,
         },
     },
-    common::event_extraction,
+    common::{
+        event_extraction,
+        pool_utils::{is_lending_pool, is_metapool},
+    },
     key_management::store_key_manager::StoreKey,
-    pb::curve::types::v1::{
-        events::{
-            pool_event::{
-                DepositEvent, LpTokenChange, LpTokenChangeType, SwapEvent, SwapUnderlyingEvent,
-                TokenAmount, TokenSource, Type, WithdrawEvent,
+    pb::{
+        curve::types::v1::{
+            events::{
+                pool_event::{
+                    DepositEvent, LpTokenChange, LpTokenChangeType, SwapEvent,
+                    SwapUnderlyingLendingEvent, SwapUnderlyingMetaEvent, TokenAmount, TokenSource,
+                    Type, WithdrawEvent,
+                },
+                FeeChangeEvent, PoolEvent,
             },
-            FeeChangeEvent, PoolEvent,
+            pool::PoolType,
+            Events, Pool,
         },
-        pool::PoolType,
-        Events, Pool,
+        uniswap_pricing::v1::Erc20Price,
     },
     rpc::pool::get_pool_fee_and_admin_fee,
 };
@@ -433,72 +443,170 @@ fn extract_swap_underlying_event(
     tokens_bought: &BigInt,
     buyer: &Vec<u8>,
 ) {
-    // Check if the pool is a metapool and retrieve the base pool's address.
-    let base_pool_address = match &pool.pool_type {
-        Some(PoolType::MetaPool(meta)) => meta.base_pool_address.clone(),
-        _ => {
-            substreams::log::debug!(
-                "Pool is not a metapool, skipping `TokenExchangeUnderlying` event processing."
-            );
+    if is_metapool(pool) {
+        // Check if the pool is a metapool and retrieve the base pool's address.
+        let base_pool_address = match &pool.pool_type {
+            Some(PoolType::MetaPool(meta)) => meta.base_pool_address.clone(),
+            _ => {
+                substreams::log::debug!(
+                    "Pool is not a metapool, skipping `TokenExchangeUnderlying` event processing."
+                );
+                return;
+            }
+        };
+
+        if base_pool_address.is_empty() {
+            substreams::log::debug!("Base pool address not found for metapool.");
             return;
         }
-    };
 
-    if base_pool_address.is_empty() {
-        substreams::log::debug!("Base pool address not found for metapool.");
-        return;
+        substreams::log::info!(
+            "Extracting Swap Underlying from transaction {} and pool {}",
+            Hex::encode(&trx.hash),
+            &pool.address
+        );
+
+        // Determine the addresses and sources of the input and output tokens
+        // based on their indices and the type of the pool.
+        let (token_in, token_out) = determine_underlying_exchange_tokens(
+            &pool,
+            sold_id.to_i32(),
+            bought_id.to_i32(),
+            tokens_sold,
+            tokens_bought,
+        );
+
+        // Determine if there's a change in the metapools base pool LP token balance. This could be a burn
+        // or mint operation depending on the swap direction (metapool to base pool or vice versa).
+        let base_pool_lp_token_address = pool.input_tokens.get(1).unwrap().address_vec();
+        let lp_token_change = if token_in.source() == TokenSource::MetaPool
+            && token_out.source() == TokenSource::BasePool
+        {
+            extract_lp_token_change(trx, pool, &base_pool_lp_token_address, true)
+        } else if token_in.source() == TokenSource::BasePool
+            && token_out.source() == TokenSource::MetaPool
+        {
+            extract_lp_token_change(trx, pool, &base_pool_lp_token_address, false)
+        } else {
+            None
+        };
+
+        let swap_underlying_event = SwapUnderlyingMetaEvent {
+            token_in: Some(token_in),
+            token_out: Some(token_out),
+            lp_token_change: lp_token_change,
+            base_pool_address,
+        };
+
+        pool_events.push(PoolEvent {
+            transaction_hash: Hex::encode(&trx.hash),
+            tx_index: trx.index,
+            log_index: log.index,
+            log_ordinal: log.ordinal,
+            to_address: pool.address.to_string(),
+            from_address: Hex::encode(buyer),
+            timestamp: blk.timestamp_seconds(),
+            block_number: blk.number,
+            pool_address: pool.address.to_string(),
+            r#type: Some(Type::SwapUnderlyingMetaEvent(swap_underlying_event)),
+        })
+    } else if let Some(PoolType::LendingPool(lending_pool)) = &pool.pool_type {
+        let token_in_address = lending_pool
+            .underlying_tokens
+            .get(sold_id.to_i32() as usize)
+            .map_or_else(
+                || {
+                    substreams::log::info!(
+                        "Sold token index {} is out of bounds for LendingPool",
+                        sold_id
+                    );
+                    None
+                },
+                |token| Some(token.address.clone()),
+            );
+
+        let token_out_address = lending_pool
+            .underlying_tokens
+            .get(bought_id.to_i32() as usize)
+            .map_or_else(
+                || {
+                    substreams::log::info!(
+                        "Bought token index {} is out of bounds for LendingPool",
+                        bought_id
+                    );
+                    None
+                },
+                |token| Some(token.address.clone()),
+            );
+
+        if let (Some(in_address), Some(out_address)) = (token_in_address, token_out_address) {
+            let token_in = TokenAmount {
+                token_address: in_address,
+                amount: tokens_sold.into(),
+                source: TokenSource::LendingPool as i32,
+            };
+
+            let token_out = TokenAmount {
+                token_address: out_address,
+                amount: tokens_bought.into(),
+                source: TokenSource::LendingPool as i32,
+            };
+
+            let interest_token_in_address =
+                match Hex::decode(&pool.input_tokens_ordered[sold_id.to_i32() as usize]) {
+                    Ok(address) => address,
+                    Err(e) => {
+                        substreams::log::info!(
+                            "Failed to decode interest bearing token in address for sold_id {}: {}",
+                            sold_id,
+                            e
+                        );
+                        return; // Exit from the function, skipping this event
+                    }
+                };
+
+            let interest_token_out_address =
+                match Hex::decode(&pool.input_tokens_ordered[bought_id.to_i32() as usize]) {
+                    Ok(address) => address,
+                    Err(e) => {
+                        substreams::log::info!(
+                        "Failed to decode interest bearing token out address for bought_id {}: {}",
+                        bought_id,
+                        e
+                    );
+                        return; // Exit from the function, skipping this event
+                    }
+                };
+
+            // Token in will have a corresponding mint event
+            let interest_token_in_change =
+                extract_lending_pool_token_change(trx, pool, &interest_token_in_address, false);
+
+            // Token out will have a corresponding burn event
+            let interest_token_out_change =
+                extract_lending_pool_token_change(trx, pool, &interest_token_out_address, true);
+
+            let swap_underlying_event = SwapUnderlyingLendingEvent {
+                token_in: Some(token_in),
+                token_out: Some(token_out),
+                interest_bearing_token_in_action: interest_token_in_change,
+                interest_bearing_token_out_action: interest_token_out_change,
+            };
+
+            pool_events.push(PoolEvent {
+                transaction_hash: Hex::encode(&trx.hash),
+                tx_index: trx.index,
+                log_index: log.index,
+                log_ordinal: log.ordinal,
+                to_address: pool.address.to_string(),
+                from_address: Hex::encode(buyer),
+                timestamp: blk.timestamp_seconds(),
+                block_number: blk.number,
+                pool_address: pool.address.to_string(),
+                r#type: Some(Type::SwapUnderlyingLendingEvent(swap_underlying_event)),
+            })
+        }
     }
-
-    substreams::log::info!(
-        "Extracting Swap Underlying from transaction {} and pool {}",
-        Hex::encode(&trx.hash),
-        &pool.address
-    );
-
-    // Determine the addresses and sources of the input and output tokens
-    // based on their indices and the type of the pool.
-    let (token_in, token_out) = determine_underlying_exchange_tokens(
-        &pool,
-        sold_id.to_i32(),
-        bought_id.to_i32(),
-        tokens_sold,
-        tokens_bought,
-    );
-
-    // Determine if there's a change in the metapools base pool LP token balance. This could be a burn
-    // or mint operation depending on the swap direction (metapool to base pool or vice versa).
-    let base_pool_lp_token_address = pool.input_tokens.get(1).unwrap().address_vec();
-    let lp_token_change = if token_in.source() == TokenSource::MetaPool
-        && token_out.source() == TokenSource::BasePool
-    {
-        extract_lp_token_change(trx, pool, &base_pool_lp_token_address, true)
-    } else if token_in.source() == TokenSource::BasePool
-        && token_out.source() == TokenSource::MetaPool
-    {
-        extract_lp_token_change(trx, pool, &base_pool_lp_token_address, false)
-    } else {
-        None
-    };
-
-    let swap_underlying_event = SwapUnderlyingEvent {
-        token_in: Some(token_in),
-        token_out: Some(token_out),
-        lp_token_change: lp_token_change,
-        base_pool_address,
-    };
-
-    pool_events.push(PoolEvent {
-        transaction_hash: Hex::encode(&trx.hash),
-        tx_index: trx.index,
-        log_index: log.index,
-        log_ordinal: log.ordinal,
-        to_address: pool.address.to_string(),
-        from_address: Hex::encode(buyer),
-        timestamp: blk.timestamp_seconds(),
-        block_number: blk.number,
-        pool_address: pool.address.to_string(),
-        r#type: Some(Type::SwapUnderlyingEvent(swap_underlying_event)),
-    })
 }
 
 fn determine_underlying_exchange_tokens(
@@ -569,6 +677,54 @@ fn extract_lp_token_change(
     match event_extraction::extract_specific_transfer_event(
         trx,
         Some(lp_token_address),
+        Some(from),
+        Some(to),
+    ) {
+        Ok(transfer) => Some(LpTokenChange {
+            token_address: Hex::encode(transfer.token_address),
+            amount: transfer.transfer.value.into(),
+            change_type: if is_burn {
+                LpTokenChangeType::Burn
+            } else {
+                LpTokenChangeType::Mint
+            } as i32,
+        }),
+        Err(e) => {
+            substreams::log::debug!("Error extracting LP token change: {:?}", e);
+            None
+        }
+    }
+}
+
+// TODO this is the same as above, could refactor so we use one
+fn extract_lending_pool_token_change(
+    trx: &TransactionTrace,
+    pool: &Pool,
+    token_address: &Vec<u8>,
+    is_burn: bool,
+) -> Option<LpTokenChange> {
+    let pool_address = pool.address_vec();
+    let null_address = NULL_ADDRESS.to_vec();
+
+    substreams::log::debug!("pool address is: {:?}", Hex::encode(&pool_address));
+    substreams::log::debug!("token address is: {:?}", Hex::encode(&token_address));
+
+    let from: &Vec<u8>;
+    let to: &Vec<u8>;
+
+    // Determine the 'from' and 'to' addresses based on whether it's a burn or mint event.
+    if is_burn {
+        from = &pool_address;
+        to = &null_address;
+    } else {
+        from = &null_address;
+        to = &pool_address;
+    }
+
+    // Attempt to extract the specific transfer event for the LP token.
+    match event_extraction::extract_specific_transfer_event(
+        trx,
+        Some(token_address),
         Some(from),
         Some(to),
     ) {

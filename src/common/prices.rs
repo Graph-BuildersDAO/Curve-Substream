@@ -11,7 +11,9 @@ use crate::{
     key_management::store_key_manager::StoreKey,
     network_config::HARDCODED_STABLES,
     pb::{curve::types::v1::Token, uniswap_pricing::v1::Erc20Price},
-    rpc::oracle::{get_usd_price_from_curve_calc, get_usd_price_from_sushi, get_usd_price_from_yearn},
+    rpc::oracle::{
+        get_usd_price_from_curve_calc, get_usd_price_from_sushi, get_usd_price_from_yearn,
+    },
 };
 
 pub fn get_token_usd_price(
@@ -35,9 +37,6 @@ pub fn get_token_usd_price(
         .or_else(|| get_usd_price_from_yearn(token.address_vec()))
         .or_else(|| get_usd_price_from_sushi(token.address_vec()))
         .or_else(|| get_usd_price_from_curve_calc(token.address_vec()))
-        // TODO: Currently we have only implemented two of the RPC price gets from the original subgraph.
-        //       We need to implement all the remaining pricing RPC calls eventually.
-        //       These act as a fallback in case we cannot get the price from the imported substream packages.
         .unwrap_or_else(|| {
             substreams::log::debug!("Failed to get price for token: {}", token.address);
             BigDecimal::zero()

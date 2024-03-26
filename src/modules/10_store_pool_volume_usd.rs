@@ -135,7 +135,7 @@ pub fn store_pool_volume_usd(
                         token_out_amount_usd,
                     );
                 }
-                Type::SwapUnderlyingEvent(swap_underlying) => {
+                Type::SwapUnderlyingMetaEvent(swap_underlying) => {
                     let is_meta_to_base = is_meta_to_base_exchange(&swap_underlying);
                     let is_base_to_meta = is_base_to_meta_exchange(&swap_underlying);
 

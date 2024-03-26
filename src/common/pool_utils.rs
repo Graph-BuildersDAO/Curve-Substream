@@ -8,7 +8,7 @@ use substreams::{
 use crate::{
     key_management::store_key_manager::StoreKey,
     pb::curve::types::v1::{
-        events::pool_event::{SwapUnderlyingEvent, TokenSource},
+        events::pool_event::{SwapUnderlyingMetaEvent, TokenSource},
         pool::PoolType,
         Pool, Token,
     },
@@ -66,14 +66,18 @@ pub fn is_metapool(pool: &Pool) -> bool {
     matches!(pool.pool_type, Some(PoolType::MetaPool(_)))
 }
 
+pub fn is_lending_pool(pool: &Pool) -> bool {
+    matches!(pool.pool_type, Some(PoolType::LendingPool(_)))
+}
+
 // Checks whether a TokenExchangeUnderlying event is a Metapool Asset -> Base Pool Asset exchange
-pub fn is_meta_to_base_exchange(swap_underlying: &SwapUnderlyingEvent) -> bool {
+pub fn is_meta_to_base_exchange(swap_underlying: &SwapUnderlyingMetaEvent) -> bool {
     swap_underlying.token_in_ref().source() == TokenSource::MetaPool
         && swap_underlying.token_out_ref().source() == TokenSource::BasePool
 }
 
 // Checks whether a TokenExchangeUnderlying event is a Base Pool Asset -> Metapool Asset exchange
-pub fn is_base_to_meta_exchange(swap_underlying: &SwapUnderlyingEvent) -> bool {
+pub fn is_base_to_meta_exchange(swap_underlying: &SwapUnderlyingMetaEvent) -> bool {
     swap_underlying.token_in_ref().source() == TokenSource::BasePool
         && swap_underlying.token_out_ref().source() == TokenSource::MetaPool
 }

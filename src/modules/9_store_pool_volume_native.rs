@@ -60,7 +60,7 @@ pub fn store_pool_volume_native(
                         &hour_id,
                     );
                 }
-                Type::SwapUnderlyingEvent(swap_underlying) => {
+                Type::SwapUnderlyingMetaEvent(swap_underlying) => {
                     if is_meta_to_base_exchange(swap_underlying) {
                         // We only need to track the volume for the Metapools asset.
                         update_pool_volume(

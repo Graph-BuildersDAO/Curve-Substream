@@ -5,7 +5,10 @@ use substreams::{scalar::BigInt, Hex};
 use crate::{
     constants::default_admin_fee,
     pb::curve::types::v1::events::{
-        pool_event::{DepositEvent, LpTokenChange, SwapEvent, SwapUnderlyingEvent, TokenAmount, WithdrawEvent},
+        pool_event::{
+            DepositEvent, LpTokenChange, SwapEvent, SwapUnderlyingLendingEvent,
+            SwapUnderlyingMetaEvent, TokenAmount, WithdrawEvent,
+        },
         FeeChangeEvent,
     },
 };
@@ -48,7 +51,7 @@ impl SwapEvent {
     }
 }
 
-impl SwapUnderlyingEvent {
+impl SwapUnderlyingMetaEvent {
     pub fn token_in_ref(&self) -> &TokenAmount {
         self.token_in.as_ref().unwrap()
     }
@@ -71,6 +74,40 @@ impl SwapUnderlyingEvent {
 
     pub fn lp_token_change_amount_big(&self) -> BigInt {
         BigInt::from_str(self.lp_token_change_ref().amount.as_str()).unwrap()
+    }
+}
+
+impl SwapUnderlyingLendingEvent {
+    pub fn token_in_ref(&self) -> &TokenAmount {
+        self.token_in.as_ref().unwrap()
+    }
+
+    pub fn token_in_amount_big(&self) -> BigInt {
+        BigInt::from_str(self.token_in_ref().amount.as_str()).unwrap()
+    }
+
+    pub fn token_out_ref(&self) -> &TokenAmount {
+        self.token_out.as_ref().unwrap()
+    }
+
+    pub fn token_out_amount_big(&self) -> BigInt {
+        BigInt::from_str(self.token_out_ref().amount.as_str()).unwrap()
+    }
+
+    pub fn interest_bearing_token_in_action_ref(&self) -> &LpTokenChange {
+        self.interest_bearing_token_in_action.as_ref().unwrap()
+    }
+
+    pub fn interest_bearing_token_in_action_amount_big(&self) -> BigInt {
+        BigInt::from_str(self.interest_bearing_token_in_action_ref().amount.as_str()).unwrap()
+    }
+
+    pub fn interest_bearing_token_out_action_ref(&self) -> &LpTokenChange {
+        self.interest_bearing_token_out_action.as_ref().unwrap()
+    }
+
+    pub fn interest_bearing_token_out_action_amount_big(&self) -> BigInt {
+        BigInt::from_str(self.interest_bearing_token_out_action_ref().amount.as_str()).unwrap()
     }
 }
 

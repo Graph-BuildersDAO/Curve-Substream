@@ -59,7 +59,7 @@ pub fn store_input_token_balances(events: Events, store: StoreAddBigInt) {
                         swap.token_out_amount_big().neg(),
                     );
                 }
-                Type::SwapUnderlyingEvent(swap_underlying) => {
+                Type::SwapUnderlyingMetaEvent(swap_underlying) => {
                     match LpTokenChangeType::from_i32(
                         swap_underlying.lp_token_change_ref().change_type,
                     ) {
@@ -113,6 +113,30 @@ pub fn store_input_token_balances(events: Events, store: StoreAddBigInt) {
                         Some(LpTokenChangeType::None) => {}
                         None => {}
                     }
+                }
+                Type::SwapUnderlyingLendingEvent(swap_underlying) => {
+                    // A lending pool contains interest bearing tokens. These are the balances that 
+                    // change during a `TokenExchangeUnderlying` event on this pool.
+                    store.add(
+                        event.log_ordinal,
+                        StoreKey::input_token_balance_key(
+                            &event.pool_address,
+                            &swap_underlying
+                                .interest_bearing_token_in_action_ref()
+                                .token_address,
+                        ),
+                        swap_underlying.interest_bearing_token_in_action_amount_big(),
+                    );
+                    store.add(
+                        event.log_ordinal,
+                        StoreKey::input_token_balance_key(
+                            &event.pool_address,
+                            &swap_underlying
+                                .interest_bearing_token_out_action_ref()
+                                .token_address,
+                        ),
+                        swap_underlying.interest_bearing_token_out_action_amount_big().neg(),
+                    )
                 }
             }
         }

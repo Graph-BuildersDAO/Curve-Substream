@@ -16,8 +16,8 @@ use crate::{
         MISSING_OLD_POOLS_DATA, POOL_REGISTRIES,
     },
     pb::curve::types::v1::{
-        pool::PoolType, ControllerNewGauge, CryptoPool, CurveEvents, LiquidityGauge, MetaPool,
-        PlainPool, Pool, Token, TriCryptoPool, UpdateMiningParametersEvent,
+        pool::PoolType, ControllerNewGauge, CryptoPool, CurveEvents, LendingPool, LiquidityGauge,
+        MetaPool, PlainPool, Pool, Token, TriCryptoPool, UpdateMiningParametersEvent,
     },
     rpc::{self, pool, token},
     types::event_traits::PlainPoolDeployedEvent,
@@ -94,8 +94,6 @@ pub fn map_curve_events(blk: eth::Block) -> Result<CurveEvents, Vec<Error>> {
         }
         _ => {}
     }
-
-    // seed_pool_for_testing(&mut pools);
 
     curve_events.pools = pools;
     curve_events.gauges = gauges;
@@ -179,7 +177,24 @@ fn add_missing_pool(
                 PoolType::PlainPool(PlainPool {}),
             ));
         }
-        PoolTypeConfig::Lending => {}
+        PoolTypeConfig::Lending => {
+            if let Ok(underlying_coins) =
+                pool::get_lending_pool_underlying_coins(&pool.address.to_vec())
+            {
+                pools.push(create_missing_pool(
+                    Hex::encode(pool_address),
+                    Hex::encode(NULL_ADDRESS.to_vec()),
+                    lp_token,
+                    input_tokens_ordered,
+                    input_tokens,
+                    blk,
+                    hash,
+                    PoolType::LendingPool(LendingPool {
+                        underlying_tokens: underlying_coins,
+                    }),
+                ));
+            }
+        }
         PoolTypeConfig::Meta => {
             if let Some(base_pool) = pool::get_old_metapool_base_pool(&pool.address.to_vec()) {
                 if let Ok(underlying_coins) =
@@ -210,11 +225,11 @@ fn add_missing_pool(
 fn map_crypto_pool_deployed_events(
     blk: &eth::Block,
     pools: &mut Vec<Pool>,
-    address: [u8; 20],
+    registry_address: [u8; 20],
 ) -> Result<(), Error> {
     pools.append(
         &mut blk
-            .events::<crypto_pool_factory_v2::events::CryptoPoolDeployed>(&[&address])
+            .events::<crypto_pool_factory_v2::events::CryptoPoolDeployed>(&[&registry_address])
             .filter_map(|(event, log)| {
                 // The minter of the LP token is the liquidity pool contract.
                 let pool_address = match token::get_token_minter(&event.token) {
@@ -252,7 +267,7 @@ fn map_crypto_pool_deployed_events(
 
                 Some(create_pool(
                     Hex::encode(&pool_address),
-                    Hex::encode(address),
+                    Hex::encode(registry_address),
                     lp_token,
                     input_tokens_ordered,
                     input_tokens,
@@ -269,12 +284,11 @@ fn map_crypto_pool_deployed_events(
 fn map_plain_pool_deployed_events<E: PlainPoolDeployedEvent + substreams_ethereum::Event>(
     blk: &eth::Block,
     pools: &mut Vec<Pool>,
-    // todo this could be named more aptly as it is the registry/factory address
-    address: [u8; 20],
+    registry_address: [u8; 20],
 ) -> Result<(), Error> {
     pools.append(
         &mut blk
-            .events::<E>(&[&address])
+            .events::<E>(&[&registry_address])
             .filter_map(|(_event, log)| {
                 let transfer = match event_extraction::extract_transfer_event(&log) {
                     Ok(event) => event,
@@ -315,7 +329,7 @@ fn map_plain_pool_deployed_events<E: PlainPoolDeployedEvent + substreams_ethereu
 
                 Some(create_pool(
                     Hex::encode(plain_pool_address),
-                    Hex::encode(address),
+                    Hex::encode(registry_address),
                     lp_token,
                     input_tokens_ordered,
                     input_tokens,
@@ -611,88 +625,4 @@ fn get_and_sort_input_tokens(pool_address: &Vec<u8>) -> Result<(Vec<Token>, Vec<
     input_tokens.sort_by(|a, b| a.address.cmp(&b.address));
 
     Ok((input_tokens, input_tokens_ordered))
-}
-
-// TODO delete after testing
-fn seed_pool_for_testing(pools: &mut Vec<Pool>) {
-    pools.push(get_metapool());
-}
-fn get_metapool() -> Pool {
-    Pool {
-        name: "Curve.fi Factory USD Metapool: L3USD3CRV".to_string(),
-        symbol: "L3USD3CRV3CRV-f".to_string(),
-        address: "79ce6be6ae0995b1c8ed3e8ae54de0e437dec8c3".to_string(),
-        created_at_timestamp: 1701611519,
-        created_at_block_number: 18706277,
-        log_ordinal: 2844,
-        transaction_id: "3df74962bc58833ee086d4474b3dd5286801cc5d5f7c12be92626097fe3fe74c"
-            .to_string(),
-        registry_address: "b9fc157394af804a3578134a6585c0dc9cc990d4".to_string(),
-        output_token: Some(Token {
-            address: "79ce6be6ae0995b1c8ed3e8ae54de0e437dec8c3".to_string(),
-            name: "Curve.fi Factory USD Metapool: L3USD3CRV".to_string(),
-            symbol: "L3USD3CRV3CRV-f".to_string(),
-            decimals: 18,
-            total_supply: "0".to_string(),
-            is_base_pool_lp_token: false,
-            gauge: None,
-        }),
-        input_tokens_ordered: vec![
-            "2c2d8a078b33bf7782a16acce2c5ba6653a90d5f".to_string(),
-            "6c3f90f043a72fa612cbac8115ee7e52bde6e490".to_string(),
-        ],
-        input_tokens: vec![
-            Token {
-                address: "2c2d8a078b33bf7782a16acce2c5ba6653a90d5f".to_string(),
-                name: "L3USD".to_string(),
-                symbol: "L3USD".to_string(),
-                decimals: 18,
-                total_supply: "88888888000000000000000000".to_string(),
-                is_base_pool_lp_token: false,
-                gauge: None,
-            },
-            Token {
-                address: "6c3f90f043a72fa612cbac8115ee7e52bde6e490".to_string(),
-                name: "Curve.fi DAI/USDC/USDT".to_string(),
-                symbol: "3Crv".to_string(),
-                decimals: 18,
-                total_supply: "190535607806721468949805568".to_string(),
-                is_base_pool_lp_token: true,
-                gauge: None,
-            },
-        ],
-        pool_type: Some(PoolType::MetaPool(MetaPool {
-            base_pool_address: "bebc44782c7db0a1a60cb6fe97d0b483032ff1c7".to_string(),
-            underlying_tokens: vec![
-                Token {
-                    address: "6b175474e89094c44da98b954eedeac495271d0f".to_string(),
-                    name: "Dai Stablecoin".to_string(),
-                    symbol: "DAI".to_string(),
-                    decimals: 18,
-                    total_supply: "3674325983605876519355232114".to_string(),
-                    is_base_pool_lp_token: true,
-                    gauge: None,
-                },
-                Token {
-                    address: "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48".to_string(),
-                    name: "USD Coin".to_string(),
-                    symbol: "USDC".to_string(),
-                    decimals: 6,
-                    total_supply: "22508074118982608".to_string(),
-                    is_base_pool_lp_token: true,
-                    gauge: None,
-                },
-                Token {
-                    address: "dac17f958d2ee523a2206206994597c13d831ec7".to_string(),
-                    name: "Tether USD".to_string(),
-                    symbol: "USDT".to_string(),
-                    decimals: 6,
-                    total_supply: "41013387300953492".to_string(),
-                    is_base_pool_lp_token: true,
-                    gauge: None,
-                },
-            ],
-            max_coin: 1,
-        })),
-    }
 }
