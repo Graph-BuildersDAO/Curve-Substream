@@ -1,6 +1,9 @@
 use std::str::FromStr;
 
-use substreams::{scalar::BigInt, Hex};
+use substreams::{
+    scalar::{BigDecimal, BigInt},
+    Hex,
+};
 
 use crate::{
     constants::default_admin_fee,
@@ -114,6 +117,10 @@ impl SwapUnderlyingLendingEvent {
 impl TokenAmount {
     pub fn amount_big(&self) -> BigInt {
         BigInt::from_str(self.amount.as_str()).unwrap()
+    }
+
+    pub fn amount_usd_decimal(&self) -> BigDecimal {
+        BigDecimal::from_str(self.amount_usd.as_str()).unwrap()
     }
 }
 
