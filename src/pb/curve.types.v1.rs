@@ -362,7 +362,9 @@ pub mod events {
             /// BigInt in token's native amount
             #[prost(string, tag="2")]
             pub amount: ::prost::alloc::string::String,
-            #[prost(enumeration="TokenSource", tag="3")]
+            #[prost(string, tag="3")]
+            pub amount_usd: ::prost::alloc::string::String,
+            #[prost(enumeration="TokenSource", tag="4")]
             pub source: i32,
         }
         #[allow(clippy::derive_partial_eq_without_eq)]

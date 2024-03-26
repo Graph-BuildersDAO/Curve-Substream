@@ -1,7 +1,7 @@
 specVersion: v0.1.0
 package:
   name: curve_sps
-  version: v0.1.5-alpha
+  version: v0.1.6-alpha
 
 imports:
   graph: https://github.com/streamingfast/substreams-sink-subgraph/releases/download/v0.1.0/substreams-sink-subgraph-protodefs-v0.1.0.spkg
@@ -64,6 +64,8 @@ modules:
     inputs:
       - source: sf.ethereum.type.v2.Block
       - store: store_pools_created
+      - store: uniswap_prices:store_uniswap_prices
+      - store: chainlink_prices:chainlink_price_store
     output:
       type: proto:curve.types.v1.Events
 

@@ -692,6 +692,12 @@ fn create_deposit_entity(
         .unzip();
     let output_token_amount =
         BigInt::try_from(deposit.output_token.as_ref().unwrap().clone().amount).unwrap();
+
+    let mut total_amount_usd = BigDecimal::from(0);
+    for token in deposit.input_tokens.iter() {
+        total_amount_usd = total_amount_usd + token.amount_usd_decimal();
+    }
+
     tables
         .create_row(
             "Deposit",
@@ -714,7 +720,7 @@ fn create_deposit_entity(
         )
         .set("inputTokenAmounts", input_token_amounts)
         .set("outputTokenAmount", BigInt::from(output_token_amount))
-        .set("amountUSD", BigDecimal::zero())
+        .set("amountUSD", total_amount_usd)
         .set("pool", format::format_address_string(&event.pool_address));
 }
 
@@ -736,6 +742,12 @@ fn create_withdraw_entity(
         .unzip();
     let output_token_amount =
         BigInt::try_from(withdraw.output_token.as_ref().unwrap().amount.clone()).unwrap();
+
+    let mut total_amount_usd = BigDecimal::from(0);
+    for token in withdraw.input_tokens.iter() {
+        total_amount_usd = total_amount_usd + token.amount_usd_decimal();
+    }
+
     tables
         .create_row(
             "Withdraw",
@@ -758,7 +770,7 @@ fn create_withdraw_entity(
         )
         .set("inputTokenAmounts", input_token_amounts)
         .set("outputTokenAmount", BigInt::from(output_token_amount))
-        .set("amountUSD", BigDecimal::zero())
+        .set("amountUSD", total_amount_usd)
         .set("pool", format::format_address_string(&event.pool_address));
 }
 
@@ -793,7 +805,7 @@ fn create_swap_entity(tables: &mut Tables, event: &PoolEvent, swap: &SwapEvent) 
                     .unwrap_or_default(),
             ),
         )
-        .set("amountInUSD", BigDecimal::zero())
+        .set("amountInUSD", swap.token_in_ref().amount_usd_decimal())
         .set(
             "tokenOut",
             format::format_address_string(&swap.token_out.as_ref().unwrap().token_address),
@@ -809,7 +821,7 @@ fn create_swap_entity(tables: &mut Tables, event: &PoolEvent, swap: &SwapEvent) 
                     .unwrap_or_default(),
             ),
         )
-        .set("amountOutUSD", BigDecimal::zero())
+        .set("amountOutUSD", swap.token_out_ref().amount_usd_decimal())
         .set("pool", format::format_address_string(&event.pool_address));
 }
 
@@ -839,12 +851,12 @@ fn create_swap_underlying_entity(
             format::format_address_string(&token_in.token_address),
         )
         .set("amountIn", token_in.amount_big())
-        .set("amountInUSD", in_price_usd)
+        .set("amountInUSD", token_in.amount_usd_decimal())
         .set(
             "tokenOut",
             format::format_address_string(&token_out.token_address),
         )
         .set("amountOut", token_out.amount_big())
-        .set("amountOutUSD", out_price_usd)
+        .set("amountOutUSD", token_out.amount_usd_decimal())
         .set("pool", format::format_address_string(&event.pool_address));
 }

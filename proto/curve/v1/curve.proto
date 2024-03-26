@@ -244,7 +244,8 @@ message Events {
     message TokenAmount {
         string token_address = 1;
         string amount = 2; // BigInt in token's native amount
-        TokenSource source = 3;
+        string amount_usd = 3;
+        TokenSource source = 4;
     }
     
     enum TokenSource {
