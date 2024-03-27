@@ -290,7 +290,7 @@ fn map_plain_pool_deployed_events<E: PlainPoolDeployedEvent + substreams_ethereu
         &mut blk
             .events::<E>(&[&registry_address])
             .filter_map(|(_event, log)| {
-                let transfer = match event_extraction::extract_transfer_event(&log) {
+                let transfer = match event_extraction::extract_pool_creation_transfer_event(&log) {
                     Ok(event) => event,
                     Err(e) => {
                         substreams::log::debug!(
@@ -357,7 +357,7 @@ fn map_meta_pool_deployed_events(
             // regardless of the originating contract, are captured and processed here as long as they are emitted to the specified address.
             .events::<pool_registry_v1::events::MetaPoolDeployed>(&[&address])
             .filter_map(|(event, log)| {
-                let transfer = match event_extraction::extract_transfer_event(&log) {
+                let transfer = match event_extraction::extract_pool_creation_transfer_event(&log) {
                     Ok(event) => event,
                     Err(e) => {
                         substreams::log::debug!(

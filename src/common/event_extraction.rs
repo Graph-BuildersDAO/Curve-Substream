@@ -2,7 +2,7 @@
 
 use anyhow::anyhow;
 use substreams::{errors::Error, Hex};
-use substreams_ethereum::{block_view, pb::eth::v2::TransactionTrace, Event};
+use substreams_ethereum::{block_view, pb::eth::v2::TransactionTrace, Event, NULL_ADDRESS};
 
 use crate::{
     abi::{
@@ -61,7 +61,9 @@ pub fn extract_specific_transfer_event(
 }
 
 // Only use for MetaPool and PlainPool deployments where we can ensure there is only one Transfer event.
-pub fn extract_transfer_event(log: &block_view::LogView) -> Result<TokenTransfer, Error> {
+pub fn extract_pool_creation_transfer_event(
+    log: &block_view::LogView,
+) -> Result<TokenTransfer, Error> {
     log.receipt
         .transaction
         .calls
@@ -72,8 +74,17 @@ pub fn extract_transfer_event(log: &block_view::LogView) -> Result<TokenTransfer
             if Transfer::match_log(log) {
                 // Attempt to decode the log and pair it with the log reference if successful
                 match Transfer::decode(log) {
-                    Ok(transfer) => Some((transfer, log)), // Pair the decoded transfer with the log
-                    Err(_) => None,                        // Ignore this log if decoding fails
+                    Ok(transfer) => {
+                        if &transfer.sender == &NULL_ADDRESS.to_vec()
+                            && &transfer.receiver == &log.address
+                        {
+                            // Pair the decoded transfer with the log
+                            Some((transfer, log))
+                        } else {
+                            None
+                        }
+                    }
+                    Err(_) => None, // Ignore this log if decoding fails
                 }
             } else {
                 None // Not a transfer log, so we skip it
