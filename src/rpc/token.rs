@@ -11,6 +11,7 @@ use crate::{
 };
 
 pub fn create_token(
+    index: String,
     token_address: &Vec<u8>,
     pool_address: &Vec<u8>,
     gauge_address: Option<&String>,
@@ -28,6 +29,7 @@ pub fn create_token(
             }
         };
         return Ok(Token {
+            index,
             address: Hex::encode(&token_address),
             name: String::from("ETH"),
             symbol: String::from("ETH"),
@@ -86,6 +88,7 @@ pub fn create_token(
     .unwrap_or_else(|| BigInt::from(0));
 
     return Ok(Token {
+        index,
         address: Hex::encode(token_address),
         name,
         symbol,

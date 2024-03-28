@@ -8,20 +8,23 @@ pub struct Tokens {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Token {
+    /// This refers to the index of the coin relative to the pools `coins` function
     #[prost(string, tag="1")]
-    pub address: ::prost::alloc::string::String,
+    pub index: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
-    pub name: ::prost::alloc::string::String,
+    pub address: ::prost::alloc::string::String,
     #[prost(string, tag="3")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
     pub symbol: ::prost::alloc::string::String,
-    #[prost(uint64, tag="4")]
+    #[prost(uint64, tag="5")]
     pub decimals: u64,
-    #[prost(string, tag="5")]
+    #[prost(string, tag="6")]
     pub total_supply: ::prost::alloc::string::String,
-    #[prost(bool, tag="6")]
+    #[prost(bool, tag="7")]
     pub is_base_pool_lp_token: bool,
     /// Optional field to track the gauge for reward tokens
-    #[prost(string, optional, tag="7")]
+    #[prost(string, optional, tag="8")]
     pub gauge: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]

@@ -1,6 +1,6 @@
 use hex_literal::hex;
 use lazy_static::lazy_static;
-use std::{collections::HashMap, ops::Div};
+use std::collections::HashMap;
 use substreams::{
     scalar::{BigDecimal, BigInt},
     Hex,
@@ -141,6 +141,7 @@ pub fn default_admin_fee() -> BigInt {
 
 pub fn curve_token() -> Token {
     Token {
+        index: "0".to_string(),
         address: Hex::encode(CRV_TOKEN_ADDRESS),
         name: "Curve DAO Token".to_string(),
         symbol: "CRV".to_string(),

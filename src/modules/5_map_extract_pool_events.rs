@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use num_traits::ToPrimitive;
 use substreams::{
     errors::Error,
@@ -530,7 +531,7 @@ fn extract_swap_underlying_event(
 
         // Determine the addresses and sources of the input and output tokens
         // based on their indices and the type of the pool.
-        let (token_in, token_out) = determine_underlying_exchange_tokens(
+        let (token_in, token_out) = match determine_underlying_exchange_tokens(
             &pool,
             sold_id.to_i32(),
             bought_id.to_i32(),
@@ -538,11 +539,24 @@ fn extract_swap_underlying_event(
             tokens_bought,
             uniswap_prices,
             chainlink_prices,
-        );
+        ) {
+            Ok((token_in, token_out)) => (token_in, token_out),
+            Err(e) => {
+                substreams::log::debug!("Error determining exchange tokens: {:?}", e);
+                return;
+            }
+        };
 
         // Determine if there's a change in the metapools base pool LP token balance. This could be a burn
         // or mint operation depending on the swap direction (metapool to base pool or vice versa).
-        let base_pool_lp_token_address = pool.input_tokens.get(1).unwrap().address_vec();
+        let base_pool_lp_token_address = match pool.input_tokens.iter().find(|t| &t.index == &"1") {
+            Some(token) => token.address_vec(),
+            None => {
+                substreams::log::debug!("Error determining base pool lp token from metapool");
+                return;
+            }
+        };
+
         let lp_token_change = if token_in.source() == TokenSource::MetaPool
             && token_out.source() == TokenSource::BasePool
         {
@@ -690,26 +704,33 @@ fn determine_underlying_exchange_tokens(
     tokens_bought: &BigInt,
     uniswap_prices: &StoreGetProto<Erc20Price>,
     chainlink_prices: &StoreGetBigDecimal,
-) -> (TokenAmount, TokenAmount) {
-    let get_token_info = |id, pool_type: &PoolType| -> (Token, TokenSource) {
-        if id == 0 {
-            (pool.input_tokens[0].clone(), TokenSource::MetaPool)
-        } else {
-            let metapool = match pool_type {
-                PoolType::MetaPool(meta) => meta,
-                _ => panic!("Unsupported pool type or metapool information not available."),
-            };
-
-            let address = metapool.underlying_tokens
-                [(id - metapool.max_coin.to_i32().unwrap()) as usize]
-                .clone();
-            (address, TokenSource::BasePool)
+) -> Result<(TokenAmount, TokenAmount), Error> {
+    let get_token_info = |id: i32, pool: &Pool| -> Result<(Token, TokenSource), Error> {
+        match &pool.pool_type {
+            Some(PoolType::MetaPool(meta)) => {
+                if id == 0 {
+                    pool.input_tokens
+                        .iter()
+                        .find(|t| t.index == id.to_string())
+                        .map(|t| (t.clone(), TokenSource::MetaPool))
+                        .ok_or_else(|| anyhow!("Token not found in metapool"))
+                } else {
+                    let adjusted_id = id - meta.max_coin.to_i32().unwrap();
+                    meta.underlying_tokens
+                        .iter()
+                        .find(|t| t.index == adjusted_id.to_string())
+                        .map(|t| (t.clone(), TokenSource::BasePool))
+                        .ok_or_else(|| anyhow!("Token not found in base pool"))
+                }
+            }
+            _ => Err(anyhow!(
+                "Unsupported pool type or metapool information not available"
+            )),
         }
     };
 
-    let pool_type = pool.pool_type.as_ref().expect("Pool type must be set.");
-    let (token_in, token_in_source) = get_token_info(sold_id, pool_type);
-    let (token_out, token_out_source) = get_token_info(bought_id, pool_type);
+    let (token_in, token_in_source) = get_token_info(sold_id, &pool)?;
+    let (token_out, token_out_source) = get_token_info(bought_id, &pool)?;
 
     let token_in_price = get_token_usd_price(&token_in, &uniswap_prices, &chainlink_prices);
     let token_out_price = get_token_usd_price(&token_out, &uniswap_prices, &chainlink_prices);
@@ -728,7 +749,7 @@ fn determine_underlying_exchange_tokens(
         source: token_out_source as i32,
     };
 
-    (token_in, token_out)
+    Ok((token_in, token_out))
 }
 
 fn extract_lp_token_change(
@@ -1031,7 +1052,12 @@ fn extract_withdraw_one_event(
         .find_map(|log| {
             // Directly return the result of the match_and_decode if the conditions are met
             if let Some(transfer) = Transfer::match_and_decode(log) {
+                // TODO - Test whether first condition is needed
                 if transfer.sender == *log.address && transfer.receiver == provider {
+                    return Some(log);
+                } else if Hex::encode(transfer.sender) == pool.address
+                    && transfer.receiver == provider
+                {
                     return Some(log);
                 }
             }

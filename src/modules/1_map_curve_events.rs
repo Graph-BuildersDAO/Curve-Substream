@@ -122,7 +122,12 @@ fn add_missing_pool(
     pool: &PoolDetails,
 ) -> Result<(), Error> {
     let pool_address = pool.address.to_vec();
-    let lp_token = match token::create_token(&pool.lp_token.to_vec(), &pool_address, None) {
+    let lp_token = match token::create_token(
+        "0".to_string(),
+        &pool.lp_token.to_vec(),
+        &pool_address,
+        None,
+    ) {
         Ok(token) => token,
         Err(e) => {
             return Err(anyhow!("Error in `add_missing_pools`: {:?}", e));
@@ -242,16 +247,17 @@ fn map_crypto_pool_deployed_events(
                         return None;
                     }
                 };
-                let lp_token = match token::create_token(&event.token, &pool_address, None) {
-                    Ok(token) => token,
-                    Err(e) => {
-                        substreams::log::debug!(
-                            "Error in `map_crypto_pool_deployed_events`: {:?}",
-                            e
-                        );
-                        return None;
-                    }
-                };
+                let lp_token =
+                    match token::create_token("0".to_string(), &event.token, &pool_address, None) {
+                        Ok(token) => token,
+                        Err(e) => {
+                            substreams::log::debug!(
+                                "Error in `map_crypto_pool_deployed_events`: {:?}",
+                                e
+                            );
+                            return None;
+                        }
+                    };
                 let (input_tokens, input_tokens_ordered) =
                     match get_and_sort_input_tokens(&pool_address) {
                         Ok(result) => result,
@@ -303,17 +309,21 @@ fn map_plain_pool_deployed_events<E: PlainPoolDeployedEvent + substreams_ethereu
 
                 let plain_pool_address = &transfer.token_address;
 
-                let lp_token =
-                    match token::create_token(plain_pool_address, plain_pool_address, None) {
-                        Ok(token) => token,
-                        Err(e) => {
-                            substreams::log::debug!(
-                                "Error in `map_plain_pool_deployed_events`: {:?}",
-                                e
-                            );
-                            return None;
-                        }
-                    };
+                let lp_token = match token::create_token(
+                    "0".to_string(),
+                    plain_pool_address,
+                    plain_pool_address,
+                    None,
+                ) {
+                    Ok(token) => token,
+                    Err(e) => {
+                        substreams::log::debug!(
+                            "Error in `map_plain_pool_deployed_events`: {:?}",
+                            e
+                        );
+                        return None;
+                    }
+                };
                 let (input_tokens, input_tokens_ordered) =
                     match get_and_sort_input_tokens(plain_pool_address) {
                         Ok(result) => result,
@@ -372,7 +382,12 @@ fn map_meta_pool_deployed_events(
 
                 substreams::log::debug!("Metapool address is: {}", Hex::encode(metapool_address));
 
-                let lp_token = match token::create_token(metapool_address, metapool_address, None) {
+                let lp_token = match token::create_token(
+                    "0".to_string(),
+                    metapool_address,
+                    metapool_address,
+                    None,
+                ) {
                     Ok(token) => token,
                     Err(e) => {
                         substreams::log::debug!(
@@ -430,16 +445,17 @@ fn map_tricrypto_pool_deployed_events(
         &mut blk
             .events::<tricrypto_factory_ng::events::TricryptoPoolDeployed>(&[&address])
             .filter_map(|(event, log)| {
-                let lp_token = match token::create_token(&event.pool, &event.pool, None) {
-                    Ok(token) => token,
-                    Err(e) => {
-                        substreams::log::debug!(
-                            "Error in `map_tricrypto_pool_deployed_events`: {:?}",
-                            e
-                        );
-                        return None;
-                    }
-                };
+                let lp_token =
+                    match token::create_token("0".to_string(), &event.pool, &event.pool, None) {
+                        Ok(token) => token,
+                        Err(e) => {
+                            substreams::log::debug!(
+                                "Error in `map_tricrypto_pool_deployed_events`: {:?}",
+                                e
+                            );
+                            return None;
+                        }
+                    };
                 let (input_tokens, input_tokens_ordered) =
                     match get_and_sort_input_tokens(&event.pool) {
                         Ok(result) => result,

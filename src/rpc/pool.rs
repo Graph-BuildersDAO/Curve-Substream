@@ -68,7 +68,7 @@ pub fn get_pool_coins(pool_address: &Vec<u8>) -> Result<Vec<Token>, Error> {
             break;
         }
 
-        match create_token(&input_token, &pool_address, None) {
+        match create_token(idx.to_string(), &input_token, &pool_address, None) {
             Ok(token) => {
                 tokens.push(token);
             }
@@ -96,7 +96,7 @@ pub fn get_lending_pool_underlying_coins(pool_address: &Vec<u8>) -> Result<Vec<T
             None => break,
         };
 
-        match create_token(&underlying_token, &pool_address, None) {
+        match create_token(idx.to_string(), &underlying_token, &pool_address, None) {
             Ok(token) => {
                 tokens.push(token);
             }
@@ -130,7 +130,7 @@ pub fn get_old_metapool_underlying_coins(pool_address: &Vec<u8>) -> Result<Vec<T
             }
         };
 
-        match create_token(&input_token, &pool_address, None) {
+        match create_token(idx.to_string(), &input_token, &pool_address, None) {
             Ok(token) => {
                 tokens.push(token);
             }

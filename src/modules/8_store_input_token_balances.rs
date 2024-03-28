@@ -115,7 +115,7 @@ pub fn store_input_token_balances(events: Events, store: StoreAddBigInt) {
                     }
                 }
                 Type::SwapUnderlyingLendingEvent(swap_underlying) => {
-                    // A lending pool contains interest bearing tokens. These are the balances that 
+                    // A lending pool contains interest bearing tokens. These are the balances that
                     // change during a `TokenExchangeUnderlying` event on this pool.
                     store.add(
                         event.log_ordinal,
@@ -135,7 +135,9 @@ pub fn store_input_token_balances(events: Events, store: StoreAddBigInt) {
                                 .interest_bearing_token_out_action_ref()
                                 .token_address,
                         ),
-                        swap_underlying.interest_bearing_token_out_action_amount_big().neg(),
+                        swap_underlying
+                            .interest_bearing_token_out_action_amount_big()
+                            .neg(),
                     )
                 }
             }

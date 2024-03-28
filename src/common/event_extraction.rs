@@ -60,6 +60,7 @@ pub fn extract_specific_transfer_event(
         .ok_or_else(|| anyhow!("No transfer event found"))
 }
 
+// TODO refactor/optimise
 // Only use for MetaPool and PlainPool deployments where we can ensure there is only one Transfer event.
 pub fn extract_pool_creation_transfer_event(
     log: &block_view::LogView,
@@ -81,7 +82,11 @@ pub fn extract_pool_creation_transfer_event(
                             // Pair the decoded transfer with the log
                             Some((transfer, log))
                         } else {
-                            None
+                            if &transfer.sender == &NULL_ADDRESS.to_vec() {
+                                Some((transfer, log))
+                            } else {
+                                None
+                            }
                         }
                     }
                     Err(_) => None, // Ignore this log if decoding fails

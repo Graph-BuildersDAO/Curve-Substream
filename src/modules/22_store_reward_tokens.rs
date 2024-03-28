@@ -1,3 +1,4 @@
+use num_traits::ToPrimitive;
 use substreams::store::{
     DeltaInt64, Deltas, StoreGet, StoreGetProto, StoreNew, StoreSet, StoreSetProto,
 };
@@ -37,6 +38,7 @@ pub fn store_reward_tokens(
                             0,
                             key,
                             &Token {
+                                index: reward_token_count.to_string(),
                                 address: reward_token.address.to_string(),
                                 name: reward_token.name.to_string(),
                                 symbol: reward_token.symbol.to_string(),
@@ -48,6 +50,7 @@ pub fn store_reward_tokens(
                         )
                     } else {
                         match rpc::token::create_token(
+                            reward_token_count.to_string(),
                             &event.reward_token_vec(),
                             &pool.address_vec(),
                             Some(&gauge.gauge),

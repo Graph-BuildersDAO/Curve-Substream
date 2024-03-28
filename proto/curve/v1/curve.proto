@@ -9,13 +9,14 @@ message Tokens {
 }
 
 message Token {
-  string address = 1;
-  string name = 2;
-  string symbol = 3;
-  uint64 decimals = 4;
-  string total_supply = 5;
-  bool is_base_pool_lp_token = 6;
-  optional string gauge = 7;  // Optional field to track the gauge for reward tokens
+  string index = 1; // This refers to the index of the coin relative to the pools `coins` function
+  string address = 2;
+  string name = 3;
+  string symbol = 4;
+  uint64 decimals = 5;
+  string total_supply = 6;
+  bool is_base_pool_lp_token = 7;
+  optional string gauge = 8;  // Optional field to track the gauge for reward tokens
 }
 
 message Pool {

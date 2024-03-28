@@ -1,7 +1,7 @@
 specVersion: v0.1.0
 package:
   name: curve_sps
-  version: v0.1.6-alpha
+  version: v0.1.8-alpha
 
 imports:
   graph: https://github.com/streamingfast/substreams-sink-subgraph/releases/download/v0.1.0/substreams-sink-subgraph-protodefs-v0.1.0.spkg
