@@ -416,9 +416,8 @@ pub mod events {
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
         #[repr(i32)]
         pub enum LpTokenChangeType {
-            None = 0,
-            Mint = 1,
-            Burn = 2,
+            Mint = 0,
+            Burn = 1,
         }
         impl LpTokenChangeType {
             /// String value of the enum field names used in the ProtoBuf definition.
@@ -427,7 +426,6 @@ pub mod events {
             /// (if the ProtoBuf definition does not change) and safe for programmatic use.
             pub fn as_str_name(&self) -> &'static str {
                 match self {
-                    LpTokenChangeType::None => "NONE",
                     LpTokenChangeType::Mint => "MINT",
                     LpTokenChangeType::Burn => "BURN",
                 }
@@ -435,7 +433,6 @@ pub mod events {
             /// Creates an enum from field names used in the ProtoBuf definition.
             pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
                 match value {
-                    "NONE" => Some(Self::None),
                     "MINT" => Some(Self::Mint),
                     "BURN" => Some(Self::Burn),
                     _ => None,

@@ -60,58 +60,57 @@ pub fn store_input_token_balances(events: Events, store: StoreAddBigInt) {
                     );
                 }
                 Type::SwapUnderlyingMetaEvent(swap_underlying) => {
-                    match LpTokenChangeType::from_i32(
-                        swap_underlying.lp_token_change_ref().change_type,
-                    ) {
-                        // This represents a Metapool asset being exchanged for a Base pool underlying asset
-                        // LP tokens from the base pool that the metapool holds are burnt in exchange for an underlying asset.
-                        // A remove liquidity event will also be emitted as part of the transaction. The output token balance
-                        // on the base pool will be updated by the remove liquidity event, so we don't need to handle that here.
-                        Some(LpTokenChangeType::Burn) => {
-                            store.add(
-                                event.log_ordinal,
-                                StoreKey::input_token_balance_key(
-                                    &event.pool_address,
-                                    &swap_underlying.token_in_ref().token_address,
-                                ),
-                                swap_underlying.token_in_amount_big(),
-                            );
-                            store.add(
-                                event.log_ordinal,
-                                StoreKey::input_token_balance_key(
-                                    &event.pool_address,
-                                    &swap_underlying.lp_token_change_ref().token_address,
-                                ),
-                                swap_underlying.lp_token_change_amount_big().neg(),
-                            );
+                    if let Some(lp_token_change) = &swap_underlying.lp_token_change {
+                        match LpTokenChangeType::from_i32(lp_token_change.change_type) {
+                            // This represents a Metapool asset being exchanged for a Base pool underlying asset
+                            // LP tokens from the base pool that the metapool holds are burnt in exchange for an underlying asset.
+                            // A remove liquidity event will also be emitted as part of the transaction. The output token balance
+                            // on the base pool will be updated by the remove liquidity event, so we don't need to handle that here.
+                            Some(LpTokenChangeType::Burn) => {
+                                store.add(
+                                    event.log_ordinal,
+                                    StoreKey::input_token_balance_key(
+                                        &event.pool_address,
+                                        &swap_underlying.token_in_ref().token_address,
+                                    ),
+                                    swap_underlying.token_in_amount_big(),
+                                );
+                                store.add(
+                                    event.log_ordinal,
+                                    StoreKey::input_token_balance_key(
+                                        &event.pool_address,
+                                        &lp_token_change.token_address,
+                                    ),
+                                    swap_underlying.lp_token_change_amount_big().neg(),
+                                );
+                            }
+                            // This represents a Base pools underlying asset being exchanged for a Metapool asset.
+                            // The Metapool provides liquidity to the base pool in exchange for LP tokens.
+                            // This then enables the Metapool to provide its own asset to the buyer.
+                            // An add liquidity event will also be emitted as part of the transaction. The output token balance
+                            // on the base pool will be updated by the remove liquidity event, so we don't need to handle that here.
+                            Some(LpTokenChangeType::Mint) => {
+                                store.add(
+                                    event.log_ordinal,
+                                    StoreKey::input_token_balance_key(
+                                        &event.pool_address,
+                                        &swap_underlying.token_out_ref().token_address,
+                                    ),
+                                    swap_underlying.token_out_amount_big().neg(),
+                                );
+                                store.add(
+                                    event.log_ordinal,
+                                    StoreKey::input_token_balance_key(
+                                        &event.pool_address,
+                                        &lp_token_change.token_address,
+                                    ),
+                                    swap_underlying.lp_token_change_amount_big(),
+                                );
+                            }
+                            // This represents when a base pools underlying asset is exchanged for another of its assets.
+                            // There are no changes to the metapools balances as a result, as it merely facilitates the exchange.
+                            None => {}
                         }
-                        // This represents a Base pools underlying asset being exchanged for a Metapool asset.
-                        // The Metapool provides liquidity to the base pool in exchange for LP tokens.
-                        // This then enables the Metapool to provide its own asset to the buyer.
-                        // An add liquidity event will also be emitted as part of the transaction. The output token balance
-                        // on the base pool will be updated by the remove liquidity event, so we don't need to handle that here.
-                        Some(LpTokenChangeType::Mint) => {
-                            store.add(
-                                event.log_ordinal,
-                                StoreKey::input_token_balance_key(
-                                    &event.pool_address,
-                                    &swap_underlying.token_out_ref().token_address,
-                                ),
-                                swap_underlying.token_out_amount_big().neg(),
-                            );
-                            store.add(
-                                event.log_ordinal,
-                                StoreKey::input_token_balance_key(
-                                    &event.pool_address,
-                                    &swap_underlying.lp_token_change_ref().token_address,
-                                ),
-                                swap_underlying.lp_token_change_amount_big(),
-                            );
-                        }
-                        // This represents when a base pools underlying asset is exchanged for another of its assets.
-                        // There are no changes to the metapools balances as a result, as it merely facilitates the exchange.
-                        Some(LpTokenChangeType::None) => {}
-                        None => {}
                     }
                 }
                 Type::SwapUnderlyingLendingEvent(swap_underlying) => {

@@ -71,12 +71,16 @@ impl SwapUnderlyingMetaEvent {
         BigInt::from_str(self.token_out_ref().amount.as_str()).unwrap()
     }
 
-    pub fn lp_token_change_ref(&self) -> &LpTokenChange {
-        self.lp_token_change.as_ref().unwrap()
+    pub fn lp_token_change_ref(&self) -> Option<&LpTokenChange> {
+        self.lp_token_change.as_ref()
     }
 
     pub fn lp_token_change_amount_big(&self) -> BigInt {
-        BigInt::from_str(self.lp_token_change_ref().amount.as_str()).unwrap()
+        if let Some(lp_token_change) = self.lp_token_change_ref() {
+            BigInt::from_str(lp_token_change.amount.as_str()).unwrap()
+        } else {
+            BigInt::zero()
+        }
     }
 }
 

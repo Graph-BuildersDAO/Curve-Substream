@@ -208,7 +208,7 @@ message Events {
       TokenAmount token_in = 1;
       TokenAmount token_out = 2;
       string base_pool_address = 3;
-      LpTokenChange lp_token_change = 4;
+      optional LpTokenChange lp_token_change = 4;
     }
 
     message SwapUnderlyingLendingEvent {
@@ -224,9 +224,9 @@ message Events {
       //     3. The pool burns some of its interest-bearing token for USDT (e.g., aUSDT), unlocking USDT.
       //     4. The redeemed USDT is sent to the user initiating the exchange.
       //     5. As a result, the lending pool's balance of aUSDC increases, and its balance of aUSDT decreases.
-      LpTokenChange interest_bearing_token_in_action = 3;
+      optional LpTokenChange interest_bearing_token_in_action = 3;
       // Similar to `interest_bearing_token_in_action`, but for the `token_out` asset.
-      LpTokenChange interest_bearing_token_out_action = 4;
+      optional LpTokenChange interest_bearing_token_out_action = 4;
     }
 
 
@@ -263,9 +263,8 @@ message Events {
     }
 
     enum LpTokenChangeType {
-      NONE = 0;
-      MINT = 1;
-      BURN = 2;
+      MINT = 0;
+      BURN = 1;
     }
   }
 
