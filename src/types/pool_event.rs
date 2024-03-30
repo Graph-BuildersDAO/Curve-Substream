@@ -101,20 +101,28 @@ impl SwapUnderlyingLendingEvent {
         BigInt::from_str(self.token_out_ref().amount.as_str()).unwrap()
     }
 
-    pub fn interest_bearing_token_in_action_ref(&self) -> &LpTokenChange {
-        self.interest_bearing_token_in_action.as_ref().unwrap()
+    pub fn interest_bearing_token_in_action_ref(&self) -> Option<&LpTokenChange> {
+        self.interest_bearing_token_in_action.as_ref()
     }
 
     pub fn interest_bearing_token_in_action_amount_big(&self) -> BigInt {
-        BigInt::from_str(self.interest_bearing_token_in_action_ref().amount.as_str()).unwrap()
+        if let Some(in_action) = self.interest_bearing_token_in_action_ref() {
+            BigInt::from_str(in_action.amount.as_str()).unwrap()
+        } else {
+            BigInt::zero()
+        }
     }
 
-    pub fn interest_bearing_token_out_action_ref(&self) -> &LpTokenChange {
-        self.interest_bearing_token_out_action.as_ref().unwrap()
+    pub fn interest_bearing_token_out_action_ref(&self) -> Option<&LpTokenChange> {
+        self.interest_bearing_token_out_action.as_ref()
     }
 
     pub fn interest_bearing_token_out_action_amount_big(&self) -> BigInt {
-        BigInt::from_str(self.interest_bearing_token_out_action_ref().amount.as_str()).unwrap()
+        if let Some(out_action) = self.interest_bearing_token_out_action_ref() {
+            BigInt::from_str(out_action.amount.as_str()).unwrap()
+        } else {
+            BigInt::zero()
+        }
     }
 }
 

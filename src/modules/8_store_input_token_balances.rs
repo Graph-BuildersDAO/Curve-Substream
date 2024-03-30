@@ -116,28 +116,28 @@ pub fn store_input_token_balances(events: Events, store: StoreAddBigInt) {
                 Type::SwapUnderlyingLendingEvent(swap_underlying) => {
                     // A lending pool contains interest bearing tokens. These are the balances that
                     // change during a `TokenExchangeUnderlying` event on this pool.
-                    store.add(
-                        event.log_ordinal,
-                        StoreKey::input_token_balance_key(
-                            &event.pool_address,
-                            &swap_underlying
-                                .interest_bearing_token_in_action_ref()
-                                .token_address,
-                        ),
-                        swap_underlying.interest_bearing_token_in_action_amount_big(),
-                    );
-                    store.add(
-                        event.log_ordinal,
-                        StoreKey::input_token_balance_key(
-                            &event.pool_address,
-                            &swap_underlying
-                                .interest_bearing_token_out_action_ref()
-                                .token_address,
-                        ),
-                        swap_underlying
-                            .interest_bearing_token_out_action_amount_big()
-                            .neg(),
-                    )
+                    if let Some(in_action) = &swap_underlying.interest_bearing_token_in_action {
+                        store.add(
+                            event.log_ordinal,
+                            StoreKey::input_token_balance_key(
+                                &event.pool_address,
+                                &in_action.token_address,
+                            ),
+                            swap_underlying.interest_bearing_token_in_action_amount_big(),
+                        );
+                    }
+                    if let Some(out_action) = &swap_underlying.interest_bearing_token_out_action {
+                        store.add(
+                            event.log_ordinal,
+                            StoreKey::input_token_balance_key(
+                                &event.pool_address,
+                                &out_action.token_address,
+                            ),
+                            swap_underlying
+                                .interest_bearing_token_out_action_amount_big()
+                                .neg(),
+                        )
+                    }
                 }
             }
         }
