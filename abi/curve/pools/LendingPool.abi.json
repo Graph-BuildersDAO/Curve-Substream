@@ -937,6 +937,25 @@
         "gas": 2340
     },
     {
+        "name": "underlying_coins",
+        "outputs": [
+            {
+                "type": "address",
+                "name": "out"
+            }
+        ],
+        "inputs": [
+            {
+                "type": "int128",
+                "name": "arg0"
+            }
+        ],
+        "constant": true,
+        "payable": false,
+        "type": "function",
+        "gas": 2190
+    },
+    {
         "name": "admin_balances",
         "outputs": [
             {
