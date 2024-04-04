@@ -86,14 +86,21 @@ pub fn get_lending_pool_underlying_coins(pool_address: &Vec<u8>) -> Result<Vec<T
     let mut idx = 0;
 
     while idx >= 0 {
-        let underlying_token_option = lending_pool::functions::UnderlyingCoins {
+        let underlying_token_option = lending_pool::functions::UnderlyingCoins1 {
             arg0: BigInt::from(idx),
         }
         .call(pool_address.clone());
 
         let underlying_token = match underlying_token_option {
             Some(token) => token,
-            None => break,
+            None => match (lending_pool::functions::UnderlyingCoins2 {
+                arg0: BigInt::from(idx),
+            }
+            .call(pool_address.clone()))
+            {
+                Some(token) => token,
+                None => break,
+            },
         };
 
         match create_token(idx.to_string(), &underlying_token, &pool_address, None) {
