@@ -1,3 +1,4 @@
+use num_traits::ToPrimitive;
 use substreams::pb::substreams::Clock;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
@@ -5,6 +6,7 @@ use substreams::store::{
 };
 use substreams_entity_change::tables::Tables;
 
+use crate::common::conversion::convert_i64_to_i32;
 use crate::common::pool_utils::{get_input_token_balances, get_input_token_weights};
 use crate::common::prices::get_token_usd_price;
 use crate::key_management::entity_key_manager::EntityKey;
@@ -184,13 +186,16 @@ impl<'a> SnapshotCreator<'a> {
         tables
             .create_row("UsageMetricsDailySnapshot", day_id.to_string())
             .set("protocol", EntityKey::protocol_key())
-            .set("dailyActiveUsers", active_users)
-            .set("cumulativeUniqueUsers", cumulative_users)
-            .set("dailyTransactionCount", tx_count)
-            .set("dailyDepositCount", deposit_count)
-            .set("dailyWithdrawCount", withdraw_count)
-            .set("dailySwapCount", swap_count)
-            .set("totalPoolCount", pool_count)
+            .set("dailyActiveUsers", convert_i64_to_i32(active_users))
+            .set(
+                "cumulativeUniqueUsers",
+                convert_i64_to_i32(cumulative_users),
+            )
+            .set("dailyTransactionCount", convert_i64_to_i32(tx_count))
+            .set("dailyDepositCount", convert_i64_to_i32(deposit_count))
+            .set("dailyWithdrawCount", convert_i64_to_i32(withdraw_count))
+            .set("dailySwapCount", convert_i64_to_i32(swap_count))
+            .set("totalPoolCount", convert_i64_to_i32(pool_count))
             .set("blockNumber", BigInt::from(clock.number))
             .set(
                 "timestamp",
@@ -213,13 +218,16 @@ impl<'a> SnapshotCreator<'a> {
         tables
             .create_row("UsageMetricsHourlySnapshot", hour_id.to_string())
             .set("protocol", EntityKey::protocol_key())
-            .set("hourlyActiveUsers", active_users)
-            .set("cumulativeUniqueUsers", cumulative_users)
-            .set("hourlyTransactionCount", tx_count)
-            .set("hourlyDepositCount", deposit_count)
-            .set("hourlyWithdrawCount", withdraw_count)
-            .set("hourlySwapCount", swap_count)
-            .set("totalPoolCount", pool_count)
+            .set("hourlyActiveUsers", convert_i64_to_i32(active_users))
+            .set(
+                "cumulativeUniqueUsers",
+                convert_i64_to_i32(cumulative_users),
+            )
+            .set("hourlyTransactionCount", convert_i64_to_i32(tx_count))
+            .set("hourlyDepositCount", convert_i64_to_i32(deposit_count))
+            .set("hourlyWithdrawCount", convert_i64_to_i32(withdraw_count))
+            .set("hourlySwapCount", convert_i64_to_i32(swap_count))
+            .set("totalPoolCount", convert_i64_to_i32(pool_count))
             .set("blockNumber", BigInt::from(clock.number))
             .set(
                 "timestamp",
