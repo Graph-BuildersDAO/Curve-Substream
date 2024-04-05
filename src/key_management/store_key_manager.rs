@@ -3,6 +3,7 @@ pub enum StoreKey {
     Pool(String),
     PoolAddress(i64),
     PoolFees(String),
+    PoolRewards(String),
     PoolVolumeUsd(String),
     PoolDailyVolumeUsd(i64, String),
     PoolDailyVolumeUsdPrune(i64),
@@ -65,6 +66,10 @@ impl StoreKey {
 
     pub fn pool_fees_key(pool_address: &str) -> String {
         StoreKey::PoolFees(pool_address.to_string()).to_key_string()
+    }
+
+    pub fn pool_rewards_key(pool_address: &str) -> String {
+        StoreKey::PoolRewards(pool_address.to_string()).to_key_string()
     }
 
     pub fn pool_volume_usd_key(pool_address: &str) -> String {
@@ -301,6 +306,7 @@ impl StoreKey {
             StoreKey::Pool(addr) => format!("Pool:{}", addr),
             StoreKey::PoolAddress(count) => format!("PoolAddress:{}", count.to_string()),
             StoreKey::PoolFees(addr) => format!("PoolFees:{}", addr),
+            StoreKey::PoolRewards(addr) => format!("PoolRewards:{}", addr),
             StoreKey::PoolVolumeUsd(addr) => format!("PoolVolumeUsd:{}", addr),
             StoreKey::PoolDailyVolumeUsd(day_id, addr) => {
                 format!("PoolDailyVolumeUsd:{}:{}", day_id.to_string(), addr)

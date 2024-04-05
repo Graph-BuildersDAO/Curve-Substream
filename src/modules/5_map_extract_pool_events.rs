@@ -14,23 +14,16 @@ use substreams_ethereum::{
 use crate::{
     abi::{
         common::erc20::events::Transfer,
-        curve::{
-            pool::events::{
-                AddLiquidity1, AddLiquidity2, AddLiquidity3, AddLiquidity4, AddLiquidity5,
-                ApplyNewFee1, ApplyNewFee2, NewFee1, NewFee2, NewParameters1, NewParameters2,
-                NewParameters3, RemoveLiquidity1, RemoveLiquidity2, RemoveLiquidity3,
-                RemoveLiquidity4, RemoveLiquidity5, RemoveLiquidityImbalance1,
-                RemoveLiquidityImbalance2, RemoveLiquidityImbalance3, RemoveLiquidityOne1,
-                RemoveLiquidityOne2, TokenExchange1, TokenExchange2, TokenExchangeUnderlying,
-            },
-            pools::lending_pool,
+        curve::pool::events::{
+            AddLiquidity1, AddLiquidity2, AddLiquidity3, AddLiquidity4, AddLiquidity5,
+            ApplyNewFee1, ApplyNewFee2, NewFee1, NewFee2, NewParameters1, NewParameters2,
+            NewParameters3, RemoveLiquidity1, RemoveLiquidity2, RemoveLiquidity3, RemoveLiquidity4,
+            RemoveLiquidity5, RemoveLiquidityImbalance1, RemoveLiquidityImbalance2,
+            RemoveLiquidityImbalance3, RemoveLiquidityOne1, RemoveLiquidityOne2, TokenExchange1,
+            TokenExchange2, TokenExchangeUnderlying,
         },
     },
-    common::{
-        event_extraction,
-        pool_utils::{is_lending_pool, is_metapool},
-        prices::get_token_usd_price,
-    },
+    common::{event_extraction, pool_utils::is_metapool, prices::get_token_usd_price},
     key_management::store_key_manager::StoreKey,
     pb::{
         curve::types::v1::{

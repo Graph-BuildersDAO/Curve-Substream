@@ -67,6 +67,9 @@ mod store_reward_token_count;
 #[path = "22_store_reward_tokens.rs"]
 mod store_reward_tokens;
 
+#[path = "23_store_pool_rewards.rs"]
+mod store_pool_rewards;
+
 // TODO: Will decrement once we have added and finalised all the other modules.
 #[path = "420_graph_out.rs"]
 mod graph_out;
@@ -85,6 +88,7 @@ pub use store_output_token_supply::store_output_token_supply;
 pub use store_pool_addresses::store_pool_addresses;
 pub use store_pool_count::store_pool_count;
 pub use store_pool_fees::store_pool_fees;
+pub use store_pool_rewards::store_pool_rewards;
 pub use store_pool_tvl::store_pool_tvl;
 pub use store_pool_volume_native::store_pool_volume_native;
 pub use store_pool_volume_usd::store_pool_volume_usd;

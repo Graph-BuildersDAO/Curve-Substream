@@ -1,16 +1,13 @@
 // Generic Event Extraction that is not specific to any module.
 
 use anyhow::anyhow;
-use substreams::{errors::Error, Hex};
+use substreams::errors::Error;
 use substreams_ethereum::{block_view, pb::eth::v2::TransactionTrace, Event, NULL_ADDRESS};
 
 use crate::{
     abi::{
         common::erc20::events::Transfer,
-        curve::{
-            gauges,
-            pool::events::{RemoveLiquidityOne1, RemoveLiquidityOne2},
-        },
+        curve::pool::events::{RemoveLiquidityOne1, RemoveLiquidityOne2},
     },
     types::transfer::{RemoveLiquidityTransfer, TokenTransfer},
 };
@@ -100,33 +97,6 @@ pub fn extract_pool_creation_transfer_event(
         .and_then(|(transfer, transfer_log)| {
             Ok(TokenTransfer::new(transfer, transfer_log.address.to_vec()))
         })
-}
-
-pub fn extract_update_liquidity_limit_event(
-    trx: &TransactionTrace,
-    gauge: &Vec<u8>,
-) -> Result<gauges::liquidity_gauge_v1::events::UpdateLiquidityLimit, Error> {
-    let update_event = trx
-        .calls
-        .iter()
-        .filter(|call| !call.state_reverted)
-        .flat_map(|call| call.logs.iter())
-        .find_map(|log| {
-            if log.address == *gauge {
-                return gauges::liquidity_gauge_v1::events::UpdateLiquidityLimit::match_and_decode(
-                    &log,
-                );
-            }
-            None
-        });
-
-    update_event.ok_or_else(|| {
-        anyhow!(
-            "Failed to extract UpdateLiquidityLimit for Gauge {} and Tx {}",
-            Hex::encode(gauge),
-            Hex::encode(&trx.hash)
-        )
-    })
 }
 
 pub fn extract_remove_liquidity_one_event(

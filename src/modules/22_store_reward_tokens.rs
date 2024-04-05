@@ -1,4 +1,3 @@
-use num_traits::ToPrimitive;
 use substreams::store::{
     DeltaInt64, Deltas, StoreGet, StoreGetProto, StoreNew, StoreSet, StoreSetProto,
 };

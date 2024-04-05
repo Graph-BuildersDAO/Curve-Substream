@@ -76,6 +76,16 @@ pub mod pool {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PoolRewards {
+    #[prost(string, tag="1")]
+    pub staked_output_token_amount: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="2")]
+    pub reward_token_emissions_native: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="3")]
+    pub reward_token_emissions_usd: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PlainPool {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
