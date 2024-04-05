@@ -42,6 +42,12 @@ message Pool {
   }
 }
 
+message PoolRewards {
+  string staked_output_token_amount = 1;
+  repeated string reward_token_emissions_native = 2;
+  repeated string reward_token_emissions_usd = 3;
+}
+
 message PlainPool {}
 
 message CryptoPool {}

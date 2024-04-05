@@ -2,7 +2,6 @@ use std::collections::HashSet;
 
 use crate::{
     abi::curve::{gauges, ownership_proxies},
-    common::event_extraction::extract_update_liquidity_limit_event,
     key_management::store_key_manager::StoreKey,
     pb::curve::types::v1::{
         AddRewardEvent, GaugeLiquidityEventType, LiquidityEvent, LiquidityGauge,
@@ -49,7 +48,7 @@ pub fn map_gauge_events(
                         &blk,
                         &log,
                         &mut liquidity_events,
-                    )
+                    );
                 }
                 if let Some(withdraw) =
                     gauges::liquidity_gauge_v1::events::Withdraw::match_and_decode(&log)
@@ -124,14 +123,15 @@ fn handle_liquidity_event(
     log: &Log,
     liquidity_events: &mut Vec<LiquidityEvent>,
 ) {
-    if let Ok(update_event) = extract_update_liquidity_limit_event(trx, &gauge.address_vec()) {
+    if let Some(working_supply) = extract_gauge_working_supply(trx, &gauge.address_vec()) {
+        substreams::log::debug!("pushing to evnets");
         liquidity_events.push(LiquidityEvent {
             gauge: gauge.gauge.clone(),
             pool: gauge.pool.clone(),
             provider: Hex::encode(event_provider),
             value: event_value.to_string(),
             r#type: event_type as i32,
-            working_supply: update_event.working_supply.to_string(),
+            working_supply: working_supply.to_string(),
             transaction_hash: Hex::encode(&trx.hash),
             tx_index: trx.index,
             log_index: log.index,
@@ -173,4 +173,30 @@ fn handle_add_reward_event(
             })
         }
     }
+}
+
+pub fn extract_gauge_working_supply(trx: &TransactionTrace, gauge: &Vec<u8>) -> Option<BigInt> {
+    trx.calls
+        .iter()
+        .filter(|call| !call.state_reverted)
+        .flat_map(|call| call.logs.iter())
+        .find_map(|log| {
+            if log.address == *gauge {
+                if let Some(update_v1) =
+                    gauges::liquidity_gauge_v1::events::UpdateLiquidityLimit::match_and_decode(&log)
+                {
+                    return Some(update_v1.working_supply);
+                } else if let Some(update_v6) =
+                    gauges::liquidity_gauge_v6::events::UpdateLiquidityLimit::match_and_decode(&log)
+                {
+                    return Some(update_v6.working_supply);
+                }
+            }
+            substreams::log::debug!(
+                "Failed to extract UpdateLiquidityLimit for Gauge {} and Tx {}",
+                Hex::encode(gauge),
+                Hex::encode(&trx.hash)
+            );
+            None
+        })
 }

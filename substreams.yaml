@@ -224,6 +224,21 @@ modules:
         mode: deltas
       - store: store_pools_created
 
+  - name: store_pool_rewards
+    kind: store
+    updatePolicy: set
+    valueType: proto:curve.types.v1.PoolRewards
+    inputs:
+      - map: map_gauge_events
+      - store: store_gauges
+      - store: store_controller_gauges
+      - store: store_crv_inflation
+      - store: store_reward_token_count
+      - store: store_reward_tokens
+      - store: uniswap_prices:store_uniswap_prices
+      - store: chainlink_prices:chainlink_price_store
+      - source: sf.substreams.v1.Clock
+      
   - name: graph_out
     kind: map
     initialBlock: 9456293
@@ -257,11 +272,12 @@ modules:
       - store: store_current_time
         mode: deltas
       - store: store_gauges
-      - store: store_controller_gauges
       - map: map_gauge_events
-      - store: store_crv_inflation
       - store: store_reward_token_count
       - store: store_reward_tokens
+      - store: store_pool_rewards
+      - store: store_pool_rewards
+        mode: deltas
       - store: uniswap_prices:store_uniswap_prices
       - store: chainlink_prices:chainlink_price_store
     output:

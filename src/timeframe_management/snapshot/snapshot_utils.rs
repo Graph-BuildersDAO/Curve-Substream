@@ -10,7 +10,7 @@ use substreams::{
 use substreams_entity_change::tables::Tables;
 
 use crate::{
-    pb::{curve::types::v1::Pool, uniswap_pricing::v1::Erc20Price},
+    pb::{curve::types::v1::{Pool, PoolRewards}, uniswap_pricing::v1::Erc20Price},
     timeframe_management::{
         timeframe_change_handler::TimeframeChangeHandler, utils::separate_timeframe_deltas,
     },
@@ -37,6 +37,7 @@ pub fn manage_timeframe_snapshots(
     protocol_volume_store: &StoreGetBigDecimal,
     input_token_balances_store: &StoreGetBigInt,
     output_token_supply_store: &StoreGetBigInt,
+    pool_rewards_store: &StoreGetProto<PoolRewards>,
     uniswap_prices: &StoreGetProto<Erc20Price>,
     chainlink_prices: &StoreGetBigDecimal,
 ) {
@@ -54,6 +55,7 @@ pub fn manage_timeframe_snapshots(
         protocol_volume_store,
         input_token_balances_store,
         output_token_supply_store,
+        pool_rewards_store,
         uniswap_prices,
         chainlink_prices,
     )));

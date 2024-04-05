@@ -9,7 +9,7 @@ use crate::common::pool_utils::{get_input_token_balances, get_input_token_weight
 use crate::common::prices::get_token_usd_price;
 use crate::key_management::entity_key_manager::EntityKey;
 use crate::key_management::store_key_manager::StoreKey;
-use crate::pb::curve::types::v1::Pool;
+use crate::pb::curve::types::v1::{Pool, PoolRewards};
 use crate::pb::uniswap_pricing::v1::Erc20Price;
 use crate::types::timeframe::Timeframe;
 
@@ -27,6 +27,7 @@ pub struct SnapshotCreator<'a> {
     protocol_volume_store: &'a StoreGetBigDecimal,
     input_token_balances_store: &'a StoreGetBigInt,
     output_token_supply_store: &'a StoreGetBigInt,
+    pool_rewards_store: &'a StoreGetProto<PoolRewards>,
     uniswap_prices: &'a StoreGetProto<Erc20Price>,
     chainlink_prices: &'a StoreGetBigDecimal,
 }
@@ -46,6 +47,7 @@ impl<'a> SnapshotCreator<'a> {
         protocol_volume_store: &'a StoreGetBigDecimal,
         input_token_balances_store: &'a StoreGetBigInt,
         output_token_supply_store: &'a StoreGetBigInt,
+        pool_rewards_store: &'a StoreGetProto<PoolRewards>,
         uniswap_prices: &'a StoreGetProto<Erc20Price>,
         chainlink_prices: &'a StoreGetBigDecimal,
     ) -> Self {
@@ -63,6 +65,7 @@ impl<'a> SnapshotCreator<'a> {
             protocol_volume_store,
             input_token_balances_store,
             output_token_supply_store,
+            pool_rewards_store,
             uniswap_prices,
             chainlink_prices,
         }
@@ -342,6 +345,19 @@ impl<'a> SnapshotCreator<'a> {
                 &self.chainlink_prices,
             );
 
+            let pool_rewards = match self
+                .pool_rewards_store
+                .get_last(StoreKey::pool_rewards_key(&pool_address))
+            {
+                Some(rewards) => rewards,
+                // Provide a default representing no rewards
+                None => PoolRewards {
+                    staked_output_token_amount: "0".to_string(),
+                    reward_token_emissions_native: Vec::new(),
+                    reward_token_emissions_usd: Vec::new(),
+                },
+            };
+
             // Create the relevant timeframe snapshot
             match snapshot_type {
                 Timeframe::Daily => Self::create_pool_daily_snapshot(
@@ -358,6 +374,7 @@ impl<'a> SnapshotCreator<'a> {
                     &input_token_weights,
                     &output_token_supply,
                     &output_token_price,
+                    &pool_rewards,
                 ),
                 Timeframe::Hourly => Self::create_pool_hourly_snapshot(
                     self.tables,
@@ -373,6 +390,7 @@ impl<'a> SnapshotCreator<'a> {
                     &input_token_weights,
                     &output_token_supply,
                     &output_token_price,
+                    &pool_rewards,
                 ),
             }
         }
@@ -392,10 +410,8 @@ impl<'a> SnapshotCreator<'a> {
         input_token_weights: &Vec<BigDecimal>,
         output_token_supply: &BigInt,
         output_token_price: &BigDecimal,
+        pool_rewards: &PoolRewards,
     ) {
-        let reward_token_emissions_native: Vec<BigInt> = Vec::new();
-        let reward_token_emissions_usd: Vec<BigDecimal> = Vec::new();
-
         tables
             .create_row(
                 "LiquidityPoolDailySnapshot",
@@ -424,9 +440,18 @@ impl<'a> SnapshotCreator<'a> {
             .set("inputTokenWeights", input_token_weights)
             .set("outputTokenSupply", output_token_supply)
             .set("outputTokenPriceUSD", output_token_price)
-            .set("stakedOutputTokenAmount", BigInt::zero())
-            .set("rewardTokenEmissionsAmount", reward_token_emissions_native)
-            .set("rewardTokenEmissionsUSD", reward_token_emissions_usd);
+            .set(
+                "stakedOutputTokenAmount",
+                pool_rewards.parse_staked_output_token_amount(),
+            )
+            .set(
+                "rewardTokenEmissionsAmount",
+                pool_rewards.parse_reward_token_emissions_native(),
+            )
+            .set(
+                "rewardTokenEmissionsUSD",
+                pool_rewards.parse_reward_token_emissions_usd(),
+            );
     }
 
     fn create_pool_hourly_snapshot(
@@ -443,10 +468,8 @@ impl<'a> SnapshotCreator<'a> {
         input_token_weights: &Vec<BigDecimal>,
         output_token_supply: &BigInt,
         output_token_price: &BigDecimal,
+        pool_rewards: &PoolRewards,
     ) {
-        let reward_token_emissions_native: Vec<BigInt> = Vec::new();
-        let reward_token_emissions_usd: Vec<BigDecimal> = Vec::new();
-
         tables
             .create_row(
                 "LiquidityPoolHourlySnapshot",
@@ -475,9 +498,18 @@ impl<'a> SnapshotCreator<'a> {
             .set("inputTokenWeights", input_token_weights)
             .set("outputTokenSupply", output_token_supply)
             .set("outputTokenPriceUSD", output_token_price)
-            .set("stakedOutputTokenAmount", BigInt::zero())
-            .set("rewardTokenEmissionsAmount", reward_token_emissions_native)
-            .set("rewardTokenEmissionsUSD", reward_token_emissions_usd);
+            .set(
+                "stakedOutputTokenAmount",
+                pool_rewards.parse_staked_output_token_amount(),
+            )
+            .set(
+                "rewardTokenEmissionsAmount",
+                pool_rewards.parse_reward_token_emissions_native(),
+            )
+            .set(
+                "rewardTokenEmissionsUSD",
+                pool_rewards.parse_reward_token_emissions_usd(),
+            );
     }
 }
 
