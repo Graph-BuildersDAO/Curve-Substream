@@ -246,6 +246,12 @@ impl<'a> SnapshotCreator<'a> {
             .set("totalValueLockedUSD", tvl_usd)
             .set("dailyVolumeUSD", daily_volume)
             .set("cumulativeVolumeUSD", cumulative_volume)
+            .set("dailySupplySideRevenueUSD", BigDecimal::zero())
+            .set("cumulativeSupplySideRevenueUSD", BigDecimal::zero())
+            .set("dailyProtocolSideRevenueUSD", BigDecimal::zero())
+            .set("cumulativeProtocolSideRevenueUSD", BigDecimal::zero())
+            .set("dailyTotalRevenueUSD", BigDecimal::zero())
+            .set("cumulativeTotalRevenueUSD", BigDecimal::zero())
             .set("blockNumber", BigInt::from(self.clock.number))
             .set(
                 "timestamp",
@@ -387,6 +393,9 @@ impl<'a> SnapshotCreator<'a> {
         output_token_supply: &BigInt,
         output_token_price: &BigDecimal,
     ) {
+        let reward_token_emissions_native: Vec<BigInt> = Vec::new();
+        let reward_token_emissions_usd: Vec<BigDecimal> = Vec::new();
+
         tables
             .create_row(
                 "LiquidityPoolDailySnapshot",
@@ -400,6 +409,13 @@ impl<'a> SnapshotCreator<'a> {
                 BigInt::from(clock.timestamp.clone().unwrap().seconds),
             )
             .set("totalValueLockedUSD", pool_tvl_usd)
+            // Revenue related data is currently set to a default of zero until fees are implemented
+            .set("cumulativeSupplySideRevenueUSD", BigDecimal::zero())
+            .set("dailySupplySideRevenueUSD", BigDecimal::zero())
+            .set("cumulativeProtocolSideRevenueUSD", BigDecimal::zero())
+            .set("dailyProtocolSideRevenueUSD", BigDecimal::zero())
+            .set("cumulativeTotalRevenueUSD", BigDecimal::zero())
+            .set("dailyTotalRevenueUSD", BigDecimal::zero())
             .set("dailyVolumeUSD", pool_volume_daily)
             .set("dailyVolumeByTokenAmount", volume_by_token_native)
             .set("dailyVolumeByTokenUSD", volume_by_token_usd)
@@ -407,7 +423,10 @@ impl<'a> SnapshotCreator<'a> {
             .set("inputTokenBalances", input_token_balances)
             .set("inputTokenWeights", input_token_weights)
             .set("outputTokenSupply", output_token_supply)
-            .set("outputTokenPriceUSD", output_token_price);
+            .set("outputTokenPriceUSD", output_token_price)
+            .set("stakedOutputTokenAmount", BigInt::zero())
+            .set("rewardTokenEmissionsAmount", reward_token_emissions_native)
+            .set("rewardTokenEmissionsUSD", reward_token_emissions_usd);
     }
 
     fn create_pool_hourly_snapshot(
@@ -425,6 +444,9 @@ impl<'a> SnapshotCreator<'a> {
         output_token_supply: &BigInt,
         output_token_price: &BigDecimal,
     ) {
+        let reward_token_emissions_native: Vec<BigInt> = Vec::new();
+        let reward_token_emissions_usd: Vec<BigDecimal> = Vec::new();
+
         tables
             .create_row(
                 "LiquidityPoolHourlySnapshot",
@@ -438,6 +460,13 @@ impl<'a> SnapshotCreator<'a> {
                 BigInt::from(clock.timestamp.clone().unwrap().seconds),
             )
             .set("totalValueLockedUSD", pool_tvl_usd)
+            // Revenue related data is currently set to a default of zero until fees are implemented
+            .set("cumulativeSupplySideRevenueUSD", BigDecimal::zero())
+            .set("hourlySupplySideRevenueUSD", BigDecimal::zero())
+            .set("cumulativeProtocolSideRevenueUSD", BigDecimal::zero())
+            .set("hourlyProtocolSideRevenueUSD", BigDecimal::zero())
+            .set("cumulativeTotalRevenueUSD", BigDecimal::zero())
+            .set("hourlyTotalRevenueUSD", BigDecimal::zero())
             .set("hourlyVolumeUSD", pool_volume_hourly)
             .set("hourlyVolumeByTokenAmount", volume_by_token_native)
             .set("hourlyVolumeByTokenUSD", volume_by_token_usd)
@@ -445,7 +474,10 @@ impl<'a> SnapshotCreator<'a> {
             .set("inputTokenBalances", input_token_balances)
             .set("inputTokenWeights", input_token_weights)
             .set("outputTokenSupply", output_token_supply)
-            .set("outputTokenPriceUSD", output_token_price);
+            .set("outputTokenPriceUSD", output_token_price)
+            .set("stakedOutputTokenAmount", BigInt::zero())
+            .set("rewardTokenEmissionsAmount", reward_token_emissions_native)
+            .set("rewardTokenEmissionsUSD", reward_token_emissions_usd);
     }
 }
 

@@ -55,12 +55,6 @@ type Token @entity @regularPolling {
 
   " Optional field to track the method used for fetching the token price "
   oracleType: String
-
-  " amount of tokens in the protocol "
-  _totalSupply: BigInt!
-
-  " Total value locked in the protocol "
-  _totalValueLockedUSD: BigDecimal!
 }
 
 enum RewardTokenType {

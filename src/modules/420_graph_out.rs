@@ -27,10 +27,7 @@ use crate::{
     pb::{
         curve::types::v1::{
             events::{
-                pool_event::{
-                    DepositEvent, SwapEvent, SwapUnderlyingMetaEvent, TokenAmount, Type,
-                    WithdrawEvent,
-                },
+                pool_event::{DepositEvent, SwapEvent, TokenAmount, Type, WithdrawEvent},
                 PoolEvent,
             },
             CurveEvents, Events, LiquidityGauge, LiquidityGaugeEvents, Pool, PoolFee, PoolFees,
@@ -126,13 +123,7 @@ pub fn graph_out(
                                 .set("symbol", reward_token.symbol)
                                 .set("decimals", reward_token.decimals as i32)
                                 .set("isBasePoolLpToken", reward_token.is_base_pool_lp_token)
-                                .set("lastPriceUSD", price_usd)
-                                .set(
-                                    "_totalSupply",
-                                    BigInt::from_str(&reward_token.total_supply)
-                                        .unwrap_or_else(|_| BigInt::zero()),
-                                )
-                                .set("_totalValueLockedUSD", BigDecimal::zero());
+                                .set("lastPriceUSD", price_usd);
                         }
                     }
                     // Create the new entities representing the added gauge reward token
@@ -351,24 +342,24 @@ pub fn graph_out(
         &protocol_tvl_store,
     );
 
-    // manage_timeframe_snapshots(
-    //     &clock,
-    //     &current_time_deltas,
-    //     &mut tables,
-    //     &usage_metrics_store,
-    //     &pool_count_store,
-    //     &pool_addresses_store,
-    //     &pools_store,
-    //     &pool_tvl_store,
-    //     &pool_volume_usd_store,
-    //     &pool_volume_native_store,
-    //     &protocol_tvl_store,
-    //     &protocol_volume_store,
-    //     &input_token_balances_store,
-    //     &output_token_supply_store,
-    //     &uniswap_prices,
-    //     &chainlink_prices,
-    // );
+    manage_timeframe_snapshots(
+        &clock,
+        &current_time_deltas,
+        &mut tables,
+        &usage_metrics_store,
+        &pool_count_store,
+        &pool_addresses_store,
+        &pools_store,
+        &pool_tvl_store,
+        &pool_volume_usd_store,
+        &pool_volume_native_store,
+        &protocol_tvl_store,
+        &protocol_volume_store,
+        &input_token_balances_store,
+        &output_token_supply_store,
+        &uniswap_prices,
+        &chainlink_prices,
+    );
 
     Ok(tables.to_entity_changes())
 }
@@ -504,9 +495,7 @@ fn create_pool_token_entities(
                         .set("symbol", token.symbol)
                         .set("decimals", token.decimals as i32)
                         .set("isBasePoolLpToken", token.is_base_pool_lp_token)
-                        .set("lastPriceUSD", BigDecimal::zero())
-                        .set("_totalSupply", BigInt::zero())
-                        .set("_totalValueLockedUSD", BigDecimal::zero());
+                        .set("lastPriceUSD", BigDecimal::zero());
                 }
             }
             None => {
@@ -573,7 +562,7 @@ fn create_pool_events_entities(
                             &pool.input_tokens,
                             input_token_balances_store,
                             pool_tvl_store,
-                        )
+                        );
                     }
                 }
                 Type::SwapUnderlyingMetaEvent(swap_underlying) => {
@@ -592,7 +581,7 @@ fn create_pool_events_entities(
                             &pool.input_tokens,
                             input_token_balances_store,
                             pool_tvl_store,
-                        )
+                        );
                     }
                 }
                 Type::SwapUnderlyingLendingEvent(swap_underlying) => {
@@ -611,7 +600,7 @@ fn create_pool_events_entities(
                             &pool.input_tokens,
                             input_token_balances_store,
                             pool_tvl_store,
-                        )
+                        );
                     }
                 }
             }
