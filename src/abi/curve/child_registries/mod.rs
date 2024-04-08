@@ -3,6 +3,7 @@ pub mod crv_usd_pool_factory;
 pub mod crypto_pool_factory_v2;
 pub mod crypto_swap_registry_old;
 pub mod crypto_swap_registry_v2;
+pub mod metapool_factory_old;
 pub mod pool_registry_v1;
 pub mod pool_registry_v1_old;
 pub mod pool_registry_v2_old;

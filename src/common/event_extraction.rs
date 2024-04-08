@@ -5,11 +5,11 @@ use substreams::errors::Error;
 use substreams_ethereum::{block_view, pb::eth::v2::TransactionTrace, Event, NULL_ADDRESS};
 
 use crate::{
-    abi::{
-        common::erc20::events::Transfer,
-        curve::pool::events::{RemoveLiquidityOne1, RemoveLiquidityOne2},
+    abi::common::erc20::events::Transfer,
+    types::{
+        registry::{RegistryDetails, RegistryType},
+        transfer::TokenTransfer,
     },
-    types::transfer::{RemoveLiquidityTransfer, TokenTransfer},
 };
 
 pub fn extract_specific_transfer_event(
@@ -57,10 +57,10 @@ pub fn extract_specific_transfer_event(
         .ok_or_else(|| anyhow!("No transfer event found"))
 }
 
-// TODO refactor/optimise
 // Only use for MetaPool and PlainPool deployments where we can ensure there is only one Transfer event.
 pub fn extract_pool_creation_transfer_event(
     log: &block_view::LogView,
+    registry: &RegistryDetails,
 ) -> Result<TokenTransfer, Error> {
     log.receipt
         .transaction
@@ -69,68 +69,33 @@ pub fn extract_pool_creation_transfer_event(
         .filter(|call| !call.state_reverted)
         .flat_map(|call| call.logs.iter())
         .find_map(|log| {
-            if Transfer::match_log(log) {
-                // Attempt to decode the log and pair it with the log reference if successful
-                match Transfer::decode(log) {
-                    Ok(transfer) => {
-                        if &transfer.sender == &NULL_ADDRESS.to_vec()
+            if let Some(transfer) = Transfer::match_and_decode(log) {
+                let is_valid_transfer = match registry.registry_type {
+                    RegistryType::CrvUSDPoolFactory
+                    | RegistryType::PoolRegistryV1
+                    | RegistryType::MetaPoolFactoryOld => {
+                        // Criteria that pertains to the relevant transfer event for Plain pools deployed via
+                        // CrvUSDPoolFactory/PoolRegistryV1, and Metapools deployed via MetaPoolFactoryOld
+                        &transfer.sender == &NULL_ADDRESS.to_vec()
                             && &transfer.receiver == &log.address
-                        {
-                            // Pair the decoded transfer with the log
-                            Some((transfer, log))
-                        } else {
-                            if &transfer.sender == &NULL_ADDRESS.to_vec() {
-                                Some((transfer, log))
-                            } else {
-                                None
-                            }
-                        }
                     }
-                    Err(_) => None, // Ignore this log if decoding fails
+                    RegistryType::StableSwapFactoryNG => {
+                        // Criteria that pertains to the relevant transfer event for Plain or Meta pools deployed via StableSwapFactoryNG
+                        &transfer.sender == &NULL_ADDRESS.to_vec()
+                            && transfer.receiver == registry.address.to_vec()
+                    }
+                    _ => false,
+                };
+                // If the transfer event matches the criteria, return the decoded transfer event and the log
+                if is_valid_transfer {
+                    return Some((transfer, log));
                 }
-            } else {
-                None // Not a transfer log, so we skip it
             }
+            None // Skip if it's not a matching transfer log
         })
         .ok_or_else(|| anyhow!("No transfer event found in the transaction"))
         // Here the log is the one associated with the found transfer event
         .and_then(|(transfer, transfer_log)| {
             Ok(TokenTransfer::new(transfer, transfer_log.address.to_vec()))
         })
-}
-
-pub fn extract_remove_liquidity_one_event(
-    trx: &TransactionTrace,
-) -> Result<RemoveLiquidityTransfer, Error> {
-    let transfer_event = trx
-        .calls
-        .iter()
-        .filter(|call| !call.state_reverted)
-        .flat_map(|call| call.logs.iter())
-        .find_map(|log| {
-            if RemoveLiquidityOne1::match_log(log) {
-                RemoveLiquidityOne1::decode(log).ok().and_then(|ev| {
-                    Some(RemoveLiquidityTransfer::new(
-                        log.address.clone(),
-                        ev.provider,
-                        ev.token_amount,
-                        ev.coin_amount,
-                    ))
-                })
-            } else if RemoveLiquidityOne2::match_log(log) {
-                RemoveLiquidityOne2::decode(log).ok().and_then(|ev| {
-                    Some(RemoveLiquidityTransfer::new(
-                        log.address.clone(),
-                        ev.provider,
-                        ev.token_amount,
-                        ev.coin_amount,
-                    ))
-                })
-            } else {
-                None
-            }
-        });
-    transfer_event.ok_or_else(|| {
-        anyhow!("No RemoveLiquidityOne1 or RemoveLiquidityOne2 event found in the transaction")
-    })
 }

@@ -13,14 +13,14 @@ use crate::{
     common::event_extraction,
     network_config::{
         PoolDetails, PoolType as PoolTypeConfig, CRV_TOKEN_ADDRESS, GAUGE_CONTROLLER_ADDRESS,
-        MISSING_OLD_POOLS_DATA, POOL_REGISTRIES,
+        MISSING_OLD_POOLS_DATA, REGISTRIES,
     },
     pb::curve::types::v1::{
         pool::PoolType, ControllerNewGauge, CryptoPool, CurveEvents, LendingPool, LiquidityGauge,
         MetaPool, PlainPool, Pool, Token, TriCryptoPool, UpdateMiningParametersEvent,
     },
     rpc::{self, pool, token},
-    types::event_traits::PlainPoolDeployedEvent,
+    types::{event_traits::PlainPoolDeployedEvent, registry::RegistryDetails},
 };
 
 #[substreams::handlers::map]
@@ -49,26 +49,26 @@ pub fn map_curve_events(blk: eth::Block) -> Result<CurveEvents, Vec<Error>> {
     // This calls each event mapping func for each contract address.
     // As nothing is returned with the `Ok` variant, we can just ignore it,
     // and use the `Err` variant to collect any errors that occur.
-    let mut errors: Vec<Error> = POOL_REGISTRIES
+    let mut errors: Vec<Error> = REGISTRIES
         .iter()
-        .flat_map(|&contract| {
+        .flat_map(|registry| {
             [
                 // Track pools that have been deployed from registry/factory contracts
-                map_crypto_pool_deployed_events(&blk, &mut pools, contract),
+                map_crypto_pool_deployed_events(&blk, &mut pools, registry),
                 map_plain_pool_deployed_events::<crv_usd_pool_factory::events::PlainPoolDeployed>(
-                    &blk, &mut pools, contract,
+                    &blk, &mut pools, registry,
                 ),
                 map_plain_pool_deployed_events::<pool_registry_v1::events::PlainPoolDeployed>(
-                    &blk, &mut pools, contract,
+                    &blk, &mut pools, registry,
                 ),
                 map_plain_pool_deployed_events::<stable_swap_factory_ng::events::PlainPoolDeployed>(
-                    &blk, &mut pools, contract,
+                    &blk, &mut pools, registry,
                 ),
-                map_meta_pool_deployed_events(&blk, &mut pools, contract),
-                map_tricrypto_pool_deployed_events(&blk, &mut pools, contract),
+                map_meta_pool_deployed_events(&blk, &mut pools, registry),
+                map_tricrypto_pool_deployed_events(&blk, &mut pools, registry),
                 // Track liquidity gauges that have been deployed from registry/factory contracts
-                map_liquidity_gauge_deployed_events(&blk, &mut gauges, contract),
-                map_liquidity_gauge_deployed_with_token_events(&blk, &mut gauges, contract),
+                map_liquidity_gauge_deployed_events(&blk, &mut gauges, registry),
+                map_liquidity_gauge_deployed_with_token_events(&blk, &mut gauges, registry),
             ]
         })
         .filter_map(Result::err)
@@ -230,11 +230,11 @@ fn add_missing_pool(
 fn map_crypto_pool_deployed_events(
     blk: &eth::Block,
     pools: &mut Vec<Pool>,
-    registry_address: [u8; 20],
+    registry: &RegistryDetails,
 ) -> Result<(), Error> {
     pools.append(
         &mut blk
-            .events::<crypto_pool_factory_v2::events::CryptoPoolDeployed>(&[&registry_address])
+            .events::<crypto_pool_factory_v2::events::CryptoPoolDeployed>(&[&registry.address])
             .filter_map(|(event, log)| {
                 // The minter of the LP token is the liquidity pool contract.
                 let pool_address = match token::get_token_minter(&event.token) {
@@ -273,7 +273,7 @@ fn map_crypto_pool_deployed_events(
 
                 Some(create_pool(
                     Hex::encode(&pool_address),
-                    Hex::encode(registry_address),
+                    Hex::encode(registry.address),
                     lp_token,
                     input_tokens_ordered,
                     input_tokens,
@@ -290,22 +290,23 @@ fn map_crypto_pool_deployed_events(
 fn map_plain_pool_deployed_events<E: PlainPoolDeployedEvent + substreams_ethereum::Event>(
     blk: &eth::Block,
     pools: &mut Vec<Pool>,
-    registry_address: [u8; 20],
+    registry: &RegistryDetails,
 ) -> Result<(), Error> {
     pools.append(
         &mut blk
-            .events::<E>(&[&registry_address])
+            .events::<E>(&[&registry.address])
             .filter_map(|(_event, log)| {
-                let transfer = match event_extraction::extract_pool_creation_transfer_event(&log) {
-                    Ok(event) => event,
-                    Err(e) => {
-                        substreams::log::debug!(
-                            "Error in `map_plain_pool_deployed_events`: {:?}",
-                            e
-                        );
-                        return None;
-                    }
-                };
+                let transfer =
+                    match event_extraction::extract_pool_creation_transfer_event(&log, registry) {
+                        Ok(event) => event,
+                        Err(e) => {
+                            substreams::log::debug!(
+                                "Error in `map_plain_pool_deployed_events`: {:?}",
+                                e
+                            );
+                            return None;
+                        }
+                    };
 
                 let plain_pool_address = &transfer.token_address;
 
@@ -339,7 +340,7 @@ fn map_plain_pool_deployed_events<E: PlainPoolDeployedEvent + substreams_ethereu
 
                 Some(create_pool(
                     Hex::encode(plain_pool_address),
-                    Hex::encode(registry_address),
+                    Hex::encode(registry.address),
                     lp_token,
                     input_tokens_ordered,
                     input_tokens,
@@ -356,7 +357,7 @@ fn map_plain_pool_deployed_events<E: PlainPoolDeployedEvent + substreams_ethereu
 fn map_meta_pool_deployed_events(
     blk: &eth::Block,
     pools: &mut Vec<Pool>,
-    address: [u8; 20],
+    registry: &RegistryDetails,
 ) -> Result<(), Error> {
     pools.append(
         &mut blk
@@ -365,18 +366,19 @@ fn map_meta_pool_deployed_events(
             // `crv_usd_pool_factory::events::MetaPoolDeployed` and `stable_swap_factory_ng::events::MetaPoolDeployed`,
             // since they share the same ABI structure for this event type. This ensures that all MetaPoolDeployed events,
             // regardless of the originating contract, are captured and processed here as long as they are emitted to the specified address.
-            .events::<pool_registry_v1::events::MetaPoolDeployed>(&[&address])
+            .events::<pool_registry_v1::events::MetaPoolDeployed>(&[&registry.address])
             .filter_map(|(event, log)| {
-                let transfer = match event_extraction::extract_pool_creation_transfer_event(&log) {
-                    Ok(event) => event,
-                    Err(e) => {
-                        substreams::log::debug!(
-                            "Error in `map_meta_pool_deployed_events`: {:?}",
-                            e
-                        );
-                        return None;
-                    }
-                };
+                let transfer =
+                    match event_extraction::extract_pool_creation_transfer_event(&log, registry) {
+                        Ok(event) => event,
+                        Err(e) => {
+                            substreams::log::debug!(
+                                "Error in `map_meta_pool_deployed_events`: {:?}",
+                                e
+                            );
+                            return None;
+                        }
+                    };
                 // The pool and LP token are the same for base pools
                 let metapool_address = &transfer.token_address;
 
@@ -419,7 +421,7 @@ fn map_meta_pool_deployed_events(
 
                     Some(create_pool(
                         Hex::encode(metapool_address),
-                        Hex::encode(address),
+                        Hex::encode(registry.address),
                         lp_token,
                         input_tokens_ordered,
                         input_tokens,
@@ -439,11 +441,11 @@ fn map_meta_pool_deployed_events(
 fn map_tricrypto_pool_deployed_events(
     blk: &eth::Block,
     pools: &mut Vec<Pool>,
-    address: [u8; 20],
+    registry: &RegistryDetails,
 ) -> Result<(), Error> {
     pools.append(
         &mut blk
-            .events::<tricrypto_factory_ng::events::TricryptoPoolDeployed>(&[&address])
+            .events::<tricrypto_factory_ng::events::TricryptoPoolDeployed>(&[&registry.address])
             .filter_map(|(event, log)| {
                 let lp_token =
                     match token::create_token("0".to_string(), &event.pool, &event.pool, None) {
@@ -471,7 +473,7 @@ fn map_tricrypto_pool_deployed_events(
 
                 Some(create_pool(
                     Hex::encode(&event.pool),
-                    Hex::encode(address),
+                    Hex::encode(registry.address),
                     lp_token,
                     input_tokens_ordered,
                     input_tokens,
@@ -488,13 +490,13 @@ fn map_tricrypto_pool_deployed_events(
 fn map_liquidity_gauge_deployed_events(
     blk: &eth::Block,
     gauges: &mut Vec<LiquidityGauge>,
-    address: [u8; 20],
+    registry: &RegistryDetails,
 ) -> Result<(), Error> {
     gauges.append(
         &mut blk
             // Although there are multiple ABIs for `LiquidityGaugeDeployed` events across different registries/factories,
             // the ABI is the same. Therefore we only need to use one of them.
-            .events::<crv_usd_pool_factory::events::LiquidityGaugeDeployed>(&[&address])
+            .events::<crv_usd_pool_factory::events::LiquidityGaugeDeployed>(&[&registry.address])
             .filter_map(|(event, log)| {
                 Some(LiquidityGauge {
                     gauge: Hex::encode(event.gauge),
@@ -513,13 +515,13 @@ fn map_liquidity_gauge_deployed_events(
 fn map_liquidity_gauge_deployed_with_token_events(
     blk: &eth::Block,
     gauges: &mut Vec<LiquidityGauge>,
-    address: [u8; 20],
+    registry: &RegistryDetails,
 ) -> Result<(), Error> {
     gauges.append(
         &mut blk
             // Although there are multiple ABIs for `LiquidityGaugeDeployed` events across different registries/factories,
             // the ABI is the same. Therefore we only need to use one of them.
-            .events::<crypto_pool_factory_v2::events::LiquidityGaugeDeployed>(&[&address])
+            .events::<crypto_pool_factory_v2::events::LiquidityGaugeDeployed>(&[&registry.address])
             .filter_map(|(event, log)| {
                 Some(LiquidityGauge {
                     gauge: Hex::encode(event.gauge),
