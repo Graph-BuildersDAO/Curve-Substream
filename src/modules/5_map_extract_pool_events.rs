@@ -16,11 +16,12 @@ use crate::{
         common::erc20::events::Transfer,
         curve::pool::events::{
             AddLiquidity1, AddLiquidity2, AddLiquidity3, AddLiquidity4, AddLiquidity5,
-            ApplyNewFee1, ApplyNewFee2, NewFee1, NewFee2, NewParameters1, NewParameters2,
-            NewParameters3, RemoveLiquidity1, RemoveLiquidity2, RemoveLiquidity3, RemoveLiquidity4,
-            RemoveLiquidity5, RemoveLiquidityImbalance1, RemoveLiquidityImbalance2,
-            RemoveLiquidityImbalance3, RemoveLiquidityOne1, RemoveLiquidityOne2, TokenExchange1,
-            TokenExchange2, TokenExchangeUnderlying,
+            AddLiquidity6, ApplyNewFee1, ApplyNewFee2, NewFee1, NewFee2, NewParameters1,
+            NewParameters2, NewParameters3, NewParameters4, RemoveLiquidity1, RemoveLiquidity2,
+            RemoveLiquidity3, RemoveLiquidity4, RemoveLiquidity5, RemoveLiquidityImbalance1,
+            RemoveLiquidityImbalance2, RemoveLiquidityImbalance3, RemoveLiquidityOne1,
+            RemoveLiquidityOne2, RemoveLiquidityOne3, TokenExchange1, TokenExchange2,
+            TokenExchange3, TokenExchangeUnderlying,
         },
     },
     common::{event_extraction, pool_utils::is_metapool, prices::get_token_usd_price},
@@ -78,6 +79,21 @@ pub fn map_extract_pool_events(
                         &chainlink_prices,
                     );
                 } else if let Some(swap) = TokenExchange2::match_and_decode(&log) {
+                    extract_swap_event(
+                        &mut pool_events,
+                        &blk,
+                        trx,
+                        log,
+                        &pool,
+                        &swap.sold_id,
+                        &swap.bought_id,
+                        &swap.tokens_sold,
+                        &swap.tokens_bought,
+                        &swap.buyer,
+                        &uniswap_prices,
+                        &chainlink_prices,
+                    );
+                } else if let Some(swap) = TokenExchange3::match_and_decode(&log) {
                     extract_swap_event(
                         &mut pool_events,
                         &blk,
@@ -167,6 +183,20 @@ pub fn map_extract_pool_events(
                     );
                 } else if let Some(deposit) = AddLiquidity5::match_and_decode(&log) {
                     let fees = deposit.fees.iter().map(ToString::to_string).collect();
+                    extract_deposit_event(
+                        &mut pool_events,
+                        &blk,
+                        trx,
+                        log,
+                        &pool,
+                        deposit.token_amounts.to_vec(),
+                        fees,
+                        deposit.provider,
+                        &uniswap_prices,
+                        &chainlink_prices,
+                    );
+                } else if let Some(deposit) = AddLiquidity6::match_and_decode(&log) {
+                    let fees = vec![deposit.fee.into()];
                     extract_deposit_event(
                         &mut pool_events,
                         &blk,
@@ -315,6 +345,19 @@ pub fn map_extract_pool_events(
                         &uniswap_prices,
                         &chainlink_prices,
                     );
+                } else if let Some(withdraw) = RemoveLiquidityOne3::match_and_decode(&log) {
+                    extract_withdraw_one_event(
+                        &mut pool_events,
+                        &blk,
+                        trx,
+                        log,
+                        &pool,
+                        withdraw.provider,
+                        withdraw.token_amount,
+                        withdraw.coin_amount,
+                        &uniswap_prices,
+                        &chainlink_prices,
+                    );
                 } else if let Some(fee_change) = ApplyNewFee1::match_and_decode(&log) {
                     fee_change_events.push(FeeChangeEvent {
                         transaction_hash: Hex::encode(&trx.hash),
@@ -390,6 +433,20 @@ pub fn map_extract_pool_events(
                         pool_address: pool.address.clone(),
                     });
                 } else if let Some(_fee_change) = NewParameters3::match_and_decode(&log) {
+                    let (total_fee, admin_fee) = get_pool_fee_and_admin_fee(&pool.address_vec())?;
+
+                    fee_change_events.push(FeeChangeEvent {
+                        transaction_hash: Hex::encode(&trx.hash),
+                        tx_index: trx.index,
+                        log_index: log.index,
+                        log_ordinal: log.ordinal,
+                        timestamp: blk.timestamp_seconds(),
+                        block_number: blk.number,
+                        fee: total_fee.to_string(),
+                        admin_fee: Some(admin_fee.to_string()),
+                        pool_address: pool.address.clone(),
+                    });
+                } else if let Some(_fee_change) = NewParameters4::match_and_decode(&log) {
                     let (total_fee, admin_fee) = get_pool_fee_and_admin_fee(&pool.address_vec())?;
 
                     fee_change_events.push(FeeChangeEvent {

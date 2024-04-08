@@ -20,6 +20,7 @@ pub const REGISTRIES: &[RegistryDetails] = &[
     RegistryDetails { address: hex!("0959158b6040d32d04c301a72cbfd6b39e21c9ae"), registry_type: RegistryType::MetaPoolFactoryOld },
     RegistryDetails { address: hex!("6A8cbed756804B16E05E741eDaBd5cB544AE21bf"), registry_type: RegistryType::StableSwapFactoryNG },
     RegistryDetails { address: hex!("0c0e5f2fF0ff18a3be9b835635039256dC4B4963"), registry_type: RegistryType::TriCryptoFactoryNG },
+    RegistryDetails { address: hex!("98ee851a00abee0d95d08cf4ca2bdce32aeaaf7f"), registry_type: RegistryType::Unknown },
 ];
 
 #[derive(Debug, Clone)]

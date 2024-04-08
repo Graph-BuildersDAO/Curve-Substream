@@ -6,7 +6,7 @@ use crate::{
     abi::curve::{
         child_registries::{
             crv_usd_pool_factory, crypto_pool_factory_v2, pool_registry_v1, stable_swap_factory_ng,
-            tricrypto_factory_ng,
+            tricrypto_factory_ng, twocrypto_factory,
         },
         crv_token, gauge_controller,
     },
@@ -16,8 +16,7 @@ use crate::{
         MISSING_OLD_POOLS_DATA, REGISTRIES,
     },
     pb::curve::types::v1::{
-        pool::PoolType, ControllerNewGauge, CryptoPool, CurveEvents, LendingPool, LiquidityGauge,
-        MetaPool, PlainPool, Pool, Token, TriCryptoPool, UpdateMiningParametersEvent,
+        pool::PoolType, ControllerNewGauge, CryptoPool, CurveEvents, LendingPool, LiquidityGauge, MetaPool, PlainPool, Pool, Token, TriCryptoPool, TwoCryptoPool, UpdateMiningParametersEvent
     },
     rpc::{self, pool, token},
     types::{event_traits::PlainPoolDeployedEvent, registry::RegistryDetails},
@@ -66,6 +65,7 @@ pub fn map_curve_events(blk: eth::Block) -> Result<CurveEvents, Vec<Error>> {
                 ),
                 map_meta_pool_deployed_events(&blk, &mut pools, registry),
                 map_tricrypto_pool_deployed_events(&blk, &mut pools, registry),
+                map_twocrypto_pool_deployed_events(&blk, &mut pools, registry),
                 // Track liquidity gauges that have been deployed from registry/factory contracts
                 map_liquidity_gauge_deployed_events(&blk, &mut gauges, registry),
                 map_liquidity_gauge_deployed_with_token_events(&blk, &mut gauges, registry),
@@ -446,6 +446,55 @@ fn map_tricrypto_pool_deployed_events(
     pools.append(
         &mut blk
             .events::<tricrypto_factory_ng::events::TricryptoPoolDeployed>(&[&registry.address])
+            .filter_map(|(event, log)| {
+                let lp_token =
+                    match token::create_token("0".to_string(), &event.pool, &event.pool, None) {
+                        Ok(token) => token,
+                        Err(e) => {
+                            substreams::log::debug!(
+                                "Error in `map_tricrypto_pool_deployed_events`: {:?}",
+                                e
+                            );
+                            return None;
+                        }
+                    };
+                let (input_tokens, input_tokens_ordered) =
+                    match get_and_sort_input_tokens(&event.pool) {
+                        Ok(result) => result,
+                        Err(e) => {
+                            substreams::log::debug!(
+                                "Error in `map_tricrypto_pool_deployed_events`: {:?}",
+                                e
+                            );
+                            return None;
+                        }
+                    };
+                substreams::log::debug!("Added TricryptoPool");
+
+                Some(create_pool(
+                    Hex::encode(&event.pool),
+                    Hex::encode(registry.address),
+                    lp_token,
+                    input_tokens_ordered,
+                    input_tokens,
+                    &log,
+                    blk,
+                    PoolType::TricryptoPool(TriCryptoPool {}),
+                ))
+            })
+            .collect(),
+    );
+    Ok(())
+}
+
+fn map_twocrypto_pool_deployed_events(
+    blk: &eth::Block,
+    pools: &mut Vec<Pool>,
+    registry: &RegistryDetails,
+) -> Result<(), Error> {
+    pools.append(
+        &mut blk
+            .events::<twocrypto_factory::events::TwocryptoPoolDeployed>(&[&registry.address])
             .filter_map(|(event, log)| {
                 let lp_token =
                     match token::create_token("0".to_string(), &event.pool, &event.pool, None) {

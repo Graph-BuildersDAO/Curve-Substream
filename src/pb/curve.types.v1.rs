@@ -52,7 +52,7 @@ pub struct Pool {
     pub input_tokens_ordered: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="11")]
     pub input_tokens: ::prost::alloc::vec::Vec<Token>,
-    #[prost(oneof="pool::PoolType", tags="12, 13, 14, 15, 16, 17")]
+    #[prost(oneof="pool::PoolType", tags="12, 13, 14, 15, 16, 17, 18")]
     pub pool_type: ::core::option::Option<pool::PoolType>,
 }
 /// Nested message and enum types in `Pool`.
@@ -67,10 +67,12 @@ pub mod pool {
         #[prost(message, tag="14")]
         TricryptoPool(super::TriCryptoPool),
         #[prost(message, tag="15")]
-        MetaPool(super::MetaPool),
+        TwocryptoPool(super::TwoCryptoPool),
         #[prost(message, tag="16")]
-        LendingPool(super::LendingPool),
+        MetaPool(super::MetaPool),
         #[prost(message, tag="17")]
+        LendingPool(super::LendingPool),
+        #[prost(message, tag="18")]
         WildcardPool(super::WildcardPool),
     }
 }
@@ -95,6 +97,10 @@ pub struct CryptoPool {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TriCryptoPool {
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TwoCryptoPool {
 }
 /// Base Metapool structure
 #[allow(clippy::derive_partial_eq_without_eq)]
