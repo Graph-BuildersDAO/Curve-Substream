@@ -18,6 +18,7 @@ fn main() -> Result<(), anyhow::Error> {
         "abi/curve/child_registries/CryptoPoolFactoryV2.abi.json",
         "abi/curve/child_registries/CryptoSwapRegistryOld.abi.json",
         "abi/curve/child_registries/CryptoSwapRegistryV2.abi.json",
+        "abi/curve/child_registries/MetaPoolFactoryOld.abi.json",
         "abi/curve/child_registries/PoolRegistryV1.abi.json",
         "abi/curve/child_registries/PoolRegistryV1Old.abi.json",
         "abi/curve/child_registries/PoolRegistryV2Old.abi.json",
@@ -52,6 +53,7 @@ fn main() -> Result<(), anyhow::Error> {
         "src/abi/curve/child_registries/crypto_pool_factory_v2.rs",
         "src/abi/curve/child_registries/crypto_swap_registry_old.rs",
         "src/abi/curve/child_registries/crypto_swap_registry_v2.rs",
+        "src/abi/curve/child_registries/metapool_factory_old.rs",
         "src/abi/curve/child_registries/pool_registry_v1.rs",
         "src/abi/curve/child_registries/pool_registry_v1_old.rs",
         "src/abi/curve/child_registries/pool_registry_v2_old.rs",
@@ -146,7 +148,8 @@ fn generate_network_config_from_json(path: &str, output_path: &str) -> Result<()
     let mut output = String::new();
 
     // Generated file imports
-    output.push_str("use hex_literal::hex;\n\n");
+    output.push_str("use hex_literal::hex;\n");
+    output.push_str("use crate::types::registry::{RegistryDetails, RegistryType};\n\n");
 
     if let Some(network) = json["network"].as_str() {
         output.push_str(&format!("pub const NETWORK: &str = \"{}\";\n", network));
@@ -192,21 +195,33 @@ fn generate_network_config_from_json(path: &str, output_path: &str) -> Result<()
         ));
     }
 
-    // Generating constants for poolRegistry
+    // Generating constants for poolRegistry with types
     if let Some(pool_registry) = json["poolRegistry"].as_array() {
-        output.push_str(
-            format!(
-                "pub const POOL_REGISTRIES: [[u8; 20]; {}] = [",
-                pool_registry.len()
-            )
-            .as_str(),
-        );
+        output.push_str("pub const REGISTRIES: &[RegistryDetails] = &[\n");
         for pool in pool_registry {
+            let name = pool["name"].as_str().unwrap_or_default();
             let address = pool["address"]
                 .as_str()
                 .unwrap_or_default()
                 .trim_start_matches("0x");
-            output.push_str(&format!("hex!(\"{}\"), ", address));
+            let registry_type = match name {
+                "BasePoolRegistry" => "RegistryType::BasePoolRegistry",
+                "PoolRegistryV1" => "RegistryType::PoolRegistryV1",
+                "PoolRegistryV1Old" => "RegistryType::PoolRegistryV1Old",
+                "PoolRegistryV2Old" => "RegistryType::PoolRegistryV2Old",
+                "crvUSDPoolFactory" => "RegistryType::CrvUSDPoolFactory",
+                "CryptoPoolFactoryV2" => "RegistryType::CryptoPoolFactoryV2",
+                "CryptoSwapRegistryV2" => "RegistryType::CryptoSwapRegistryV2",
+                "CryptoSwapRegistryOld" => "RegistryType::CryptoSwapRegistryOld",
+                "StableSwapFactoryNG" => "RegistryType::StableSwapFactoryNG",
+                "TriCryptoFactoryNG" => "RegistryType::TriCryptoFactoryNG",
+                "MetaPoolFactoryOld" => "RegistryType::MetaPoolFactoryOld",
+                _ => "RegistryType::Unknown",
+            };
+            output.push_str(&format!(
+                "    RegistryDetails {{ address: hex!(\"{}\"), registry_type: {} }},\n",
+                address, registry_type
+            ));
         }
         output.push_str("];\n");
     }
