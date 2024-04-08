@@ -62,6 +62,11 @@
             "name": "TriCryptoFactoryNG",
             "address": "0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963",
             "startBlock": "17371439"
+        },
+        {
+            "name": "TwoCryptoFactory",
+            "address": "0x98ee851a00abee0d95d08cf4ca2bdce32aeaaf7f",
+            "startBlock": "18867338"
         }
     ],
     "missingOldPools": [

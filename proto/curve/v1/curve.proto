@@ -36,9 +36,10 @@ message Pool {
     PlainPool plain_pool = 12;
     CryptoPool crypto_pool = 13;
     TriCryptoPool tricrypto_pool = 14;
-    MetaPool meta_pool = 15;
-    LendingPool lending_pool = 16;
-    WildcardPool wildcard_pool = 17;
+    TwoCryptoPool twocrypto_pool = 15;
+    MetaPool meta_pool = 16;
+    LendingPool lending_pool = 17;
+    WildcardPool wildcard_pool = 18;
   }
 }
 
@@ -53,6 +54,8 @@ message PlainPool {}
 message CryptoPool {}
 
 message TriCryptoPool {}
+
+message TwoCryptoPool {}
 
 // Base Metapool structure
 message MetaPool {

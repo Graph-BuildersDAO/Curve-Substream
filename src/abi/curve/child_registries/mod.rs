@@ -9,3 +9,4 @@ pub mod pool_registry_v1_old;
 pub mod pool_registry_v2_old;
 pub mod stable_swap_factory_ng;
 pub mod tricrypto_factory_ng;
+pub mod twocrypto_factory;
