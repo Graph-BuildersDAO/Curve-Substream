@@ -16,7 +16,9 @@ use crate::{
         MISSING_OLD_POOLS_DATA, REGISTRIES,
     },
     pb::curve::types::v1::{
-        pool::PoolType, ControllerNewGauge, CryptoPool, CurveEvents, LendingPool, LiquidityGauge, MetaPool, PlainPool, Pool, Token, TriCryptoPool, TwoCryptoPool, UpdateMiningParametersEvent
+        pool::PoolType, ControllerNewGauge, CryptoPool, CurveEvents, LendingPool, LiquidityGauge,
+        MetaPool, PlainPool, Pool, Token, TriCryptoPool, TwoCryptoPool,
+        UpdateMiningParametersEvent,
     },
     rpc::{self, pool, token},
     types::{event_traits::PlainPoolDeployedEvent, registry::RegistryDetails},
@@ -196,6 +198,7 @@ fn add_missing_pool(
                     hash,
                     PoolType::LendingPool(LendingPool {
                         underlying_tokens: underlying_coins,
+                        lending_pool_type: pool.lending_pool_type.clone(),
                     }),
                 ));
             }
@@ -528,7 +531,7 @@ fn map_twocrypto_pool_deployed_events(
                     input_tokens,
                     &log,
                     blk,
-                    PoolType::TricryptoPool(TriCryptoPool {}),
+                    PoolType::TwocryptoPool(TwoCryptoPool {}),
                 ))
             })
             .collect(),

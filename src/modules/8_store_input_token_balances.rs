@@ -114,6 +114,7 @@ pub fn store_input_token_balances(events: Events, store: StoreAddBigInt) {
                     }
                 }
                 Type::SwapUnderlyingLendingEvent(swap_underlying) => {
+                    // TODO we can potentially use the MINT/BURN enum to check whether we should be adding/subtracting
                     // A lending pool contains interest bearing tokens. These are the balances that
                     // change during a `TokenExchangeUnderlying` event on this pool.
                     if let Some(in_action) = &swap_underlying.interest_bearing_token_in_action {

@@ -118,6 +118,57 @@ pub struct MetaPool {
 pub struct LendingPool {
     #[prost(message, repeated, tag="2")]
     pub underlying_tokens: ::prost::alloc::vec::Vec<Token>,
+    #[prost(oneof="lending_pool::LendingPoolType", tags="3, 4, 5, 6, 7, 8, 9")]
+    pub lending_pool_type: ::core::option::Option<lending_pool::LendingPoolType>,
+}
+/// Nested message and enum types in `LendingPool`.
+pub mod lending_pool {
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct CompoundLending {
+    }
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct CompoundTetherLending {
+    }
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct AaveLending {
+    }
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct YiEarnLending {
+    }
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct IronBankLending {
+    }
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct PaxLending {
+    }
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct OtherLending {
+    }
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum LendingPoolType {
+        #[prost(message, tag="3")]
+        CompoundLending(CompoundLending),
+        #[prost(message, tag="4")]
+        CompoundTetherLending(CompoundTetherLending),
+        #[prost(message, tag="5")]
+        AaveLending(AaveLending),
+        #[prost(message, tag="6")]
+        YIearnLending(YiEarnLending),
+        #[prost(message, tag="7")]
+        IronbankLending(IronBankLending),
+        #[prost(message, tag="8")]
+        PaxLending(PaxLending),
+        #[prost(message, tag="9")]
+        OtherLending(OtherLending),
+    }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -403,7 +454,11 @@ pub mod events {
             Default = 0,
             MetaPool = 1,
             BasePool = 2,
+            /// The Curve Lending pool
             LendingPool = 3,
+            /// The Lending Protocol associated with a Curve Lending Pool
+            /// For example, if the Compound Curve Lending Pool has a DAI -> USDC swap, the USDC's source is the cUSDC contract
+            LendingProtcol = 4,
         }
         impl TokenSource {
             /// String value of the enum field names used in the ProtoBuf definition.
@@ -416,6 +471,7 @@ pub mod events {
                     TokenSource::MetaPool => "META_POOL",
                     TokenSource::BasePool => "BASE_POOL",
                     TokenSource::LendingPool => "LENDING_POOL",
+                    TokenSource::LendingProtcol => "LENDING_PROTCOL",
                 }
             }
             /// Creates an enum from field names used in the ProtoBuf definition.
@@ -425,6 +481,7 @@ pub mod events {
                     "META_POOL" => Some(Self::MetaPool),
                     "BASE_POOL" => Some(Self::BasePool),
                     "LENDING_POOL" => Some(Self::LendingPool),
+                    "LENDING_PROTCOL" => Some(Self::LendingProtcol),
                     _ => None,
                 }
             }

@@ -66,6 +66,22 @@ message MetaPool {
 
 message LendingPool {
   repeated Token underlying_tokens = 2;
+  
+  oneof lending_pool_type {
+    CompoundLending compound_lending = 3;
+    CompoundTetherLending compound_tether_lending = 4;
+    AaveLending aave_lending = 5;
+    YIEarnLending y_iearn_lending = 6;
+    IronBankLending ironbank_lending = 7;
+    PaxLending pax_lending = 8;
+  }
+
+  message CompoundLending {};
+  message CompoundTetherLending {};
+  message AaveLending {};
+  message YIEarnLending {};
+  message IronBankLending {};
+  message PaxLending {};
 }
 
 message WildcardPool {}
@@ -262,7 +278,11 @@ message Events {
       DEFAULT = 0; // Default value, used when not dealing with a metapool `TokenExchangeUnderlying` event
       META_POOL = 1;
       BASE_POOL = 2; 
+      // The Curve Lending pool
       LENDING_POOL = 3;
+      // The Lending Protocol associated with a Curve Lending Pool
+      // For example, if the Compound Curve Lending Pool has a DAI -> USDC swap, the USDC's source is the cUSDC contract
+      LENDING_PROTCOL = 4;
     }
 
     message LpTokenChange {

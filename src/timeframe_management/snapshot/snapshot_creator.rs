@@ -1,4 +1,3 @@
-use num_traits::ToPrimitive;
 use substreams::pb::substreams::Clock;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{

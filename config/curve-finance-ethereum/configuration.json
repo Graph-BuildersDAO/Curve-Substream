@@ -124,6 +124,7 @@
             "address": "0x79a8c46dea5ada233abaffd40f3a0a2b1e5a4f27",
             "lpToken": "0x3b3ac5386837dc563660fb6a0937dfaa5924333b",
             "type": "LENDING",
+            "lendingPoolType": "YIEarnLending",
             "startBlock": "9567295"
         },
         {
@@ -131,6 +132,7 @@
             "address": "0xdebf20617708857ebe4f679508e7b7863a8a8eee",
             "lpToken": "0xfd2a8fa60abd58efe3eee34dd494cd491dc14900",
             "type": "LENDING",
+            "lendingPoolType": "AaveLending",
             "startBlock": "11497106"
         },
         {
@@ -145,6 +147,7 @@
             "address": "0xa2b47e3d5c44877cca798226b7b8118f9bfb7a56",
             "lpToken": "0x845838df265dcd2c412a1dc9e959c7d08537f8a2",
             "type": "LENDING",
+            "lendingPoolType": "CompoundLending",
             "startBlock": "9554040"
         },
         {
@@ -173,6 +176,7 @@
             "address": "0x2dded6da1bf5dbdf597c45fcfaa3194e53ecfeaf",
             "lpToken": "0x5282a4ef67d9c33135340fb3289cc1711c13638c",
             "type": "LENDING",
+            "lendingPoolType": "IronBankLending",
             "startBlock": "11831119"
         },
         {
@@ -187,6 +191,7 @@
             "address": "0x06364f10b501e868329afbc005b3492902d6c763",
             "lpToken": "0xd905e2eaebe188fc92179b6350807d8bd91db0d8",
             "type": "LENDING",
+            "lendingPoolType": "PaxLending",
             "startBlock": "10041041"
         },
         {
@@ -201,6 +206,7 @@
             "address": "0xeb16ae0052ed37f479f7fe63849198df1765a733",
             "lpToken": "0x02d341ccb60faaf662bc0554d13778015d1b285c",
             "type": "LENDING",
+            "lendingPoolType": "AaveLending",
             "startBlock": "11772500"
         },
         {
@@ -243,6 +249,7 @@
             "address": "0x52ea46506b9cc5ef470c5bf89f17dc28bb35d85c",
             "lpToken": "0x9fc689ccada600b6df723d9e47d84d76664a1f23",
             "type": "LENDING",
+            "lendingPoolType": "CompoundTetherLending",
             "startBlock": "9456293"
         },
         {
@@ -250,6 +257,7 @@
             "address": "0x45f783cce6b7ff23b2ab2d70e416cdb7d6055f51",
             "lpToken": "0xdf5e0e81dff6faf3a7e52ba697820c5e32d806a8",
             "type": "LENDING",
+            "lendingPoolType": "YIEarnLending",
             "startBlock": "9476468"
         },
         {
