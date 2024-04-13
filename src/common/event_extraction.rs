@@ -17,6 +17,7 @@ pub fn extract_specific_transfer_event(
     log_address: Option<&Vec<u8>>,
     from: Option<&Vec<u8>>,
     to: Option<&Vec<u8>>,
+    reference_log_index: u32,
 ) -> Result<TokenTransfer, Error> {
     // Count the number of Some values among the parameters
     let provided_params_count = [log_address, from, to]
@@ -31,15 +32,22 @@ pub fn extract_specific_transfer_event(
         ));
     }
 
-    trx.calls
+    // Collect potential transfers that match the provided parameters and are earlier than the reference log index.
+    let mut matching_transfers: Vec<(u32, TokenTransfer)> = trx
+        .calls
         .iter()
         .filter(|call| !call.state_reverted)
         .flat_map(|call| call.logs.iter())
-        .find_map(|log| {
-            // Check if `log_address` is provided and matches, or if it's None
-            let address_match = log_address.map_or(true, |addr| &log.address == addr);
+        .filter_map(|log| {
+            // Ignore logs that occur after the reference event to ensure causality in the transaction order.
+            if log.index > reference_log_index {
+                return None;
+            };
 
-            Transfer::match_and_decode(log).and_then(|transfer| {
+            if let Some(transfer) = Transfer::match_and_decode(log) {
+                // Check if `log_address` is provided and matches, or if it's None
+                let address_match = log_address.map_or(true, |addr| &log.address == addr);
+
                 // If 'from' is None, ignore receiver check; otherwise, check if it matches
                 let from_match = from.map_or(true, |from_addr| transfer.sender == *from_addr);
 
@@ -48,12 +56,21 @@ pub fn extract_specific_transfer_event(
 
                 // If all the params match a Transfer event in the transactions logs, return it.
                 if address_match && from_match && to_match {
-                    Some(TokenTransfer::new(transfer, log.address.clone()))
-                } else {
-                    None
+                    return Some((log.index, TokenTransfer::new(transfer, log.address.clone())));
                 }
-            })
+            }
+            None
         })
+        .collect();
+
+    // Sort the matching transfers by their proximity to the reference log index in ascending order.
+    matching_transfers.sort_by_key(|&(index, _)| reference_log_index - index);
+
+    // Return the closest matching transfer if any exist.
+    // The closest matching transfer will relate to the specific liquidity event we want to extract for.
+    matching_transfers
+        .first()
+        .map(|(_, transfer)| transfer.clone())
         .ok_or_else(|| anyhow!("No transfer event found"))
 }
 

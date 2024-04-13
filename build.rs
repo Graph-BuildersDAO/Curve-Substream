@@ -151,7 +151,13 @@ fn generate_network_config_from_json(path: &str, output_path: &str) -> Result<()
 
     // Generated file imports
     output.push_str("use hex_literal::hex;\n");
-    output.push_str("use crate::types::registry::{RegistryDetails, RegistryType};\n\n");
+    output.push_str("use crate::{
+        pb::curve::types::v1::lending_pool::{
+            AaveLending, CompoundLending, CompoundTetherLending, IronBankLending, LendingPoolType,
+            PaxLending, YiEarnLending,
+        },
+        types::registry::{RegistryDetails, RegistryType},
+    };\n\n");
 
     if let Some(network) = json["network"].as_str() {
         output.push_str(&format!("pub const NETWORK: &str = \"{}\";\n", network));
@@ -229,7 +235,7 @@ fn generate_network_config_from_json(path: &str, output_path: &str) -> Result<()
     }
 
     // Generating structs for missingOldPools
-    output.push_str("\n#[derive(Debug, Clone)]\npub struct PoolDetails {\n    pub name: &'static str,\n    pub address: [u8; 20],\n    pub lp_token: [u8; 20],\n    pub pool_type: PoolType,\n    pub start_block: u64,\n}\n");
+    output.push_str("\n#[derive(Debug, Clone)]\npub struct PoolDetails {\n    pub name: &'static str,\n    pub address: [u8; 20],\n    pub lp_token: [u8; 20],\n    pub pool_type: PoolType,\n    pub start_block: u64,\n    pub lending_pool_type: Option<LendingPoolType>, // Optional field for lending pool type\n}\n");
     output.push_str("\n#[derive(Debug, Clone)]\npub enum PoolType {\n    Plain,\n    Crypto,\n    TriCrypto,\n    Lending,\n    Meta,\n    Wildcard,\n    Unknown,\n}\n");
 
     if let Some(missing_old_pools) = json["missingOldPools"].as_array() {
@@ -260,8 +266,20 @@ fn generate_network_config_from_json(path: &str, output_path: &str) -> Result<()
                 "WILDCARD" => "PoolType::Wildcard",
                 _ => "PoolType::Unknown",
             };
+
+            let lending_pool_type_str = pool["lendingPoolType"].as_str().unwrap_or_default();
+            let lending_pool_type = match lending_pool_type_str {
+                "CompoundLending" => "Some(LendingPoolType::CompoundLending(CompoundLending {}))",
+                "CompoundTetherLending" => "Some(LendingPoolType::CompoundTetherLending(CompoundTetherLending {}))",
+                "AaveLending" => "Some(LendingPoolType::AaveLending(AaveLending {}))",
+                "YIEarnLending" => "Some(LendingPoolType::YIearnLending(YiEarnLending {}))",
+                "IronBankLending" => "Some(LendingPoolType::IronbankLending(IronBankLending {}))",
+                "PaxLending" => "Some(LendingPoolType::PaxLending(PaxLending {}))",
+                _ => "None",
+            };
+
             let start_block = pool["startBlock"].as_str().unwrap_or_default();
-            output.push_str(&format!("(\"{}\", PoolDetails {{ name: \"{}\", address: hex!(\"{}\"), lp_token: hex!(\"{}\"), pool_type: {}, start_block: {} }}),\n", key, name, address, lp_token, pool_type, start_block));
+            output.push_str(&format!("(\"{}\", PoolDetails {{ name: \"{}\", address: hex!(\"{}\"), lp_token: hex!(\"{}\"), pool_type: {}, lending_pool_type: {}, start_block: {} }}),\n", key, name, address, lp_token, pool_type, lending_pool_type, start_block));
         }
         output.push_str("];\n");
     }

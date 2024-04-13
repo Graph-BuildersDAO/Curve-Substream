@@ -36,6 +36,7 @@ use crate::{
                 },
                 FeeChangeEvent, PoolEvent,
             },
+            lending_pool::LendingPoolType,
             pool::PoolType,
             Events, Pool, Token,
         },
@@ -610,11 +611,11 @@ fn extract_swap_underlying_event(
         let lp_token_change = if token_in.source() == TokenSource::MetaPool
             && token_out.source() == TokenSource::BasePool
         {
-            extract_lp_token_change(trx, pool, &base_pool_lp_token_address, true)
+            extract_lp_token_change(trx, log, pool, &base_pool_lp_token_address, true)
         } else if token_in.source() == TokenSource::BasePool
             && token_out.source() == TokenSource::MetaPool
         {
-            extract_lp_token_change(trx, pool, &base_pool_lp_token_address, false)
+            extract_lp_token_change(trx, log, pool, &base_pool_lp_token_address, false)
         } else {
             None
         };
@@ -639,109 +640,143 @@ fn extract_swap_underlying_event(
             r#type: Some(Type::SwapUnderlyingMetaEvent(swap_underlying_event)),
         })
     } else if let Some(PoolType::LendingPool(lending_pool)) = &pool.pool_type {
-        //todo can this be simplified without map?
-        let token_in = lending_pool
-            .underlying_tokens
-            .get(sold_id.to_i32() as usize)
-            .map_or_else(
-                || {
-                    substreams::log::info!(
-                        "Sold token index {} is out of bounds for LendingPool",
-                        sold_id
-                    );
-                    None
-                },
-                |token| Some(token),
-            );
-
-        let token_out = lending_pool
-            .underlying_tokens
-            .get(bought_id.to_i32() as usize)
-            .map_or_else(
-                || {
-                    substreams::log::info!(
-                        "Bought token index {} is out of bounds for LendingPool",
-                        bought_id
-                    );
-                    None
-                },
-                |token| Some(token),
-            );
-
-        if let (Some(token_in), Some(token_out)) = (token_in, token_out) {
-            let token_in_price = get_token_usd_price(token_in, &uniswap_prices, &chainlink_prices);
-            let token_out_price =
-                get_token_usd_price(token_out, &uniswap_prices, &chainlink_prices);
-
-            let token_amount_in = TokenAmount {
-                token_address: token_in.address.clone(),
-                amount: tokens_sold.into(),
-                amount_usd: (tokens_sold.to_decimal(token_in.decimals) * token_in_price)
-                    .to_string(),
-                source: TokenSource::LendingPool as i32,
-            };
-
-            let token_amount_out = TokenAmount {
-                token_address: token_out.address.clone(),
-                amount: tokens_bought.into(),
-                amount_usd: (tokens_bought.to_decimal(token_out.decimals) * token_out_price)
-                    .to_string(),
-                source: TokenSource::LendingPool as i32,
-            };
-
-            let interest_token_in_address =
-                match Hex::decode(&pool.input_tokens_ordered[sold_id.to_i32() as usize]) {
-                    Ok(address) => address,
-                    Err(e) => {
+        if let Some(lending_pool_type) = &lending_pool.lending_pool_type {
+            let token_in = lending_pool
+                .underlying_tokens
+                .get(sold_id.to_i32() as usize)
+                .map_or_else(
+                    || {
                         substreams::log::info!(
+                            "Sold token index {} is out of bounds for LendingPool",
+                            sold_id
+                        );
+                        None
+                    },
+                    |token| Some(token),
+                );
+
+            let token_out = lending_pool
+                .underlying_tokens
+                .get(bought_id.to_i32() as usize)
+                .map_or_else(
+                    || {
+                        substreams::log::info!(
+                            "Bought token index {} is out of bounds for LendingPool",
+                            bought_id
+                        );
+                        None
+                    },
+                    |token| Some(token),
+                );
+
+            if let (Some(token_in), Some(token_out)) = (token_in, token_out) {
+                let token_in_price =
+                    get_token_usd_price(token_in, &uniswap_prices, &chainlink_prices);
+                let token_out_price =
+                    get_token_usd_price(token_out, &uniswap_prices, &chainlink_prices);
+
+                let skip_mint_for_token_in = should_skip_token_action(lending_pool_type, sold_id);
+                let skip_burn_for_token_out =
+                    should_skip_token_action(lending_pool_type, bought_id);
+
+                let token_amount_in = TokenAmount {
+                    token_address: token_in.address.clone(),
+                    amount: tokens_sold.into(),
+                    amount_usd: (tokens_sold.to_decimal(token_in.decimals) * token_in_price)
+                        .to_string(),
+                    source: if skip_mint_for_token_in {
+                        TokenSource::LendingPool as i32
+                    } else {
+                        TokenSource::LendingProtcol as i32
+                    },
+                };
+
+                let token_amount_out = TokenAmount {
+                    token_address: token_out.address.clone(),
+                    amount: tokens_bought.into(),
+                    amount_usd: (tokens_bought.to_decimal(token_out.decimals) * token_out_price)
+                        .to_string(),
+                    source: if skip_burn_for_token_out {
+                        TokenSource::LendingPool as i32
+                    } else {
+                        TokenSource::LendingProtcol as i32
+                    },
+                };
+
+                let interest_token_in_address =
+                    match Hex::decode(&pool.input_tokens_ordered[sold_id.to_i32() as usize]) {
+                        Ok(address) => address,
+                        Err(e) => {
+                            substreams::log::info!(
                             "Failed to decode interest bearing token in address for sold_id {}: {}",
                             sold_id,
                             e
                         );
-                        return; // Exit from the function, skipping this event
-                    }
-                };
+                            return; // Exit from the function, skipping this event
+                        }
+                    };
 
-            let interest_token_out_address =
-                match Hex::decode(&pool.input_tokens_ordered[bought_id.to_i32() as usize]) {
-                    Ok(address) => address,
-                    Err(e) => {
-                        substreams::log::info!(
+                let interest_token_out_address =
+                    match Hex::decode(&pool.input_tokens_ordered[bought_id.to_i32() as usize]) {
+                        Ok(address) => address,
+                        Err(e) => {
+                            substreams::log::info!(
                         "Failed to decode interest bearing token out address for bought_id {}: {}",
                         bought_id,
                         e
                     );
-                        return; // Exit from the function, skipping this event
-                    }
+                            return; // Exit from the function, skipping this event
+                        }
+                    };
+
+                // Token in will have a corresponding mint event
+                let interest_token_in_change = if !skip_mint_for_token_in {
+                    extract_lending_pool_token_change(
+                        trx,
+                        log,
+                        &pool.address_vec(),
+                        &interest_token_in_address,
+                        false,
+                        lending_pool_type,
+                    )
+                } else {
+                    None
                 };
 
-            // Token in will have a corresponding mint event
-            let interest_token_in_change =
-                extract_lending_pool_token_change(trx, pool, &interest_token_in_address, false);
+                // Token out will have a corresponding burn event
+                let interest_token_out_change = if !skip_burn_for_token_out {
+                    extract_lending_pool_token_change(
+                        trx,
+                        log,
+                        &pool.address_vec(),
+                        &interest_token_out_address,
+                        true,
+                        lending_pool_type,
+                    )
+                } else {
+                    None
+                };
 
-            // Token out will have a corresponding burn event
-            let interest_token_out_change =
-                extract_lending_pool_token_change(trx, pool, &interest_token_out_address, true);
+                let swap_underlying_event = SwapUnderlyingLendingEvent {
+                    token_in: Some(token_amount_in),
+                    token_out: Some(token_amount_out),
+                    interest_bearing_token_in_action: interest_token_in_change,
+                    interest_bearing_token_out_action: interest_token_out_change,
+                };
 
-            let swap_underlying_event = SwapUnderlyingLendingEvent {
-                token_in: Some(token_amount_in),
-                token_out: Some(token_amount_out),
-                interest_bearing_token_in_action: interest_token_in_change,
-                interest_bearing_token_out_action: interest_token_out_change,
-            };
-
-            pool_events.push(PoolEvent {
-                transaction_hash: Hex::encode(&trx.hash),
-                tx_index: trx.index,
-                log_index: log.index,
-                log_ordinal: log.ordinal,
-                to_address: pool.address.to_string(),
-                from_address: Hex::encode(buyer),
-                timestamp: blk.timestamp_seconds(),
-                block_number: blk.number,
-                pool_address: pool.address.to_string(),
-                r#type: Some(Type::SwapUnderlyingLendingEvent(swap_underlying_event)),
-            })
+                pool_events.push(PoolEvent {
+                    transaction_hash: Hex::encode(&trx.hash),
+                    tx_index: trx.index,
+                    log_index: log.index,
+                    log_ordinal: log.ordinal,
+                    to_address: pool.address.to_string(),
+                    from_address: Hex::encode(buyer),
+                    timestamp: blk.timestamp_seconds(),
+                    block_number: blk.number,
+                    pool_address: pool.address.to_string(),
+                    r#type: Some(Type::SwapUnderlyingLendingEvent(swap_underlying_event)),
+                })
+            }
         }
     }
 }
@@ -804,6 +839,7 @@ fn determine_underlying_exchange_tokens(
 
 fn extract_lp_token_change(
     trx: &TransactionTrace,
+    log: &Log,
     pool: &Pool,
     lp_token_address: &Vec<u8>,
     is_burn: bool,
@@ -829,6 +865,7 @@ fn extract_lp_token_change(
         Some(lp_token_address),
         Some(from),
         Some(to),
+        log.index,
     ) {
         Ok(transfer) => Some(LpTokenChange {
             token_address: Hex::encode(transfer.token_address),
@@ -846,30 +883,39 @@ fn extract_lp_token_change(
     }
 }
 
-// TODO this is the same as above, could refactor so we use one
 fn extract_lending_pool_token_change(
     trx: &TransactionTrace,
-    pool: &Pool,
+    log: &Log,
+    pool_address: &Vec<u8>,
     token_address: &Vec<u8>,
     is_burn: bool,
+    lending_pool_type: &LendingPoolType,
 ) -> Option<LpTokenChange> {
-    let pool_address = pool.address_vec();
-    let null_address = NULL_ADDRESS.to_vec();
+    let null_address = &NULL_ADDRESS.to_vec();
 
-    substreams::log::debug!("pool address is: {:?}", Hex::encode(&pool_address));
-    substreams::log::debug!("token address is: {:?}", Hex::encode(&token_address));
-
-    let from: &Vec<u8>;
-    let to: &Vec<u8>;
-
-    // Determine the 'from' and 'to' addresses based on whether it's a burn or mint event.
-    if is_burn {
-        from = &pool_address;
-        to = &null_address;
-    } else {
-        from = &null_address;
-        to = &pool_address;
-    }
+    // Determine the 'from' and 'to' addresses based on the lending pool
+    //  type, and whether it's a burn or mint event.
+    let (from, to) = match lending_pool_type {
+        LendingPoolType::CompoundLending(_)
+        | LendingPoolType::CompoundTetherLending(_)
+        | LendingPoolType::IronbankLending(_) => {
+            if is_burn {
+                (pool_address, token_address)
+            } else {
+                (token_address, pool_address)
+            }
+        }
+        LendingPoolType::AaveLending(_)
+        | LendingPoolType::YIearnLending(_)
+        | LendingPoolType::PaxLending(_)
+        | LendingPoolType::OtherLending(_) => {
+            if is_burn {
+                (pool_address, null_address)
+            } else {
+                (null_address, pool_address)
+            }
+        }
+    };
 
     // Attempt to extract the specific transfer event for the LP token.
     match event_extraction::extract_specific_transfer_event(
@@ -877,6 +923,7 @@ fn extract_lending_pool_token_change(
         Some(token_address),
         Some(from),
         Some(to),
+        log.index,
     ) {
         Ok(transfer) => Some(LpTokenChange {
             token_address: Hex::encode(transfer.token_address),
@@ -943,6 +990,7 @@ fn extract_deposit_event(
         Some(&pool_address),
         Some(&NULL_ADDRESS.to_vec()),
         Some(&provider),
+        log.index,
     )
     .or_else(|_| {
         // If finding a `Transfer` event with the provider as `to` fails, it may involve a Deposit Zap contract.
@@ -953,6 +1001,7 @@ fn extract_deposit_event(
             Some(&pool_address),
             Some(&NULL_ADDRESS.to_vec()),
             None,
+            log.index,
         )
     })
     .map(|transfer| transfer.transfer.value)
@@ -1038,6 +1087,7 @@ fn extract_withdraw_event(
         Some(&pool_address),
         Some(&provider),
         Some(&NULL_ADDRESS.to_vec()),
+        log.index,
     ) {
         Ok(burn_transfer) => burn_transfer.transfer.value,
         Err(e) => {
@@ -1174,4 +1224,15 @@ fn extract_withdraw_one_event(
         pool_address: pool_address.to_string(),
         r#type: Some(Type::WithdrawEvent(withdraw_event)),
     })
+}
+
+// Determines whether mint or burn actions should be skipped for a token based on its index and the pool type.
+// For Pax/CompoundTether Lending Pools, if the ID matches below, it implies that there is no interaction
+// required with the underlying lending protocol as these coins are part of the base lending pool.
+fn should_skip_token_action(lending_pool_type: &LendingPoolType, token_index: &BigInt) -> bool {
+    match lending_pool_type {
+        LendingPoolType::CompoundTetherLending(_) => token_index.eq(&BigInt::from(2)),
+        LendingPoolType::PaxLending(_) => token_index.eq(&BigInt::from(3)),
+        _ => false,
+    }
 }
