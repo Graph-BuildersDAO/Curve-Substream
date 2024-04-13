@@ -7,10 +7,6 @@ impl Pool {
         Hex::decode(&self.address).unwrap()
     }
 
-    pub fn registry_address_vec(&self) -> Vec<u8> {
-        Hex::decode(&self.registry_address).unwrap()
-    }
-
     pub fn output_token_ref(&self) -> &Token {
         self.output_token.as_ref().unwrap()
     }

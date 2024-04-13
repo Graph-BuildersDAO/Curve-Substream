@@ -12,38 +12,12 @@ use crate::{
         pools::{lending_pool, metapool_old},
     },
     common::format::format_address_vec,
-    constants::{self, FEE_DECIMALS, MISSING_OLD_POOLS},
+    constants::{self, FEE_DECIMALS},
     key_management::entity_key_manager::EntityKey,
     pb::curve::types::v1::{LiquidityPoolFeeType, PoolFee, PoolFees, Token},
 };
 
 use super::{common::decode_rpc_response, token::create_token};
-
-pub fn get_lp_token_address_from_pool(pool_address: &Vec<u8>) -> Result<Vec<u8>, Error> {
-    // If the pool is in the missing old pools list, return the lp token address from there.
-    if let Some(pool_config) = MISSING_OLD_POOLS.get(format_address_vec(&pool_address).as_str()) {
-        return Ok(pool_config.lp_token.to_vec());
-    }
-
-    let mut address_option = functions::LpToken {}.call(pool_address.clone());
-
-    if let None = address_option {
-        address_option = functions::Token {}.call(pool_address.clone());
-    }
-    let address = address_option.ok_or_else(|| {
-        anyhow!(
-            "Unable to get lp token from pool contract {:?} ",
-            Hex::encode(&pool_address)
-        )
-    })?;
-    if address == NULL_ADDRESS {
-        return Err(anyhow!(
-            "Null address returned getting lp token from pool contract {}",
-            Hex::encode(&pool_address)
-        ));
-    }
-    Ok(address)
-}
 
 pub fn get_pool_coins(pool_address: &Vec<u8>) -> Result<Vec<Token>, Error> {
     let mut tokens: Vec<Token> = Vec::new();

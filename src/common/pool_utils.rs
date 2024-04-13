@@ -66,10 +66,6 @@ pub fn is_metapool(pool: &Pool) -> bool {
     matches!(pool.pool_type, Some(PoolType::MetaPool(_)))
 }
 
-pub fn is_lending_pool(pool: &Pool) -> bool {
-    matches!(pool.pool_type, Some(PoolType::LendingPool(_)))
-}
-
 // Checks whether a TokenExchangeUnderlying event is a Metapool Asset -> Base Pool Asset exchange
 pub fn is_meta_to_base_exchange(swap_underlying: &SwapUnderlyingMetaEvent) -> bool {
     swap_underlying.token_in_ref().source() == TokenSource::MetaPool

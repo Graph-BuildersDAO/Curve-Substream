@@ -89,16 +89,8 @@ impl SwapUnderlyingLendingEvent {
         self.token_in.as_ref().unwrap()
     }
 
-    pub fn token_in_amount_big(&self) -> BigInt {
-        BigInt::from_str(self.token_in_ref().amount.as_str()).unwrap()
-    }
-
     pub fn token_out_ref(&self) -> &TokenAmount {
         self.token_out.as_ref().unwrap()
-    }
-
-    pub fn token_out_amount_big(&self) -> BigInt {
-        BigInt::from_str(self.token_out_ref().amount.as_str()).unwrap()
     }
 
     pub fn interest_bearing_token_in_action_ref(&self) -> Option<&LpTokenChange> {

@@ -59,30 +59,6 @@ pub mod protocol_type {
     pub const GENERIC: &'static str = "GENERIC";
 }
 
-pub enum LiquidityPoolFeeType {
-    FixedTradingFee,
-    TieredTradingFee,
-    DynamicTradingFee,
-    FixedLpFee,
-    DynamicLpFee,
-    FixedProtocolFee,
-    DynamicProtocolFee,
-}
-
-impl LiquidityPoolFeeType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            LiquidityPoolFeeType::FixedTradingFee => "FIXED_TRADING_FEE",
-            LiquidityPoolFeeType::TieredTradingFee => "TIERED_TRADING_FEE",
-            LiquidityPoolFeeType::DynamicTradingFee => "DYNAMIC_TRADING_FEE",
-            LiquidityPoolFeeType::FixedLpFee => "FIXED_LP_FEE",
-            LiquidityPoolFeeType::DynamicLpFee => "DYNAMIC_LP_FEE",
-            LiquidityPoolFeeType::FixedProtocolFee => "FIXED_PROTOCOL_FEE",
-            LiquidityPoolFeeType::DynamicProtocolFee => "DYNAMIC_PROTOCOL_FEE",
-        }
-    }
-}
-
 pub mod protocol {
     pub const NAME: &'static str = "Curve Finance";
     pub const SLUG: &'static str = "curve-finance";
@@ -127,7 +103,6 @@ pub fn one_usd_value() -> BigDecimal {
     BigDecimal::from(1)
 }
 
-pub const FEE_DENOMINATOR: u64 = 10000000000;
 pub const FEE_DECIMALS: u64 = 10;
 pub const SECONDS_PER_DAY: u64 = 86400;
 
