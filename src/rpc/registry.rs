@@ -49,22 +49,3 @@ pub fn get_lp_token_address_from_registry(
     }
     Ok(address)
 }
-
-pub fn get_pool_underlying_coins_from_registry(
-    pool_address: &Vec<u8>,
-    registry_address: &Vec<u8>,
-) -> Result<[Vec<u8>; 8], Error> {
-    let coins_option = registry::functions::GetUnderlyingCoins {
-        u_pool: pool_address.clone(),
-    }
-    .call(registry_address.clone());
-
-    let coins = coins_option.ok_or_else(|| {
-        anyhow!(
-            "Unable to get underlying coins for pool {:?} from registry contract {:?}",
-            Hex::encode(&pool_address),
-            Hex::encode(&registry_address)
-        )
-    })?;
-    Ok(coins)
-}
