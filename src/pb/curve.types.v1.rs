@@ -118,7 +118,7 @@ pub struct MetaPool {
 pub struct LendingPool {
     #[prost(message, repeated, tag="2")]
     pub underlying_tokens: ::prost::alloc::vec::Vec<Token>,
-    #[prost(oneof="lending_pool::LendingPoolType", tags="3, 4, 5, 6, 7, 8, 9")]
+    #[prost(oneof="lending_pool::LendingPoolType", tags="3, 4, 5, 6, 7, 8")]
     pub lending_pool_type: ::core::option::Option<lending_pool::LendingPoolType>,
 }
 /// Nested message and enum types in `LendingPool`.
@@ -148,10 +148,6 @@ pub mod lending_pool {
     pub struct PaxLending {
     }
     #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-    pub struct OtherLending {
-    }
-    #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum LendingPoolType {
         #[prost(message, tag="3")]
@@ -166,8 +162,6 @@ pub mod lending_pool {
         IronbankLending(IronBankLending),
         #[prost(message, tag="8")]
         PaxLending(PaxLending),
-        #[prost(message, tag="9")]
-        OtherLending(OtherLending),
     }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
