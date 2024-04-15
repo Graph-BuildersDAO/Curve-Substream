@@ -3,7 +3,7 @@ use substreams::store::{StoreAdd, StoreAddBigInt, StoreNew};
 use crate::{
     key_management::store_key_manager::StoreKey,
     pb::curve::types::v1::{
-        events::pool_event::{LpTokenChangeType, Type},
+        events::pool_event::{LpTokenChangeType, TokenSource, Type},
         Events,
     },
 };
@@ -114,7 +114,6 @@ pub fn store_input_token_balances(events: Events, store: StoreAddBigInt) {
                     }
                 }
                 Type::SwapUnderlyingLendingEvent(swap_underlying) => {
-                    // TODO we can potentially use the MINT/BURN enum to check whether we should be adding/subtracting
                     // A lending pool contains interest bearing tokens. These are the balances that
                     // change during a `TokenExchangeUnderlying` event on this pool.
                     if let Some(in_action) = &swap_underlying.interest_bearing_token_in_action {
@@ -138,6 +137,32 @@ pub fn store_input_token_balances(events: Events, store: StoreAddBigInt) {
                                 .interest_bearing_token_out_action_amount_big()
                                 .neg(),
                         )
+                    }
+                    // If the source of the in/out token is from the lending pool, and not the underlying
+                    // lending protocol then we need to update the relevant tokens balance.
+                    if let Some(token_in) = &swap_underlying.token_in {
+                        if token_in.source() == TokenSource::LendingPool {
+                            store.add(
+                                event.log_ordinal,
+                                StoreKey::input_token_balance_key(
+                                    &event.pool_address,
+                                    &token_in.token_address,
+                                ),
+                                token_in.amount_big(),
+                            );
+                        }
+                    }
+                    if let Some(token_out) = &swap_underlying.token_out {
+                        if token_out.source() == TokenSource::LendingPool {
+                            store.add(
+                                event.log_ordinal,
+                                StoreKey::input_token_balance_key(
+                                    &event.pool_address,
+                                    &token_out.token_address,
+                                ),
+                                token_out.amount_big().neg(),
+                            );
+                        }
                     }
                 }
             }

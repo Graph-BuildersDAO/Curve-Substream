@@ -12,17 +12,15 @@ use substreams_ethereum::{
 };
 
 use crate::{
-    abi::{
-        common::erc20::events::Transfer,
-        curve::pool::events::{
-            AddLiquidity1, AddLiquidity2, AddLiquidity3, AddLiquidity4, AddLiquidity5,
-            AddLiquidity6, ApplyNewFee1, ApplyNewFee2, NewFee1, NewFee2, NewParameters1,
-            NewParameters2, NewParameters3, NewParameters4, RemoveLiquidity1, RemoveLiquidity2,
-            RemoveLiquidity3, RemoveLiquidity4, RemoveLiquidity5, RemoveLiquidityImbalance1,
-            RemoveLiquidityImbalance2, RemoveLiquidityImbalance3, RemoveLiquidityOne1,
-            RemoveLiquidityOne2, RemoveLiquidityOne3, TokenExchange1, TokenExchange2,
-            TokenExchange3, TokenExchangeUnderlying,
-        },
+    abi::curve::pool::events::{
+        AddLiquidity1, AddLiquidity2, AddLiquidity3, AddLiquidity4, AddLiquidity5, AddLiquidity6,
+        AddLiquidity7, ApplyNewFee1, ApplyNewFee2, NewFee1, NewFee2, NewParameters1,
+        NewParameters2, NewParameters3, NewParameters4, RemoveLiquidity1, RemoveLiquidity2,
+        RemoveLiquidity3, RemoveLiquidity4, RemoveLiquidity5, RemoveLiquidity6,
+        RemoveLiquidityImbalance1, RemoveLiquidityImbalance2, RemoveLiquidityImbalance3,
+        RemoveLiquidityImbalance4, RemoveLiquidityOne1, RemoveLiquidityOne2, RemoveLiquidityOne3,
+        RemoveLiquidityOne4, TokenExchange1, TokenExchange2, TokenExchange3,
+        TokenExchangeUnderlying,
     },
     common::{event_extraction, pool_utils::is_metapool, prices::get_token_usd_price},
     key_management::store_key_manager::StoreKey,
@@ -210,6 +208,20 @@ pub fn map_extract_pool_events(
                         &uniswap_prices,
                         &chainlink_prices,
                     );
+                } else if let Some(deposit) = AddLiquidity7::match_and_decode(&log) {
+                    let fees = deposit.fees.iter().map(ToString::to_string).collect();
+                    extract_deposit_event(
+                        &mut pool_events,
+                        &blk,
+                        trx,
+                        log,
+                        &pool,
+                        deposit.token_amounts.to_vec(),
+                        fees,
+                        deposit.provider,
+                        &uniswap_prices,
+                        &chainlink_prices,
+                    );
                 } else if let Some(withdraw) = RemoveLiquidity1::match_and_decode(&log) {
                     extract_withdraw_event(
                         &mut pool_events,
@@ -278,6 +290,20 @@ pub fn map_extract_pool_events(
                         &uniswap_prices,
                         &chainlink_prices,
                     );
+                } else if let Some(withdraw) = RemoveLiquidity6::match_and_decode(&log) {
+                    let fees: Vec<String> = withdraw.fees.iter().map(ToString::to_string).collect();
+                    extract_withdraw_event(
+                        &mut pool_events,
+                        &blk,
+                        trx,
+                        log,
+                        &pool,
+                        withdraw.provider,
+                        withdraw.token_amounts.to_vec(),
+                        fees,
+                        &uniswap_prices,
+                        &chainlink_prices,
+                    );
                 } else if let Some(withdraw) = RemoveLiquidityImbalance1::match_and_decode(&log) {
                     let fees: Vec<String> = withdraw.fees.iter().map(ToString::to_string).collect();
                     extract_withdraw_event(
@@ -320,6 +346,20 @@ pub fn map_extract_pool_events(
                         &uniswap_prices,
                         &chainlink_prices,
                     );
+                } else if let Some(withdraw) = RemoveLiquidityImbalance4::match_and_decode(&log) {
+                    let fees: Vec<String> = withdraw.fees.iter().map(ToString::to_string).collect();
+                    extract_withdraw_event(
+                        &mut pool_events,
+                        &blk,
+                        trx,
+                        log,
+                        &pool,
+                        withdraw.provider,
+                        withdraw.token_amounts.to_vec(),
+                        fees,
+                        &uniswap_prices,
+                        &chainlink_prices,
+                    );
                 } else if let Some(withdraw) = RemoveLiquidityOne1::match_and_decode(&log) {
                     extract_withdraw_one_event(
                         &mut pool_events,
@@ -347,6 +387,19 @@ pub fn map_extract_pool_events(
                         &chainlink_prices,
                     );
                 } else if let Some(withdraw) = RemoveLiquidityOne3::match_and_decode(&log) {
+                    extract_withdraw_one_event(
+                        &mut pool_events,
+                        &blk,
+                        trx,
+                        log,
+                        &pool,
+                        withdraw.provider,
+                        withdraw.token_amount,
+                        withdraw.coin_amount,
+                        &uniswap_prices,
+                        &chainlink_prices,
+                    );
+                } else if let Some(withdraw) = RemoveLiquidityOne4::match_and_decode(&log) {
                     extract_withdraw_one_event(
                         &mut pool_events,
                         &blk,
@@ -865,6 +918,7 @@ fn extract_lp_token_change(
         Some(lp_token_address),
         Some(from),
         Some(to),
+        None,
         log.index,
     ) {
         Ok(transfer) => Some(LpTokenChange {
@@ -907,8 +961,7 @@ fn extract_lending_pool_token_change(
         }
         LendingPoolType::AaveLending(_)
         | LendingPoolType::YIearnLending(_)
-        | LendingPoolType::PaxLending(_)
-        | LendingPoolType::OtherLending(_) => {
+        | LendingPoolType::PaxLending(_) => {
             if is_burn {
                 (pool_address, null_address)
             } else {
@@ -923,6 +976,7 @@ fn extract_lending_pool_token_change(
         Some(token_address),
         Some(from),
         Some(to),
+        None,
         log.index,
     ) {
         Ok(transfer) => Some(LpTokenChange {
@@ -990,6 +1044,7 @@ fn extract_deposit_event(
         Some(&pool_address),
         Some(&NULL_ADDRESS.to_vec()),
         Some(&provider),
+        None,
         log.index,
     )
     .or_else(|_| {
@@ -1000,6 +1055,7 @@ fn extract_deposit_event(
             &trx,
             Some(&pool_address),
             Some(&NULL_ADDRESS.to_vec()),
+            None,
             None,
             log.index,
         )
@@ -1087,6 +1143,7 @@ fn extract_withdraw_event(
         Some(&pool_address),
         Some(&provider),
         Some(&NULL_ADDRESS.to_vec()),
+        None,
         log.index,
     ) {
         Ok(burn_transfer) => burn_transfer.transfer.value,
@@ -1144,54 +1201,40 @@ fn extract_withdraw_one_event(
         pool_address
     ));
 
-    let token_transfer_log = trx
-        .calls
-        .iter()
-        .filter(|call| !call.state_reverted)
-        .flat_map(|call| call.logs.iter())
-        .find_map(|log| {
-            // Directly return the result of the match_and_decode if the conditions are met
-            if let Some(transfer) = Transfer::match_and_decode(log) {
-                // TODO - Test whether first condition is needed
-                if transfer.sender == *log.address && transfer.receiver == provider {
-                    return Some(log);
-                } else if Hex::encode(transfer.sender) == pool.address
-                    && transfer.receiver == provider
-                {
-                    return Some(log);
-                }
-            }
-            None
-        });
+    let token_transfer = event_extraction::extract_specific_transfer_event(
+        trx,
+        None,
+        Some(&pool.address_vec()),
+        Some(&provider),
+        Some(&coin_amount),
+        log.index,
+    );
 
     let input_tokens = pool
         .input_tokens_ordered
         .iter()
         .map(|address| {
-            if token_transfer_log.is_some()
-                && &Hex::encode(&token_transfer_log.unwrap().address) == address
-            {
-                let token = pool
-                    .input_tokens
-                    .iter()
-                    .find(|t| &t.address == address)
-                    .unwrap();
+            if let Ok(transfer) = &token_transfer {
+                if &Hex::encode(&transfer.token_address) == address {
+                    if let Some(token) = pool.input_tokens.iter().find(|t| &t.address == address) {
+                        let token_price =
+                            get_token_usd_price(token, &uniswap_prices, &chainlink_prices);
 
-                let token_price = get_token_usd_price(token, &uniswap_prices, &chainlink_prices);
-
-                TokenAmount {
-                    token_address: address.clone(),
-                    amount: coin_amount.clone().into(),
-                    amount_usd: (coin_amount.to_decimal(token.decimals) * token_price).to_string(),
-                    source: TokenSource::Default as i32,
+                        return TokenAmount {
+                            token_address: address.clone(),
+                            amount: coin_amount.clone().into(),
+                            amount_usd: (coin_amount.to_decimal(token.decimals) * token_price)
+                                .to_string(),
+                            source: TokenSource::Default as i32,
+                        };
+                    }
                 }
-            } else {
-                TokenAmount {
-                    token_address: address.clone(),
-                    amount: BigInt::zero().into(),
-                    amount_usd: "0".to_string(),
-                    source: TokenSource::Default as i32,
-                }
+            }
+            TokenAmount {
+                token_address: address.clone(),
+                amount: BigInt::zero().into(),
+                amount_usd: "0".to_string(),
+                source: TokenSource::Default as i32,
             }
         })
         .collect();

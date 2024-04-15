@@ -1,7 +1,7 @@
 // Generic Event Extraction that is not specific to any module.
 
 use anyhow::anyhow;
-use substreams::errors::Error;
+use substreams::{errors::Error, scalar::BigInt};
 use substreams_ethereum::{block_view, pb::eth::v2::TransactionTrace, Event, NULL_ADDRESS};
 
 use crate::{
@@ -17,18 +17,24 @@ pub fn extract_specific_transfer_event(
     log_address: Option<&Vec<u8>>,
     from: Option<&Vec<u8>>,
     to: Option<&Vec<u8>>,
+    value: Option<&BigInt>,
     reference_log_index: u32,
 ) -> Result<TokenTransfer, Error> {
     // Count the number of Some values among the parameters
-    let provided_params_count = [log_address, from, to]
+    let mut provided_params_count = [log_address, from, to]
         .iter()
         .filter(|opt| opt.is_some())
         .count();
 
+    // Type of `value` differs from the other params, so must be counted separately
+    if value.is_some() {
+        provided_params_count += 1;
+    }
+
     // Ensure at least two params are provided. Allowing only one param is too permissive.
     if provided_params_count < 2 {
         return Err(anyhow!(
-            "At least two of 'log_address', 'from', or 'to' must be specified"
+            "At least two of 'log_address', 'from', 'to', or 'value' must be specified"
         ));
     }
 
@@ -54,8 +60,11 @@ pub fn extract_specific_transfer_event(
                 // If 'to' is None, ignore receiver check; otherwise, check if it matches
                 let to_match = to.map_or(true, |to_addr| transfer.receiver == *to_addr);
 
+                // If 'value' is None, ignore value check; otherwise, check if it matches
+                let value_match = value.map_or(true, |val| transfer.value == *val);
+
                 // If all the params match a Transfer event in the transactions logs, return it.
-                if address_match && from_match && to_match {
+                if address_match && from_match && to_match && value_match {
                     return Some((log.index, TokenTransfer::new(transfer, log.address.clone())));
                 }
             }
