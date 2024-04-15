@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, str::FromStr};
 
 use anyhow::anyhow;
 use substreams::{
@@ -19,7 +19,8 @@ use crate::{
     common::{
         format::{self, format_address_string},
         pool_utils::{self, get_input_token_balances, get_input_token_weights},
-        prices, utils,
+        prices::{self, get_token_usd_price},
+        utils,
     },
     constants,
     key_management::{entity_key_manager::EntityKey, store_key_manager::StoreKey},
@@ -269,6 +270,8 @@ pub fn graph_out(
         &input_token_balances_store,
         &pool_tvl_store,
         &protocol_tvl_store,
+        &uniswap_prices,
+        &chainlink_prices,
     );
 
     manage_timeframe_snapshots(
@@ -447,6 +450,8 @@ fn create_pool_events_entities(
     input_token_balances_store: &StoreGetBigInt,
     pool_tvl_store: &StoreGetBigDecimal,
     protocol_tvl_store: &StoreGetBigDecimal,
+    uniswap_prices: &StoreGetProto<Erc20Price>,
+    chainlink_prices: &StoreGetBigDecimal,
 ) {
     for event in &pool_events {
         if let Some(event_type) = &event.r#type {
@@ -464,6 +469,7 @@ fn create_pool_events_entities(
                             input_token_balances_store,
                             pool_tvl_store,
                         );
+                        update_output_token_price(tables, &pool, uniswap_prices, chainlink_prices);
                     }
                 }
                 Type::WithdrawEvent(withdraw) => {
@@ -479,6 +485,7 @@ fn create_pool_events_entities(
                             input_token_balances_store,
                             pool_tvl_store,
                         );
+                        update_output_token_price(tables, &pool, uniswap_prices, chainlink_prices);
                     }
                 }
                 Type::SwapEvent(swap) => {
@@ -593,6 +600,22 @@ fn update_input_token_balances(
         .set("totalValueLockedUSD", tvl);
 }
 
+fn update_output_token_price(
+    tables: &mut Tables,
+    pool: &Pool,
+    uniswap_prices: &StoreGetProto<Erc20Price>,
+    chainlink_prices: &StoreGetBigDecimal,
+) {
+    let output_token_price =
+        get_token_usd_price(pool.output_token_ref(), uniswap_prices, chainlink_prices);
+    tables
+        .update_row(
+            "LiquidityPool",
+            EntityKey::liquidity_pool_key(&pool.address),
+        )
+        .set("outputTokenPriceUSD", output_token_price);
+}
+
 fn create_deposit_entity(
     tables: &mut Tables,
     pool: &Pool,
@@ -605,12 +628,13 @@ fn create_deposit_entity(
         .map(|t| {
             (
                 format::format_address_string(&t.token_address),
-                BigInt::from(t.amount.parse::<u64>().unwrap_or_default()),
+                BigInt::from_str(&t.amount).unwrap_or_default(),
             )
         })
         .unzip();
     let output_token_amount =
-        BigInt::try_from(deposit.output_token.as_ref().unwrap().clone().amount).unwrap();
+        BigInt::from_str(&deposit.output_token.as_ref().unwrap().clone().amount)
+            .unwrap_or_default();
 
     let mut total_amount_usd = BigDecimal::from(0);
     for token in deposit.input_tokens.iter() {
@@ -655,7 +679,7 @@ fn create_withdraw_entity(
         .map(|t| {
             (
                 format::format_address_string(&t.token_address),
-                BigInt::from(t.amount.parse::<u64>().unwrap_or_default()),
+                BigInt::from_str(&t.amount).unwrap_or_default(),
             )
         })
         .unzip();
