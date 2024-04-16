@@ -17,6 +17,7 @@ use substreams_ethereum::NULL_ADDRESS;
 
 use crate::{
     common::{
+        conversion::convert_i64_to_i32,
         format::{self, format_address_string},
         pool_utils::{self, get_input_token_balances, get_input_token_weights},
         prices::{self, get_token_usd_price},
@@ -232,9 +233,12 @@ pub fn graph_out(
 
     if !protocol_volume_deltas.deltas.is_empty() {
         if let Some(volume) = protocol_volume_store.get_last(StoreKey::protocol_volume_usd_key()) {
-            tables
-                .update_row("DexAmmProtocol", EntityKey::protocol_key())
-                .set("cumulativeVolumeUSD", volume);
+            if let Some(users) = usage_metrics_store.get_last(StoreKey::active_user_count_key()) {
+                tables
+                    .update_row("DexAmmProtocol", EntityKey::protocol_key())
+                    .set("cumulativeVolumeUSD", volume)
+                    .set("cumulativeUniqueUsers", convert_i64_to_i32(users));
+            }
         }
     }
 
