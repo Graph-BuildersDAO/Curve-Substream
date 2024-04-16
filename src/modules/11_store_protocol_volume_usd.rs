@@ -1,6 +1,7 @@
 use std::ops::Sub;
 
 use substreams::{
+    key,
     pb::substreams::Clock,
     store::{DeltaBigDecimal, DeltaInt64, Deltas, StoreAdd, StoreAddBigDecimal, StoreNew},
 };
@@ -34,14 +35,16 @@ pub fn store_protocol_volume_usd(
     let (day_id, _) = calculate_day_hour_id(clock.timestamp.unwrap().seconds);
 
     for delta in pool_volume_deltas.iter() {
-        let tvl_diff = delta.new_value.clone().sub(delta.old_value.clone());
-        output_store.add_many(
-            delta.ordinal,
-            &vec![
-                StoreKey::protocol_volume_usd_key(),
-                StoreKey::protocol_daily_volume_usd_key(&day_id),
-            ],
-            tvl_diff,
-        );
+        if key::first_segment(&delta.key) == "PoolVolumeUsd" {
+            let tvl_diff = delta.new_value.clone().sub(delta.old_value.clone());
+            output_store.add_many(
+                delta.ordinal,
+                &vec![
+                    StoreKey::protocol_volume_usd_key(),
+                    StoreKey::protocol_daily_volume_usd_key(&day_id),
+                ],
+                tvl_diff,
+            );
+        }
     }
 }
