@@ -1019,25 +1019,28 @@ fn extract_deposit_event(
             return;
         }
     };
-    let input_tokens = token_amounts
-        .iter()
-        .enumerate()
-        .map(|(i, amount)| {
-            let token = pool
-                .input_tokens
-                .iter()
-                .find(|t| &t.address == &pool.input_tokens_ordered[i])
-                .unwrap();
-            let token_price = get_token_usd_price(token, &uniswap_prices, &chainlink_prices);
 
-            return TokenAmount {
-                token_address: pool.input_tokens_ordered[i].clone(),
-                amount: amount.into(),
-                amount_usd: (amount.to_decimal(token.decimals) * token_price).to_string(),
-                source: TokenSource::Default as i32,
-            };
+    let input_token_amounts = pool
+        .input_tokens
+        .iter()
+        .filter_map(|token| {
+            token
+                .index
+                .parse::<usize>()
+                .ok()
+                .and_then(|index| token_amounts.get(index))
+                .map(|amount| {
+                    let token_price =
+                        get_token_usd_price(token, &uniswap_prices, &chainlink_prices);
+                    TokenAmount {
+                        token_address: token.address.clone(),
+                        amount: amount.into(),
+                        amount_usd: (amount.to_decimal(token.decimals) * token_price).to_string(),
+                        source: TokenSource::Default as i32,
+                    }
+                })
         })
-        .collect();
+        .collect::<Vec<TokenAmount>>();
 
     let output_token_amount = event_extraction::extract_specific_transfer_event(
         &trx,
@@ -1069,7 +1072,7 @@ fn extract_deposit_event(
         get_token_usd_price(pool.output_token_ref(), &uniswap_prices, &chainlink_prices);
 
     let deposit_event = DepositEvent {
-        input_tokens,
+        input_tokens: input_token_amounts,
         output_token: Some(TokenAmount {
             token_address: pool.output_token_ref().address.clone(),
             amount: output_token_amount.clone().into(),
@@ -1119,25 +1122,29 @@ fn extract_withdraw_event(
             return;
         }
     };
-    let input_tokens: Vec<TokenAmount> = token_amounts
-        .iter()
-        .enumerate()
-        .map(|(i, amount)| {
-            let token = pool
-                .input_tokens
-                .iter()
-                .find(|t| &t.address == &pool.input_tokens_ordered[i])
-                .unwrap();
-            let token_price = get_token_usd_price(token, &uniswap_prices, &chainlink_prices);
 
-            return TokenAmount {
-                token_address: pool.input_tokens_ordered[i].clone(),
-                amount: amount.into(),
-                amount_usd: (amount.to_decimal(token.decimals) * token_price).to_string(),
-                source: TokenSource::Default as i32,
-            };
+    let input_token_amounts = pool
+        .input_tokens
+        .iter()
+        .filter_map(|token| {
+            token
+                .index
+                .parse::<usize>()
+                .ok()
+                .and_then(|index| token_amounts.get(index))
+                .map(|amount| {
+                    let token_price =
+                        get_token_usd_price(token, &uniswap_prices, &chainlink_prices);
+                    TokenAmount {
+                        token_address: token.address.clone(),
+                        amount: amount.into(),
+                        amount_usd: (amount.to_decimal(token.decimals) * token_price).to_string(),
+                        source: TokenSource::Default as i32,
+                    }
+                })
         })
-        .collect();
+        .collect::<Vec<TokenAmount>>();
+
     let output_token_amount = match event_extraction::extract_specific_transfer_event(
         &trx,
         Some(&pool_address),
@@ -1156,7 +1163,7 @@ fn extract_withdraw_event(
         get_token_usd_price(pool.output_token_ref(), &uniswap_prices, &chainlink_prices);
 
     let withdraw_event = WithdrawEvent {
-        input_tokens,
+        input_tokens: input_token_amounts,
         output_token: Some(TokenAmount {
             token_address: pool.output_token_ref().address.clone(),
             amount: output_token_amount.clone().into(),
