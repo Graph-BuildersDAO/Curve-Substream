@@ -361,6 +361,7 @@ pub fn map_extract_pool_events(
                         &chainlink_prices,
                     );
                 } else if let Some(withdraw) = RemoveLiquidityOne1::match_and_decode(&log) {
+                    substreams::log::debug!("RemoveLiquidityOne1\n");
                     extract_withdraw_one_event(
                         &mut pool_events,
                         &blk,
@@ -374,6 +375,7 @@ pub fn map_extract_pool_events(
                         &chainlink_prices,
                     );
                 } else if let Some(withdraw) = RemoveLiquidityOne2::match_and_decode(&log) {
+                    substreams::log::debug!("RemoveLiquidityOne2\n");
                     extract_withdraw_one_event(
                         &mut pool_events,
                         &blk,
@@ -387,6 +389,7 @@ pub fn map_extract_pool_events(
                         &chainlink_prices,
                     );
                 } else if let Some(withdraw) = RemoveLiquidityOne3::match_and_decode(&log) {
+                    substreams::log::debug!("RemoveLiquidityOne3\n");
                     extract_withdraw_one_event(
                         &mut pool_events,
                         &blk,
@@ -400,6 +403,7 @@ pub fn map_extract_pool_events(
                         &chainlink_prices,
                     );
                 } else if let Some(withdraw) = RemoveLiquidityOne4::match_and_decode(&log) {
+                    substreams::log::debug!("RemoveLiquidityOne4\n");
                     extract_withdraw_one_event(
                         &mut pool_events,
                         &blk,
@@ -1217,11 +1221,26 @@ fn extract_withdraw_one_event(
         log.index,
     );
 
+    // If we cannot get the `Transfer` event from the initial condition, the transfer may originate
+    // from a  zap and we should try again without specifying the `to` address.
+    let token_transfer = match token_transfer {
+        Ok(token_transfer) => Some(token_transfer),
+        Err(_) => event_extraction::extract_specific_transfer_event(
+            trx,
+            None,
+            Some(&pool.address_vec()),
+            None,
+            Some(&coin_amount),
+            log.index,
+        )
+        .ok(),
+    };
+
     let input_tokens = pool
         .input_tokens_ordered
         .iter()
         .map(|address| {
-            if let Ok(transfer) = &token_transfer {
+            if let Some(transfer) = &token_transfer {
                 if &Hex::encode(&transfer.token_address) == address {
                     if let Some(token) = pool.input_tokens.iter().find(|t| &t.address == address) {
                         let token_price =
@@ -1253,8 +1272,8 @@ fn extract_withdraw_one_event(
         input_tokens,
         output_token: Some(TokenAmount {
             token_address: pool.output_token_ref().address.clone(),
-            amount: token_amount.into(),
-            amount_usd: (coin_amount.to_decimal(pool.output_token_ref().decimals)
+            amount: token_amount.clone().into(),
+            amount_usd: (token_amount.to_decimal(pool.output_token_ref().decimals)
                 * output_token_price)
                 .to_string(),
             source: TokenSource::Default as i32,
