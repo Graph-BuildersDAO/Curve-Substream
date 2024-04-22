@@ -19,7 +19,7 @@ use crate::{
         RemoveLiquidity3, RemoveLiquidity4, RemoveLiquidity5, RemoveLiquidity6,
         RemoveLiquidityImbalance1, RemoveLiquidityImbalance2, RemoveLiquidityImbalance3,
         RemoveLiquidityImbalance4, RemoveLiquidityOne1, RemoveLiquidityOne2, RemoveLiquidityOne3,
-        RemoveLiquidityOne4, TokenExchange1, TokenExchange2, TokenExchange3,
+        RemoveLiquidityOne4, RemoveLiquidityOne5, TokenExchange1, TokenExchange2, TokenExchange3,
         TokenExchangeUnderlying,
     },
     common::{event_extraction, pool_utils::is_metapool, prices::get_token_usd_price},
@@ -362,7 +362,6 @@ pub fn map_extract_pool_events(
                         &chainlink_prices,
                     );
                 } else if let Some(withdraw) = RemoveLiquidityOne1::match_and_decode(&log) {
-                    substreams::log::debug!("RemoveLiquidityOne1\n");
                     extract_withdraw_one_event(
                         &mut pool_events,
                         &blk,
@@ -376,21 +375,44 @@ pub fn map_extract_pool_events(
                         &chainlink_prices,
                     );
                 } else if let Some(withdraw) = RemoveLiquidityOne2::match_and_decode(&log) {
-                    substreams::log::debug!("RemoveLiquidityOne2\n");
-                    extract_withdraw_one_event(
-                        &mut pool_events,
-                        &blk,
-                        trx,
-                        log,
-                        &pool,
-                        withdraw.provider,
-                        withdraw.token_amount,
-                        withdraw.coin_amount,
-                        &uniswap_prices,
-                        &chainlink_prices,
-                    );
+                    // TODO: This is a hacky work around for the issue caused by the similarity between `RemoveLiquidityOne2` and `RemoveLiquidityOne5`.
+                    //       If a `RemoveLiquidityOne5` event is emitted, it matches against `RemoveLiquidityOne2` due to them having the same event parameter types.
+                    //       I have messaged SF regarding this, and will be looking into it. If the issue is not fixed we will have to look at removing the reliance on
+                    //       a merged ABI for the Pools. This workaround should suffice for now. In essence, for `RemoveLiquidityOne5` events, the `token_supply` is being
+                    //       used as the `coin_amount` for the `RemoveLiquidityOne5` event.
+
+                    // If the `coin_amount` is less than 10, we can assume it is `RemoveLiquidityOne5` event, as this parameter slot is used for the `coin_index`.
+                    // It is incredibly unlikely that a `coin_amount` less than 10 will part of a withdrawal as this would be an incredibly low token amount.
+                    if &withdraw.coin_amount < &BigInt::from(10) {
+                        extract_withdraw_one_event(
+                            &mut pool_events,
+                            &blk,
+                            trx,
+                            log,
+                            &pool,
+                            withdraw.provider,
+                            withdraw.token_amount,
+                            // Using `token_supply` as `coin_amount` for `RemoveLiquidityOne5`
+                            withdraw.token_supply,
+                            &uniswap_prices,
+                            &chainlink_prices,
+                        );
+                    } else {
+                        // Extracting using the normal `RemoveLiquidityOne2` event params
+                        extract_withdraw_one_event(
+                            &mut pool_events,
+                            &blk,
+                            trx,
+                            log,
+                            &pool,
+                            withdraw.provider,
+                            withdraw.token_amount,
+                            withdraw.coin_amount,
+                            &uniswap_prices,
+                            &chainlink_prices,
+                        );
+                    }
                 } else if let Some(withdraw) = RemoveLiquidityOne3::match_and_decode(&log) {
-                    substreams::log::debug!("RemoveLiquidityOne3\n");
                     extract_withdraw_one_event(
                         &mut pool_events,
                         &blk,
@@ -404,7 +426,19 @@ pub fn map_extract_pool_events(
                         &chainlink_prices,
                     );
                 } else if let Some(withdraw) = RemoveLiquidityOne4::match_and_decode(&log) {
-                    substreams::log::debug!("RemoveLiquidityOne4\n");
+                    extract_withdraw_one_event(
+                        &mut pool_events,
+                        &blk,
+                        trx,
+                        log,
+                        &pool,
+                        withdraw.provider,
+                        withdraw.token_amount,
+                        withdraw.coin_amount,
+                        &uniswap_prices,
+                        &chainlink_prices,
+                    );
+                } else if let Some(withdraw) = RemoveLiquidityOne5::match_and_decode(&log) {
                     extract_withdraw_one_event(
                         &mut pool_events,
                         &blk,
