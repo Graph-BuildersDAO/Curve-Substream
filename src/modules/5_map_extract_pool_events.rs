@@ -23,6 +23,7 @@ use crate::{
         TokenExchangeUnderlying,
     },
     common::{event_extraction, pool_utils::is_metapool, prices::get_token_usd_price},
+    constants::ETH_ADDRESS,
     key_management::store_key_manager::StoreKey,
     pb::{
         curve::types::v1::{
@@ -1212,7 +1213,7 @@ fn extract_withdraw_one_event(
         pool_address
     ));
 
-    let token_transfer = event_extraction::extract_specific_transfer_event(
+    let mut token_transfer = event_extraction::extract_specific_transfer_event(
         trx,
         None,
         Some(&pool.address_vec()),
@@ -1223,24 +1224,49 @@ fn extract_withdraw_one_event(
 
     // If we cannot get the `Transfer` event from the initial condition, the transfer may originate
     // from a  zap and we should try again without specifying the `to` address.
-    let token_transfer = match token_transfer {
-        Ok(token_transfer) => Some(token_transfer),
-        Err(_) => event_extraction::extract_specific_transfer_event(
+    if token_transfer.is_err() {
+        token_transfer = event_extraction::extract_specific_transfer_event(
             trx,
             None,
             Some(&pool.address_vec()),
             None,
             Some(&coin_amount),
             log.index,
-        )
-        .ok(),
-    };
+        );
+    }
+
+    let mut is_eth_transfer = false;
+
+    // Check if this transaction involves native ETH transfers (no token event).
+    if token_transfer.is_err() {
+        // let coin_amount_bytes_be = coin_amount.to_signed_bytes_be();
+        trx.calls().for_each(|call| {
+            if let Some(value) = &call.call.value {
+                let eth_value: BigInt = value.into();
+                if eth_value == coin_amount {
+                    is_eth_transfer = true;
+                }
+            }
+        });
+    }
 
     let input_tokens = pool
         .input_tokens_ordered
         .iter()
         .map(|address| {
-            if let Some(transfer) = &token_transfer {
+            if is_eth_transfer && address == &Hex::encode(&ETH_ADDRESS) {
+                if let Some(token) = pool.input_tokens.iter().find(|t| &t.address == address) {
+                    let token_price =
+                        get_token_usd_price(token, &uniswap_prices, &chainlink_prices);
+                    return TokenAmount {
+                        token_address: address.clone(),
+                        amount: coin_amount.clone().into(),
+                        amount_usd: (coin_amount.to_decimal(token.decimals) * token_price)
+                            .to_string(),
+                        source: TokenSource::Default as i32,
+                    };
+                }
+            } else if let Ok(transfer) = &token_transfer {
                 if &Hex::encode(&transfer.token_address) == address {
                     if let Some(token) = pool.input_tokens.iter().find(|t| &t.address == address) {
                         let token_price =
