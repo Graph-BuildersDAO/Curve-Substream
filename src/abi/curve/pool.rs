@@ -11447,6 +11447,130 @@ pub mod events {
         }
     }
     #[derive(Debug, Clone, PartialEq)]
+    pub struct RemoveLiquidityOne5 {
+        pub provider: Vec<u8>,
+        pub token_amount: substreams::scalar::BigInt,
+        pub coin_index: substreams::scalar::BigInt,
+        pub coin_amount: substreams::scalar::BigInt,
+    }
+    impl RemoveLiquidityOne5 {
+        const TOPIC_ID: [u8; 32] = [
+            90u8,
+            208u8,
+            86u8,
+            242u8,
+            226u8,
+            138u8,
+            140u8,
+            236u8,
+            35u8,
+            32u8,
+            21u8,
+            64u8,
+            107u8,
+            132u8,
+            54u8,
+            104u8,
+            193u8,
+            227u8,
+            108u8,
+            218u8,
+            89u8,
+            129u8,
+            39u8,
+            236u8,
+            59u8,
+            140u8,
+            89u8,
+            184u8,
+            199u8,
+            39u8,
+            115u8,
+            160u8,
+        ];
+        pub fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
+            if log.topics.len() != 2usize {
+                return false;
+            }
+            if log.data.len() != 96usize {
+                return false;
+            }
+            return log.topics.get(0).expect("bounds already checked").as_ref()
+                == Self::TOPIC_ID;
+        }
+        pub fn decode(
+            log: &substreams_ethereum::pb::eth::v2::Log,
+        ) -> Result<Self, String> {
+            let mut values = ethabi::decode(
+                    &[
+                        ethabi::ParamType::Uint(256usize),
+                        ethabi::ParamType::Uint(256usize),
+                        ethabi::ParamType::Uint(256usize),
+                    ],
+                    log.data.as_ref(),
+                )
+                .map_err(|e| format!("unable to decode log.data: {:?}", e))?;
+            values.reverse();
+            Ok(Self {
+                provider: ethabi::decode(
+                        &[ethabi::ParamType::Address],
+                        log.topics[1usize].as_ref(),
+                    )
+                    .map_err(|e| {
+                        format!(
+                            "unable to decode param 'provider' from topic of type 'address': {:?}",
+                            e
+                        )
+                    })?
+                    .pop()
+                    .expect(INTERNAL_ERR)
+                    .into_address()
+                    .expect(INTERNAL_ERR)
+                    .as_bytes()
+                    .to_vec(),
+                token_amount: {
+                    let mut v = [0 as u8; 32];
+                    values
+                        .pop()
+                        .expect(INTERNAL_ERR)
+                        .into_uint()
+                        .expect(INTERNAL_ERR)
+                        .to_big_endian(v.as_mut_slice());
+                    substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
+                },
+                coin_index: {
+                    let mut v = [0 as u8; 32];
+                    values
+                        .pop()
+                        .expect(INTERNAL_ERR)
+                        .into_uint()
+                        .expect(INTERNAL_ERR)
+                        .to_big_endian(v.as_mut_slice());
+                    substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
+                },
+                coin_amount: {
+                    let mut v = [0 as u8; 32];
+                    values
+                        .pop()
+                        .expect(INTERNAL_ERR)
+                        .into_uint()
+                        .expect(INTERNAL_ERR)
+                        .to_big_endian(v.as_mut_slice());
+                    substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
+                },
+            })
+        }
+    }
+    impl substreams_ethereum::Event for RemoveLiquidityOne5 {
+        const NAME: &'static str = "RemoveLiquidityOne5";
+        fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
+            Self::match_log(log)
+        }
+        fn decode(log: &substreams_ethereum::pb::eth::v2::Log) -> Result<Self, String> {
+            Self::decode(log)
+        }
+    }
+    #[derive(Debug, Clone, PartialEq)]
     pub struct StopRampA {
         pub current_a: substreams::scalar::BigInt,
         pub current_gamma: substreams::scalar::BigInt,
