@@ -14,7 +14,7 @@ use substreams_ethereum::{
 use crate::{
     abi::curve::pool::events::{
         AddLiquidity1, AddLiquidity2, AddLiquidity3, AddLiquidity4, AddLiquidity5, AddLiquidity6,
-        AddLiquidity7, ApplyNewFee1, ApplyNewFee2, NewFee1, NewFee2, NewParameters1,
+        AddLiquidity7, AddLiquidity8, ApplyNewFee1, ApplyNewFee2, NewFee1, NewFee2, NewParameters1,
         NewParameters2, NewParameters3, NewParameters4, RemoveLiquidity1, RemoveLiquidity2,
         RemoveLiquidity3, RemoveLiquidity4, RemoveLiquidity5, RemoveLiquidity6,
         RemoveLiquidityImbalance1, RemoveLiquidityImbalance2, RemoveLiquidityImbalance3,
@@ -211,6 +211,20 @@ pub fn map_extract_pool_events(
                     );
                 } else if let Some(deposit) = AddLiquidity7::match_and_decode(&log) {
                     let fees = deposit.fees.iter().map(ToString::to_string).collect();
+                    extract_deposit_event(
+                        &mut pool_events,
+                        &blk,
+                        trx,
+                        log,
+                        &pool,
+                        deposit.token_amounts.to_vec(),
+                        fees,
+                        deposit.provider,
+                        &uniswap_prices,
+                        &chainlink_prices,
+                    );
+                } else if let Some(deposit) = AddLiquidity8::match_and_decode(&log) {
+                    let fees = vec![deposit.fee.into()];
                     extract_deposit_event(
                         &mut pool_events,
                         &blk,
