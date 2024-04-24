@@ -430,6 +430,10 @@ pub mod events {
             pub amount_usd: ::prost::alloc::string::String,
             #[prost(enumeration="TokenSource", tag="4")]
             pub source: i32,
+            #[prost(string, tag="5")]
+            pub token_price: ::prost::alloc::string::String,
+            #[prost(enumeration="PriceSource", tag="6")]
+            pub price_source: i32,
         }
         #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -476,6 +480,47 @@ pub mod events {
                     "BASE_POOL" => Some(Self::BasePool),
                     "LENDING_POOL" => Some(Self::LendingPool),
                     "LENDING_PROTCOL" => Some(Self::LendingProtcol),
+                    _ => None,
+                }
+            }
+        }
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+        #[repr(i32)]
+        pub enum PriceSource {
+            Chainlink = 0,
+            UniswapV2 = 1,
+            Yearn = 2,
+            Sushi = 3,
+            CurveCalc = 4,
+            Stablecoin = 5,
+            Unknown = 6,
+        }
+        impl PriceSource {
+            /// String value of the enum field names used in the ProtoBuf definition.
+            ///
+            /// The values are not transformed in any way and thus are considered stable
+            /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+            pub fn as_str_name(&self) -> &'static str {
+                match self {
+                    PriceSource::Chainlink => "CHAINLINK",
+                    PriceSource::UniswapV2 => "UNISWAP_V2",
+                    PriceSource::Yearn => "YEARN",
+                    PriceSource::Sushi => "SUSHI",
+                    PriceSource::CurveCalc => "CURVE_CALC",
+                    PriceSource::Stablecoin => "STABLECOIN",
+                    PriceSource::Unknown => "UNKNOWN",
+                }
+            }
+            /// Creates an enum from field names used in the ProtoBuf definition.
+            pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+                match value {
+                    "CHAINLINK" => Some(Self::Chainlink),
+                    "UNISWAP_V2" => Some(Self::UniswapV2),
+                    "YEARN" => Some(Self::Yearn),
+                    "SUSHI" => Some(Self::Sushi),
+                    "CURVE_CALC" => Some(Self::CurveCalc),
+                    "STABLECOIN" => Some(Self::Stablecoin),
+                    "UNKNOWN" => Some(Self::Unknown),
                     _ => None,
                 }
             }

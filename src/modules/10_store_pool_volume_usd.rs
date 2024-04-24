@@ -80,9 +80,9 @@ pub fn store_pool_volume_usd(
                     let token_in = token_in.unwrap();
                     let token_out = token_out.unwrap();
 
-                    let token_in_price =
+                    let (token_in_price, _) =
                         get_token_usd_price(&token_in, &uniswap_prices, &chainlink_prices);
-                    let token_out_price =
+                    let (token_out_price, _) =
                         get_token_usd_price(&token_out, &uniswap_prices, &chainlink_prices);
 
                     let token_in_amount_usd =
@@ -151,7 +151,7 @@ pub fn store_pool_volume_usd(
                         };
 
                         if let Some(meta_token) = meta_token_opt {
-                            let meta_token_price = get_token_usd_price(
+                            let (meta_token_price, _) = get_token_usd_price(
                                 &meta_token,
                                 &uniswap_prices,
                                 &chainlink_prices,

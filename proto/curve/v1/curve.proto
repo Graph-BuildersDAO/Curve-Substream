@@ -272,6 +272,8 @@ message Events {
         string amount = 2; // BigInt in token's native amount
         string amount_usd = 3;
         TokenSource source = 4;
+        string token_price = 5;
+        PriceSource price_source = 6;
     }
     
     enum TokenSource {
@@ -283,6 +285,16 @@ message Events {
       // The Lending Protocol associated with a Curve Lending Pool
       // For example, if the Compound Curve Lending Pool has a DAI -> USDC swap, the USDC's source is the cUSDC contract
       LENDING_PROTCOL = 4;
+    }
+
+    enum PriceSource {
+      CHAINLINK = 0;
+      UNISWAP_V2 = 1;
+      YEARN = 2;
+      SUSHI = 3;
+      CURVE_CALC = 4;
+      STABLECOIN = 5;
+      UNKNOWN = 6;
     }
 
     message LpTokenChange {

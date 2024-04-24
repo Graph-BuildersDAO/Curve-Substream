@@ -51,7 +51,7 @@ pub fn store_pool_tvl(
                 // TODO: We may be able to optimise here by getting the token price upstream when the balances change.
                 //       Check if we get the price in any other modules that use the balances store, and if so, we can
                 //       minimise the amount of store calls by getting it once and setting it alongside the balance changes.
-                let price_usd = get_token_usd_price(&token, &uniswap_prices, &chainlink_prices);
+                let (price_usd, _) = get_token_usd_price(&token, &uniswap_prices, &chainlink_prices);
                 let token_tvl = balance.to_decimal(token.decimals) * price_usd;
 
                 // Store Input Token TVL for a specific Pool

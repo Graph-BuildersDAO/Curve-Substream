@@ -103,7 +103,7 @@ pub fn graph_out(
                 if let Some(reward_token) = reward_tokens_store.get_last(
                     StoreKey::liquidity_gauge_reward_token_key(&event.gauge, &(index + 1)),
                 ) {
-                    let price_usd = prices::get_token_usd_price(
+                    let (price_usd, _) = prices::get_token_usd_price(
                         &reward_token,
                         &uniswap_prices,
                         &chainlink_prices,
@@ -267,6 +267,7 @@ pub fn graph_out(
 
     // Create entities related to Pool events
     create_pool_events_entities(
+        &clock,
         &mut tables,
         pool_events.pool_events,
         &pools_store,
@@ -447,6 +448,7 @@ fn create_pool_token_entities(
 }
 
 fn create_pool_events_entities(
+    clock: &Clock,
     tables: &mut Tables,
     pool_events: Vec<PoolEvent>,
     pools_store: &StoreGetProto<Pool>,
@@ -504,6 +506,12 @@ fn create_pool_events_entities(
                             input_token_balances_store,
                             pool_tvl_store,
                         );
+                        if let Some(token_in) = &swap.token_in {
+                            update_token_price(tables, clock, token_in);
+                        }
+                        if let Some(token_out) = &swap.token_out {
+                            update_token_price(tables, clock, token_out);
+                        }
                     }
                 }
                 Type::SwapUnderlyingMetaEvent(swap_underlying) => {
@@ -523,6 +531,12 @@ fn create_pool_events_entities(
                             input_token_balances_store,
                             pool_tvl_store,
                         );
+                        if let Some(token_in) = &swap_underlying.token_in {
+                            update_token_price(tables, clock, token_in);
+                        }
+                        if let Some(token_out) = &swap_underlying.token_out {
+                            update_token_price(tables, clock, token_out);
+                        }
                     }
                 }
                 Type::SwapUnderlyingLendingEvent(swap_underlying) => {
@@ -542,6 +556,12 @@ fn create_pool_events_entities(
                             input_token_balances_store,
                             pool_tvl_store,
                         );
+                        if let Some(token_in) = &swap_underlying.token_in {
+                            update_token_price(tables, clock, token_in);
+                        }
+                        if let Some(token_out) = &swap_underlying.token_out {
+                            update_token_price(tables, clock, token_out);
+                        }
                     }
                 }
             }
@@ -578,6 +598,15 @@ fn update_pool_output_token_supply(
         .set("outputTokenSupply", output_token_supply);
 }
 
+fn update_token_price(tables: &mut Tables, clock: &Clock, token_amount: &TokenAmount) {
+    let price = BigDecimal::from_str(&token_amount.token_price).unwrap_or(BigDecimal::zero());
+    tables
+        .update_row("Token", EntityKey::token_key(&token_amount.token_address))
+        .set("lastPriceUSD", price)
+        .set("lastPriceBlockNumber", BigInt::from(clock.number))
+        .set("oracleType", token_amount.price_source().as_str_name());
+}
+
 fn update_input_token_balances(
     tables: &mut Tables,
     event: &PoolEvent,
@@ -610,7 +639,7 @@ fn update_output_token_price(
     uniswap_prices: &StoreGetProto<Erc20Price>,
     chainlink_prices: &StoreGetBigDecimal,
 ) {
-    let output_token_price =
+    let (output_token_price, _) =
         get_token_usd_price(pool.output_token_ref(), uniswap_prices, chainlink_prices);
     tables
         .update_row(
@@ -741,33 +770,13 @@ fn create_swap_entity(tables: &mut Tables, event: &PoolEvent, swap: &SwapEvent) 
             "tokenIn",
             format::format_address_string(&swap.token_in.as_ref().unwrap().token_address),
         )
-        .set(
-            "amountIn",
-            BigInt::from(
-                swap.token_in
-                    .as_ref()
-                    .unwrap()
-                    .amount
-                    .parse::<u64>()
-                    .unwrap_or_default(),
-            ),
-        )
+        .set("amountIn", swap.token_in_ref().amount_big())
         .set("amountInUSD", swap.token_in_ref().amount_usd_decimal())
         .set(
             "tokenOut",
             format::format_address_string(&swap.token_out.as_ref().unwrap().token_address),
         )
-        .set(
-            "amountOut",
-            BigInt::from(
-                swap.token_out
-                    .as_ref()
-                    .unwrap()
-                    .amount
-                    .parse::<u64>()
-                    .unwrap_or_default(),
-            ),
-        )
+        .set("amountOut", swap.token_out_ref().amount_big())
         .set("amountOutUSD", swap.token_out_ref().amount_usd_decimal())
         .set("pool", format::format_address_string(&event.pool_address));
 }
