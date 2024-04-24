@@ -29,7 +29,7 @@ use crate::{
         curve::types::v1::{
             events::{
                 pool_event::{
-                    DepositEvent, LpTokenChange, LpTokenChangeType, SwapEvent,
+                    DepositEvent, LpTokenChange, LpTokenChangeType, PriceSource, SwapEvent,
                     SwapUnderlyingLendingEvent, SwapUnderlyingMetaEvent, TokenAmount, TokenSource,
                     Type, WithdrawEvent,
                 },
@@ -613,21 +613,29 @@ fn extract_swap_event(
         .find(|t| t.address == out_address)
         .unwrap();
 
-    let token_in_price = get_token_usd_price(token_in, &uniswap_prices, &chainlink_prices);
-    let token_out_price = get_token_usd_price(token_out, &uniswap_prices, &chainlink_prices);
+    let (token_in_price, token_in_price_source) =
+        get_token_usd_price(token_in, &uniswap_prices, &chainlink_prices);
+    let (token_out_price, token_out_price_source) =
+        get_token_usd_price(token_out, &uniswap_prices, &chainlink_prices);
 
     let token_amount_in = TokenAmount {
         token_address: pool.input_tokens_ordered[in_address_index].clone(),
         amount: tokens_sold.into(),
-        amount_usd: (tokens_sold.to_decimal(token_in.decimals) * token_in_price).to_string(),
+        amount_usd: (tokens_sold.to_decimal(token_in.decimals) * token_in_price.clone())
+            .to_string(),
         source: TokenSource::Default as i32,
+        token_price: token_in_price.to_string(),
+        price_source: token_in_price_source as i32,
     };
 
     let token_amount_out = TokenAmount {
         token_address: pool.input_tokens_ordered[out_address_index].clone(),
         amount: tokens_bought.into(),
-        amount_usd: (tokens_bought.to_decimal(token_out.decimals) * token_out_price).to_string(),
+        amount_usd: (tokens_bought.to_decimal(token_out.decimals) * token_out_price.clone())
+            .to_string(),
         source: TokenSource::Default as i32,
+        token_price: token_out_price.to_string(),
+        price_source: token_out_price_source as i32,
     };
 
     let swap_event = SwapEvent {
@@ -776,9 +784,9 @@ fn extract_swap_underlying_event(
                 );
 
             if let (Some(token_in), Some(token_out)) = (token_in, token_out) {
-                let token_in_price =
+                let (token_in_price, token_in_price_source) =
                     get_token_usd_price(token_in, &uniswap_prices, &chainlink_prices);
-                let token_out_price =
+                let (token_out_price, token_out_price_source) =
                     get_token_usd_price(token_out, &uniswap_prices, &chainlink_prices);
 
                 let skip_mint_for_token_in = should_skip_token_action(lending_pool_type, sold_id);
@@ -788,25 +796,31 @@ fn extract_swap_underlying_event(
                 let token_amount_in = TokenAmount {
                     token_address: token_in.address.clone(),
                     amount: tokens_sold.into(),
-                    amount_usd: (tokens_sold.to_decimal(token_in.decimals) * token_in_price)
-                        .to_string(),
+                    amount_usd: (tokens_sold.to_decimal(token_in.decimals)
+                        * token_in_price.clone())
+                    .to_string(),
                     source: if skip_mint_for_token_in {
                         TokenSource::LendingPool as i32
                     } else {
                         TokenSource::LendingProtcol as i32
                     },
+                    token_price: token_in_price.to_string(),
+                    price_source: token_in_price_source as i32,
                 };
 
                 let token_amount_out = TokenAmount {
                     token_address: token_out.address.clone(),
                     amount: tokens_bought.into(),
-                    amount_usd: (tokens_bought.to_decimal(token_out.decimals) * token_out_price)
-                        .to_string(),
+                    amount_usd: (tokens_bought.to_decimal(token_out.decimals)
+                        * token_out_price.clone())
+                    .to_string(),
                     source: if skip_burn_for_token_out {
                         TokenSource::LendingPool as i32
                     } else {
                         TokenSource::LendingProtcol as i32
                     },
+                    token_price: token_out_price.to_string(),
+                    price_source: token_out_price_source as i32,
                 };
 
                 let interest_token_in_address =
@@ -923,21 +937,29 @@ fn determine_underlying_exchange_tokens(
     let (token_in, token_in_source) = get_token_info(sold_id, &pool)?;
     let (token_out, token_out_source) = get_token_info(bought_id, &pool)?;
 
-    let token_in_price = get_token_usd_price(&token_in, &uniswap_prices, &chainlink_prices);
-    let token_out_price = get_token_usd_price(&token_out, &uniswap_prices, &chainlink_prices);
+    let (token_in_price, token_in_price_source) =
+        get_token_usd_price(&token_in, &uniswap_prices, &chainlink_prices);
+    let (token_out_price, token_out_price_source) =
+        get_token_usd_price(&token_out, &uniswap_prices, &chainlink_prices);
 
     let token_in = TokenAmount {
         token_address: token_in.address,
         amount: tokens_sold.to_string(),
-        amount_usd: (tokens_sold.to_decimal(token_in.decimals) * token_in_price).to_string(),
+        amount_usd: (tokens_sold.to_decimal(token_in.decimals) * token_in_price.clone())
+            .to_string(),
         source: token_in_source as i32,
+        token_price: token_in_price.to_string(),
+        price_source: token_in_price_source as i32,
     };
 
     let token_out = TokenAmount {
         token_address: token_out.address,
         amount: tokens_bought.to_string(),
-        amount_usd: (tokens_bought.to_decimal(token_out.decimals) * token_out_price).to_string(),
+        amount_usd: (tokens_bought.to_decimal(token_out.decimals) * token_out_price.clone())
+            .to_string(),
         source: token_out_source as i32,
+        token_price: token_out_price.to_string(),
+        price_source: token_out_price_source as i32,
     };
 
     Ok((token_in, token_out))
@@ -1083,13 +1105,16 @@ fn extract_deposit_event(
                 .ok()
                 .and_then(|index| token_amounts.get(index))
                 .map(|amount| {
-                    let token_price =
+                    let (token_price, price_source) =
                         get_token_usd_price(token, &uniswap_prices, &chainlink_prices);
                     TokenAmount {
                         token_address: token.address.clone(),
                         amount: amount.into(),
-                        amount_usd: (amount.to_decimal(token.decimals) * token_price).to_string(),
+                        amount_usd: (amount.to_decimal(token.decimals) * token_price.clone())
+                            .to_string(),
                         source: TokenSource::Default as i32,
+                        token_price: token_price.to_string(),
+                        price_source: price_source as i32,
                     }
                 })
         })
@@ -1121,7 +1146,7 @@ fn extract_deposit_event(
         substreams::log::debug!("Error in `map_extract_pool_events`: {:?}", e);
         BigInt::zero()
     });
-    let output_token_price =
+    let (output_token_price, output_token_price_source) =
         get_token_usd_price(pool.output_token_ref(), &uniswap_prices, &chainlink_prices);
 
     let deposit_event = DepositEvent {
@@ -1130,9 +1155,11 @@ fn extract_deposit_event(
             token_address: pool.output_token_ref().address.clone(),
             amount: output_token_amount.clone().into(),
             amount_usd: (output_token_amount.to_decimal(pool.output_token_ref().decimals)
-                * output_token_price)
-                .to_string(),
+                * output_token_price.clone())
+            .to_string(),
             source: TokenSource::Default as i32,
+            token_price: output_token_price.to_string(),
+            price_source: output_token_price_source as i32,
         }),
         fees,
     };
@@ -1186,13 +1213,16 @@ fn extract_withdraw_event(
                 .ok()
                 .and_then(|index| token_amounts.get(index))
                 .map(|amount| {
-                    let token_price =
+                    let (token_price, price_source) =
                         get_token_usd_price(token, &uniswap_prices, &chainlink_prices);
                     TokenAmount {
                         token_address: token.address.clone(),
                         amount: amount.into(),
-                        amount_usd: (amount.to_decimal(token.decimals) * token_price).to_string(),
+                        amount_usd: (amount.to_decimal(token.decimals) * token_price.clone())
+                            .to_string(),
                         source: TokenSource::Default as i32,
+                        token_price: token_price.to_string(),
+                        price_source: price_source as i32,
                     }
                 })
         })
@@ -1212,7 +1242,7 @@ fn extract_withdraw_event(
             BigInt::zero()
         }
     };
-    let output_token_price =
+    let (output_token_price, output_token_price_source) =
         get_token_usd_price(pool.output_token_ref(), &uniswap_prices, &chainlink_prices);
 
     let withdraw_event = WithdrawEvent {
@@ -1221,9 +1251,11 @@ fn extract_withdraw_event(
             token_address: pool.output_token_ref().address.clone(),
             amount: output_token_amount.clone().into(),
             amount_usd: (output_token_amount.to_decimal(pool.output_token_ref().decimals)
-                * output_token_price)
-                .to_string(),
+                * output_token_price.clone())
+            .to_string(),
             source: TokenSource::Default as i32,
+            token_price: output_token_price.to_string(),
+            price_source: output_token_price_source as i32,
         }),
         fees,
     };
@@ -1304,28 +1336,33 @@ fn extract_withdraw_one_event(
         .map(|address| {
             if is_eth_transfer && address == &Hex::encode(&ETH_ADDRESS) {
                 if let Some(token) = pool.input_tokens.iter().find(|t| &t.address == address) {
-                    let token_price =
+                    let (token_price, price_source) =
                         get_token_usd_price(token, &uniswap_prices, &chainlink_prices);
                     return TokenAmount {
                         token_address: address.clone(),
                         amount: coin_amount.clone().into(),
-                        amount_usd: (coin_amount.to_decimal(token.decimals) * token_price)
+                        amount_usd: (coin_amount.to_decimal(token.decimals) * token_price.clone())
                             .to_string(),
                         source: TokenSource::Default as i32,
+                        token_price: token_price.to_string(),
+                        price_source: price_source as i32,
                     };
                 }
             } else if let Ok(transfer) = &token_transfer {
                 if &Hex::encode(&transfer.token_address) == address {
                     if let Some(token) = pool.input_tokens.iter().find(|t| &t.address == address) {
-                        let token_price =
+                        let (token_price, price_source) =
                             get_token_usd_price(token, &uniswap_prices, &chainlink_prices);
 
                         return TokenAmount {
                             token_address: address.clone(),
                             amount: coin_amount.clone().into(),
-                            amount_usd: (coin_amount.to_decimal(token.decimals) * token_price)
-                                .to_string(),
+                            amount_usd: (coin_amount.to_decimal(token.decimals)
+                                * token_price.clone())
+                            .to_string(),
                             source: TokenSource::Default as i32,
+                            token_price: token_price.to_string(),
+                            price_source: price_source as i32,
                         };
                     }
                 }
@@ -1335,11 +1372,13 @@ fn extract_withdraw_one_event(
                 amount: BigInt::zero().into(),
                 amount_usd: "0".to_string(),
                 source: TokenSource::Default as i32,
+                token_price: "0".to_string(),
+                price_source: PriceSource::Unknown as i32,
             }
         })
         .collect();
 
-    let output_token_price =
+    let (output_token_price, output_token_price_source) =
         get_token_usd_price(pool.output_token_ref(), &uniswap_prices, &chainlink_prices);
 
     let withdraw_event = WithdrawEvent {
@@ -1348,9 +1387,11 @@ fn extract_withdraw_one_event(
             token_address: pool.output_token_ref().address.clone(),
             amount: token_amount.clone().into(),
             amount_usd: (token_amount.to_decimal(pool.output_token_ref().decimals)
-                * output_token_price)
-                .to_string(),
+                * output_token_price.clone())
+            .to_string(),
             source: TokenSource::Default as i32,
+            token_price: output_token_price.to_string(),
+            price_source: output_token_price_source as i32,
         }),
         fees: Vec::new(),
     };

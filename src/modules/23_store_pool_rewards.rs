@@ -58,7 +58,7 @@ pub fn store_pool_rewards(
                         .to_bigint();
                     reward_token_emissions_native.push(crv_emissions_native.to_string());
 
-                    let price_usd = prices::get_token_usd_price(
+                    let (price_usd, _) = prices::get_token_usd_price(
                         &curve_token(),
                         &uniswap_prices,
                         &chainlink_prices,
@@ -90,7 +90,7 @@ pub fn store_pool_rewards(
                                     reward_token_emissions_native
                                         .push(token_emissions_native.to_string());
 
-                                    let price_usd = prices::get_token_usd_price(
+                                    let (price_usd, _) = prices::get_token_usd_price(
                                         &reward_token,
                                         &uniswap_prices,
                                         &chainlink_prices,

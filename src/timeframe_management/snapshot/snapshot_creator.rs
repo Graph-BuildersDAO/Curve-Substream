@@ -346,7 +346,7 @@ impl<'a> SnapshotCreator<'a> {
                 .get_last(StoreKey::output_token_supply_key(&pool_address))
                 .unwrap_or_else(|| BigInt::zero());
 
-            let output_token_price = get_token_usd_price(
+            let (output_token_price, _) = get_token_usd_price(
                 pool.output_token_ref(),
                 &self.uniswap_prices,
                 &self.chainlink_prices,
