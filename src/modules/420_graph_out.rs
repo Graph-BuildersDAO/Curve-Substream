@@ -531,12 +531,6 @@ fn create_pool_events_entities(
                             input_token_balances_store,
                             pool_tvl_store,
                         );
-                        if let Some(token_in) = &swap_underlying.token_in {
-                            update_token_price(tables, clock, token_in);
-                        }
-                        if let Some(token_out) = &swap_underlying.token_out {
-                            update_token_price(tables, clock, token_out);
-                        }
                     }
                 }
                 Type::SwapUnderlyingLendingEvent(swap_underlying) => {
@@ -556,12 +550,6 @@ fn create_pool_events_entities(
                             input_token_balances_store,
                             pool_tvl_store,
                         );
-                        if let Some(token_in) = &swap_underlying.token_in {
-                            update_token_price(tables, clock, token_in);
-                        }
-                        if let Some(token_out) = &swap_underlying.token_out {
-                            update_token_price(tables, clock, token_out);
-                        }
                     }
                 }
             }
