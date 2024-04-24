@@ -11,7 +11,7 @@ dataSources:
     source:
       package:
         moduleName: graph_out
-        file: curve-sps-v0.1.20-alpha.spkg
+        file: curve-sps-v0.1.21-alpha.spkg
     mapping:
       kind: substreams/graph-entities
       apiVersion: 0.0.5
